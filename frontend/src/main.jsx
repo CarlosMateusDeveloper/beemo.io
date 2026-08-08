@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import './index.css'
+import { ThemeProvider } from './theme/ThemeContext'
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
@@ -39,7 +41,9 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {/* Passamos o 'router' que configuramos acima como propriedade */}
-    <RouterProvider router={router} />
+    <ThemeProvider>
+      {/* Passamos o 'router' que configuramos acima como propriedade */}
+      <RouterProvider router={router} />
+    </ThemeProvider>
   </React.StrictMode>,
 )

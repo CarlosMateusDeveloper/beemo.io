@@ -89,7 +89,7 @@ export default function CalendarGrid({
 
   return (
     <div className="agenda-grid-scroll">
-      <div className="agenda-grid-inner">
+      <div className="agenda-grid-inner" style={{ minWidth: view === 'week' ? 620 : undefined }}>
         <div className="agenda-days-header">
           <div className="agenda-gutter-spacer" />
           {dayList.map((day) => {

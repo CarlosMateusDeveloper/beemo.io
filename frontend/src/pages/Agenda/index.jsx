@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Topbar from './Topbar'
 import CalendarGrid from './CalendarGrid'
 import MonthView from './MonthView'
 import CreateModal from './CreateModal'
 import DetailModal from './DetailModal'
-import { buildAccentPalette } from './colorUtils'
 import { seedAppointments } from './mockAppointments'
 import {
   addDays, formatDateKey, minutesToTime, parseDateKey, startOfWeek,
 } from './dateUtils'
 import {
-  DEFAULT_ACCENT, DEFAULT_SLOT_MINUTES, DOW_FULL, END_MINUTES, MONTHS, PROFESSIONALS, START_MINUTES,
+  DEFAULT_SLOT_MINUTES, DOW_FULL, END_MINUTES, MONTHS, PROFESSIONALS, SPECIALTIES, START_MINUTES,
 } from './constants'
 import './Agenda.css'
 
-const EMPTY_FORM = { patient: '', type: 'Consulta', dur: 30, status: 'confirmado' }
+const EMPTY_FORM = { patient: '', type: 'Consulta', dur: 30, status: 'Confirmada' }
 
 function buildHeaderTitle(view, cursorDate, showWeekend) {
   if (view === 'day') {
@@ -33,13 +32,12 @@ function buildHeaderTitle(view, cursorDate, showWeekend) {
 }
 
 export default function Agenda({
-  accentColor = DEFAULT_ACCENT,
   slotMinutes = DEFAULT_SLOT_MINUTES,
   showWeekend = true,
 }) {
-  const rootRef = useRef(null)
   const [view, setView] = useState('week')
   const [cursorKey, setCursorKey] = useState(() => formatDateKey(new Date()))
+  const [specialty, setSpecialty] = useState('')
   const [profId, setProfId] = useState(PROFESSIONALS[0].id)
   const [appointments, setAppointments] = useState(seedAppointments)
   const [createAt, setCreateAt] = useState(null) // { dateKey, minute }
@@ -52,17 +50,24 @@ export default function Agenda({
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    if (!rootRef.current) return
-    const palette = buildAccentPalette(accentColor)
-    Object.entries(palette).forEach(([key, value]) => rootRef.current.style.setProperty(key, value))
-  }, [accentColor])
-
   const cursorDate = useMemo(() => parseDateKey(cursorKey), [cursorKey])
   const headerTitle = useMemo(() => buildHeaderTitle(view, cursorDate, showWeekend), [view, cursorDate, showWeekend])
+  const visibleProfessionals = useMemo(
+    () => (specialty ? PROFESSIONALS.filter((p) => p.specialty === specialty) : PROFESSIONALS),
+    [specialty],
+  )
   const currentProf = PROFESSIONALS.find((p) => p.id === profId)
   const myAppointments = useMemo(() => appointments.filter((a) => a.profId === profId), [appointments, profId])
   const detailAppointment = detailId ? appointments.find((a) => a.id === detailId) : null
+
+  function handleSpecialtyChange(nextSpecialty) {
+    setSpecialty(nextSpecialty)
+    const stillVisible = nextSpecialty === '' || currentProf.specialty === nextSpecialty
+    if (!stillVisible) {
+      const firstMatch = PROFESSIONALS.find((p) => p.specialty === nextSpecialty)
+      if (firstMatch) setProfId(firstMatch.id)
+    }
+  }
 
   function shift(amount) {
     setCursorKey((prevKey) => {
@@ -107,12 +112,16 @@ export default function Agenda({
     setDetailId(null)
   }
 
+  function editAppointment(id, fields) {
+    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, ...fields } : a)))
+  }
+
   function rescheduleAppointment(id, dateKey, minute) {
     setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, dateKey, start: minutesToTime(minute) } : a)))
   }
 
   return (
-    <div className="agenda-page" ref={rootRef}>
+    <div className="agenda-page">
       <div className="agenda-main">
         <Topbar
           headerTitle={headerTitle}
@@ -121,9 +130,12 @@ export default function Agenda({
           onPrev={() => shift(-1)}
           onNext={() => shift(1)}
           onToday={() => setCursorKey(formatDateKey(new Date()))}
-          professionals={PROFESSIONALS}
+          professionals={visibleProfessionals}
           profId={profId}
           onProfChange={setProfId}
+          specialties={SPECIALTIES}
+          specialty={specialty}
+          onSpecialtyChange={handleSpecialtyChange}
           onCreateClick={openCreateNow}
         />
 
@@ -163,6 +175,7 @@ export default function Agenda({
         professionalSpecialty={currentProf.specialty}
         onClose={() => setDetailId(null)}
         onChangeStatus={changeStatus}
+        onEdit={editAppointment}
       />
     </div>
   )

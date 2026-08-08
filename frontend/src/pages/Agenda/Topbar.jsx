@@ -16,7 +16,7 @@ const VIEWS = [
 
 export default function Topbar({
   headerTitle, view, onViewChange, onPrev, onNext, onToday,
-  professionals, profId, onProfChange, onCreateClick,
+  professionals, profId, onProfChange, specialties, specialty, onSpecialtyChange, onCreateClick,
 }) {
   const selectedProf = professionals.find((p) => p.id === profId)
 
@@ -41,6 +41,20 @@ export default function Topbar({
             {v.label}
           </button>
         ))}
+      </div>
+
+      <div className="agenda-specialty-picker">
+        <select
+          className="agenda-specialty-select"
+          value={specialty}
+          onChange={(e) => onSpecialtyChange(e.target.value)}
+          aria-label="Filtrar por especialidade"
+        >
+          <option value="">Todas especialidades</option>
+          {specialties.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
       </div>
 
       <div className="agenda-prof-picker">

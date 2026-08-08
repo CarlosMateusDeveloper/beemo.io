@@ -3,6 +3,7 @@ import {
   LayoutDashboard, CalendarDays, Users, MessageCircle, Stethoscope, FlaskConical, Wallet, HeartHandshake,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
+import ThemeToggle from '../../theme/ThemeToggle'
 import './Sidebar.css'
 
 const NAV_ITEMS = [
@@ -19,7 +20,10 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   return (
     <nav className="sidebar" aria-label="Navegação principal">
-      <div className="sidebar-brand">ClinicOS</div>
+      <div className="sidebar-header">
+        <div className="sidebar-brand">ClinicOS</div>
+        <ThemeToggle />
+      </div>
       <ul className="sidebar-nav">
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
           <li key={to}>

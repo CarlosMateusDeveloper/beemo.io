@@ -1,57 +1,90 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --app-bg: #F5F7FA;
+  --surface: #FFFFFF;
+  --surface-hover: #F6F8FB;
+  --surface-sunken: #FAFBFD;
+  --surface-muted: #EEF2F7;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --border: #E2E6EC;
+  --border-subtle: #E8ECF2;
+  --border-faint: #F1F4F8;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --text-primary: #1C2B45;
+  --text-secondary: #55607A;
+  --text-tertiary: #66718A;
+  --text-muted: #8A94A6;
+  --text-faint: #9AA4B5;
+  --text-disabled: #B6BFCC;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --overlay: rgba(16, 26, 44, 0.42);
+  --shadow-card: 0 1px 2px rgba(28, 43, 69, 0.06);
+  --shadow-card-hover: 0 3px 10px rgba(28, 43, 69, 0.14);
+  --shadow-modal: 0 16px 48px rgba(16, 26, 44, 0.24);
+  --shadow-popover: 0 12px 28px rgba(16, 26, 44, 0.16);
+  --shadow-segmented: 0 1px 2px rgba(28, 43, 69, 0.12);
+  --scrollbar-thumb: #D6DDE7;
+
+  /* Status da consulta — status_consulta_enum no schema_clinica.sql.
+     'Confirmada' usa as variaveis --acc-* (accent), definidas em runtime
+     pelo ThemeProvider, por isso nao tem bloco proprio aqui. */
+  --status-agendada-bg: #EEF1F6; --status-agendada-fg: #55607A; --status-agendada-border: #DDE2EA; --status-agendada-dot: #8A94A6;
+  --status-em-espera-bg: #FCF4DF; --status-em-espera-fg: #8A6410; --status-em-espera-border: #F0DFAE; --status-em-espera-dot: #D9A514;
+  --status-em-atendimento-bg: #F1EAFB; --status-em-atendimento-fg: #6B3FA0; --status-em-atendimento-border: #DCC9F2; --status-em-atendimento-dot: #8B5CF6;
+  --status-realizada-bg: #E7F4EC; --status-realizada-fg: #207146; --status-realizada-border: #CDE8D8; --status-realizada-dot: #2E9E6B;
+  --status-cancelada-bg: #F2F4F7; --status-cancelada-fg: #8A94A6; --status-cancelada-border: #E2E6EC; --status-cancelada-dot: #9AA4B5;
+  --status-faltou-bg: #FCEBE8; --status-faltou-fg: #AC3B2A; --status-faltou-border: #F3CFC8; --status-faltou-dot: #D2543F;
+
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+:root[data-theme="dark"] {
+  --app-bg: #12151C;
+  --surface: #1A1E27;
+  --surface-hover: #232837;
+  --surface-sunken: #171A22;
+  --surface-muted: #20242F;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  --border: #2C3140;
+  --border-subtle: #262B38;
+  --border-faint: #20242F;
+
+  --text-primary: #EDEFF5;
+  --text-secondary: #B8C0D4;
+  --text-tertiary: #9AA4B8;
+  --text-muted: #7C8499;
+  --text-faint: #6E7688;
+  --text-disabled: #4B5266;
+
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 3px 10px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-popover: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --shadow-segmented: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --scrollbar-thumb: #3A3F4E;
+
+  --status-agendada-bg: #232837; --status-agendada-fg: #B8C0D4; --status-agendada-border: #333947; --status-agendada-dot: #7C8499;
+  --status-em-espera-bg: #3A2F12; --status-em-espera-fg: #E8C468; --status-em-espera-border: #5C4A1E; --status-em-espera-dot: #E8B93A;
+  --status-em-atendimento-bg: #2C1F42; --status-em-atendimento-fg: #C4A8F0; --status-em-atendimento-border: #45305F; --status-em-atendimento-dot: #A87EE8;
+  --status-realizada-bg: #17301F; --status-realizada-fg: #6FCB93; --status-realizada-border: #234A2E; --status-realizada-dot: #3FBE73;
+  --status-cancelada-bg: #262A33; --status-cancelada-fg: #9AA4B8; --status-cancelada-border: #333947; --status-cancelada-dot: #7C8499;
+  --status-faltou-bg: #331A17; --status-faltou-fg: #E58B78; --status-faltou-border: #4F241E; --status-faltou-dot: #E0644C;
+
+  color-scheme: dark;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
 body {
-  margin: 0;
+  background: var(--app-bg);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
@@ -60,48 +93,4 @@ body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }

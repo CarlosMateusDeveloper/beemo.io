@@ -8,8 +8,8 @@ const PATIENT_POOL = [
   'Camila Santana', 'Diego Moreira',
 ]
 
-const STATUS_PAST = ['concluido', 'concluido', 'faltou', 'cancelado', 'concluido']
-const STATUS_FUTURE = ['confirmado', 'pendente', 'confirmado', 'confirmado', 'pendente']
+const STATUS_PAST = ['Realizada', 'Realizada', 'Faltou', 'Cancelada', 'Realizada']
+const STATUS_FUTURE = ['Confirmada', 'Agendada', 'Confirmada', 'Confirmada', 'Agendada']
 
 /**
  * Gera uma agenda de exemplo (sem backend ainda). Determinístico por
@@ -44,7 +44,9 @@ export function seedAppointments() {
         let status
         if (offset < 0) status = STATUS_PAST[(hash + j) % 5]
         else if (offset === 0) {
-          status = start + dur <= nowMinutes ? 'concluido' : (hash + j) % 3 === 0 ? 'pendente' : 'confirmado'
+          if (start + dur <= nowMinutes) status = 'Realizada'
+          else if (Math.abs(start - nowMinutes) <= 30) status = (hash + j) % 2 === 0 ? 'Em Atendimento' : 'Em Espera'
+          else status = (hash + j) % 3 === 0 ? 'Agendada' : 'Confirmada'
         } else status = STATUS_FUTURE[(hash + j) % 5]
 
         appointments.push({

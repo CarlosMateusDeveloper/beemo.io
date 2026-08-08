@@ -1,5 +1,6 @@
 import { DOW_FULL, MONTHS } from './constants'
 import { minutesToTime } from './dateUtils'
+import AppointmentFields from './AppointmentFields'
 
 export default function CreateModal({ createAt, form, professionalName, onChange, onCancel, onSave }) {
   if (!createAt) return null
@@ -14,60 +15,19 @@ export default function CreateModal({ createAt, form, professionalName, onChange
         <div className="agenda-modal-title">Nova consulta</div>
         <div className="agenda-modal-subtitle">{subtitle}</div>
 
-        <div className="agenda-form">
-          <div>
-            <label className="agenda-label" htmlFor="agenda-form-patient">Paciente</label>
-            <input
-              id="agenda-form-patient"
-              className="agenda-input"
-              placeholder="Nome do paciente"
-              value={form.patient}
-              onChange={(e) => onChange({ ...form, patient: e.target.value })}
-            />
-          </div>
+        <AppointmentFields form={form} onChange={onChange} idPrefix="agenda-create" />
 
-          <div className="agenda-form-row">
-            <div>
-              <label className="agenda-label" htmlFor="agenda-form-type">Tipo</label>
-              <select
-                id="agenda-form-type"
-                className="agenda-select"
-                value={form.type}
-                onChange={(e) => onChange({ ...form, type: e.target.value })}
-              >
-                <option value="Consulta">Consulta</option>
-                <option value="Retorno">Retorno</option>
-                <option value="Exame">Exame</option>
-                <option value="Avaliação">Avaliação</option>
-              </select>
-            </div>
-            <div>
-              <label className="agenda-label" htmlFor="agenda-form-dur">Duração</label>
-              <select
-                id="agenda-form-dur"
-                className="agenda-select"
-                value={form.dur}
-                onChange={(e) => onChange({ ...form, dur: Number(e.target.value) })}
-              >
-                <option value={30}>30 min</option>
-                <option value={45}>45 min</option>
-                <option value={60}>60 min</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="agenda-label" htmlFor="agenda-form-status">Status inicial</label>
-            <select
-              id="agenda-form-status"
-              className="agenda-select"
-              value={form.status}
-              onChange={(e) => onChange({ ...form, status: e.target.value })}
-            >
-              <option value="confirmado">Confirmada</option>
-              <option value="pendente">Pendente de confirmação</option>
-            </select>
-          </div>
+        <div style={{ marginTop: 13 }}>
+          <label className="agenda-label" htmlFor="agenda-create-status">Status inicial</label>
+          <select
+            id="agenda-create-status"
+            className="agenda-select"
+            value={form.status}
+            onChange={(e) => onChange({ ...form, status: e.target.value })}
+          >
+            <option value="Agendada">Agendada</option>
+            <option value="Confirmada">Confirmada</option>
+          </select>
         </div>
 
         <div className="agenda-modal-footer">

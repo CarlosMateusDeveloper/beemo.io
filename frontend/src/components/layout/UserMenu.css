@@ -2,7 +2,7 @@
   position: relative;
   margin-top: auto;
   padding-top: 10px;
-  border-top: 1px solid #EEF1F6;
+  border-top: 1px solid var(--border-faint);
 }
 
 .user-menu-trigger {
@@ -18,15 +18,15 @@
   text-align: left;
   box-sizing: border-box;
 }
-.user-menu-trigger:hover { background: #F6F8FB; }
+.user-menu-trigger:hover { background: var(--surface-hover); }
 
 .user-menu-avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #ECF0FC;
-  color: #2E509B;
+  background: var(--acc-soft);
+  color: var(--acc-deep);
   font-size: 12px;
   font-weight: 700;
   display: flex;
@@ -35,19 +35,19 @@
 }
 
 .user-menu-info { flex: 1; min-width: 0; }
-.user-menu-name { font-size: 13px; font-weight: 600; color: #1C2B45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-menu-role { font-size: 11.5px; color: #8A94A6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-menu-chevron { color: #8A94A6; flex-shrink: 0; }
+.user-menu-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-menu-role { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-menu-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 .user-menu-popover {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: #FFFFFF;
-  border: 1px solid #E2E6EC;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(16, 26, 44, 0.16);
+  box-shadow: var(--shadow-popover);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -66,14 +66,20 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: #33405C;
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   width: 100%;
   box-sizing: border-box;
 }
-.user-menu-item:hover { background: #F6F8FB; }
-.user-menu-item.danger { color: #AC3B2A; }
-.user-menu-item.danger:hover { background: #FCEBE8; }
+.user-menu-item:hover { background: var(--surface-hover); }
+.user-menu-item.danger { color: var(--status-faltou-fg); }
+.user-menu-item.danger:hover { background: var(--status-faltou-bg); }
 
-.user-menu-divider { height: 1px; background: #EEF1F6; margin: 4px 2px; }
+.user-menu-divider { height: 1px; background: var(--border-faint); margin: 4px 2px; }
+
+@media (max-width: 760px) {
+  .user-menu-trigger { justify-content: center; padding: 8px; }
+  .user-menu-info, .user-menu-chevron { display: none; }
+  .user-menu-popover { left: 8px; right: auto; width: 200px; }
+}

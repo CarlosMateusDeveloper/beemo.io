@@ -16,32 +16,70 @@ export const PROFESSIONALS = [
   { id: 'p3', name: 'Dra. Paula Mendes', specialty: 'Dermatologia' },
 ]
 
+export const SPECIALTIES = [...new Set(PROFESSIONALS.map((p) => p.specialty))]
+
 export const APPOINTMENT_TYPES = ['Consulta', 'Retorno', 'Exame', 'Avaliação']
 
+// Chaves e rótulos batem exatamente com status_consulta_enum em
+// database/schema_clinica.sql. bg/fg/border/dot apontam para custom
+// properties definidas em src/index.css (com variantes claras e escuras),
+// exceto 'Confirmada', que usa as variáveis --acc-* (accent do tema).
 export const STATUS = {
-  confirmado: {
+  Agendada: {
+    label: 'Agendada',
+    bg: 'var(--status-agendada-bg)', fg: 'var(--status-agendada-fg)', border: 'var(--status-agendada-border)', dot: 'var(--status-agendada-dot)', dashed: true,
+  },
+  Confirmada: {
     label: 'Confirmada',
     bg: 'var(--acc-soft)', fg: 'var(--acc-deep)', border: 'var(--acc-line)', dot: 'var(--acc)',
   },
-  pendente: {
-    label: 'Pendente',
-    bg: '#FCF4DF', fg: '#8A6410', border: '#F0DFAE', dot: '#D9A514', dashed: true,
+  'Em Espera': {
+    label: 'Em Espera',
+    bg: 'var(--status-em-espera-bg)', fg: 'var(--status-em-espera-fg)', border: 'var(--status-em-espera-border)', dot: 'var(--status-em-espera-dot)',
   },
-  concluido: {
-    label: 'Concluída',
-    bg: '#E7F4EC', fg: '#207146', border: '#CDE8D8', dot: '#2E9E6B',
+  'Em Atendimento': {
+    label: 'Em Atendimento',
+    bg: 'var(--status-em-atendimento-bg)', fg: 'var(--status-em-atendimento-fg)', border: 'var(--status-em-atendimento-border)', dot: 'var(--status-em-atendimento-dot)',
   },
-  faltou: {
-    label: 'Faltou',
-    bg: '#FCEBE8', fg: '#AC3B2A', border: '#F3CFC8', dot: '#D2543F',
+  Realizada: {
+    label: 'Realizada',
+    bg: 'var(--status-realizada-bg)', fg: 'var(--status-realizada-fg)', border: 'var(--status-realizada-border)', dot: 'var(--status-realizada-dot)',
   },
-  cancelado: {
+  Cancelada: {
     label: 'Cancelada',
-    bg: '#F2F4F7', fg: '#8A94A6', border: '#E2E6EC', dot: '#9AA4B5', strike: true,
+    bg: 'var(--status-cancelada-bg)', fg: 'var(--status-cancelada-fg)', border: 'var(--status-cancelada-border)', dot: 'var(--status-cancelada-dot)', strike: true,
   },
+  Faltou: {
+    label: 'Faltou',
+    bg: 'var(--status-faltou-bg)', fg: 'var(--status-faltou-fg)', border: 'var(--status-faltou-border)', dot: 'var(--status-faltou-dot)',
+  },
+}
+
+// Transições manuais válidas a partir de cada status, exibidas como botões
+// no modal de detalhes. Estados terminais (Realizada/Cancelada/Faltou) não
+// têm transição — a consulta já encerrou seu ciclo.
+export const STATUS_TRANSITIONS = {
+  Agendada: [
+    { status: 'Confirmada', label: 'Confirmar', kind: 'positive' },
+    { status: 'Cancelada', label: 'Cancelar', kind: 'neutral' },
+  ],
+  Confirmada: [
+    { status: 'Em Espera', label: 'Check-in', kind: 'positive' },
+    { status: 'Faltou', label: 'Marcar falta', kind: 'negative' },
+    { status: 'Cancelada', label: 'Cancelar', kind: 'neutral' },
+  ],
+  'Em Espera': [
+    { status: 'Em Atendimento', label: 'Iniciar atendimento', kind: 'positive' },
+    { status: 'Faltou', label: 'Marcar falta', kind: 'negative' },
+  ],
+  'Em Atendimento': [
+    { status: 'Realizada', label: 'Concluir', kind: 'positive' },
+  ],
+  Realizada: [],
+  Cancelada: [],
+  Faltou: [],
 }
 
 export const START_MINUTES = 8 * 60 // 08:00
 export const END_MINUTES = 19 * 60 // 19:00
 export const DEFAULT_SLOT_MINUTES = 30
-export const DEFAULT_ACCENT = '#3D6EDC'
