@@ -25,6 +25,14 @@ CREATE TYPE status_consulta_enum AS ENUM (
 -- é só para quem de fato acessa um painel: médico e administrador.
 CREATE TYPE perfil_usuario AS ENUM ('medico', 'administrador');
 
+-- Enriquecimento do prontuário (histórico do paciente, SOAP, documentos clínicos)
+CREATE TYPE tipo_alergia AS ENUM ('MEDICAMENTOSA', 'ALIMENTAR', 'AMBIENTAL', 'OUTRA');
+CREATE TYPE gravidade_alergia AS ENUM ('LEVE', 'MODERADA', 'GRAVE');
+CREATE TYPE tipo_diagnostico AS ENUM ('PROVISORIO', 'DEFINITIVO');
+CREATE TYPE status_solicitacao_exame AS ENUM ('SOLICITADO', 'REALIZADO', 'CANCELADO');
+CREATE TYPE tipo_documento_clinico AS ENUM ('ATESTADO', 'DECLARACAO_COMPARECIMENTO');
+CREATE TYPE prioridade_encaminhamento AS ENUM ('ROTINA', 'URGENTE');
+
 CREATE TABLE convenio (
     id_convenio INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
@@ -40,7 +48,51 @@ CREATE TABLE paciente (
     ddd CHAR(2) NOT NULL,
     numero VARCHAR(10) NOT NULL, -- Aumentado para prever máscaras com hífen
     id_convenio INT NULL, -- NULL para casos particulares
+    historia_familiar TEXT NULL,
+    historia_social TEXT NULL, -- tabagismo, etilismo, ocupação etc. (texto livre)
     FOREIGN KEY (id_convenio) REFERENCES convenio(id_convenio)
+);
+
+-- Histórico clínico do paciente: persiste entre consultas, não é preenchido por consulta.
+CREATE TABLE alergia (
+    id_alergia INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_paciente INT NOT NULL,
+    tipo tipo_alergia NOT NULL,
+    substancia VARCHAR(150) NOT NULL,
+    gravidade gravidade_alergia NOT NULL,
+    observacao TEXT NULL,
+    registrado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente)
+);
+
+CREATE TABLE comorbidade (
+    id_comorbidade INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_paciente INT NOT NULL,
+    descricao VARCHAR(150) NOT NULL,
+    codigo_cid VARCHAR(10) NULL,
+    data_diagnostico DATE NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente)
+);
+
+CREATE TABLE medicamento_uso_continuo (
+    id_medicamento_uso_continuo INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_paciente INT NOT NULL,
+    medicamento VARCHAR(150) NOT NULL,
+    dosagem VARCHAR(50) NULL,
+    posologia VARCHAR(100) NULL,
+    data_inicio DATE NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente)
+);
+
+CREATE TABLE cirurgia_previa (
+    id_cirurgia_previa INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_paciente INT NOT NULL,
+    descricao VARCHAR(150) NOT NULL,
+    data_cirurgia DATE NULL,
+    observacao TEXT NULL,
+    FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente)
 );
 
 CREATE TABLE especialidade (
@@ -88,11 +140,92 @@ CREATE TABLE usuario (
 CREATE TABLE prontuario (
     id_prontuario INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_consulta INT NOT NULL,
+    -- Subjetivo
+    queixa_principal TEXT NULL,
+    historia_doenca_atual TEXT NULL,
     descricao TEXT NOT NULL,
-    prescricao TEXT NOT NULL,
+    -- Objetivo
+    exame_fisico TEXT NULL,
+    -- Avaliação
+    hipotese_diagnostica TEXT NULL,
     diagnostico TEXT NOT NULL,
+    tipo_diagnostico tipo_diagnostico NOT NULL DEFAULT 'DEFINITIVO',
+    -- Plano
+    prescricao TEXT NOT NULL,
+    plano_terapeutico TEXT NULL,
+    conduta TEXT NULL,
+    -- Assinatura e auditoria (Resolução CFM 2.299/2021)
+    id_medico_responsavel INT NULL,
+    assinado_em TIMESTAMPTZ NULL,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (id_consulta),
+    FOREIGN KEY (id_consulta) REFERENCES consulta(id_consulta),
+    FOREIGN KEY (id_medico_responsavel) REFERENCES medico(id_medico)
+);
+
+-- Sinais vitais/antropometria: múltiplas aferições possíveis por consulta.
+CREATE TABLE sinal_vital (
+    id_sinal_vital INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_consulta INT NOT NULL,
+    pressao_sistolica SMALLINT NULL,
+    pressao_diastolica SMALLINT NULL,
+    frequencia_cardiaca SMALLINT NULL,
+    frequencia_respiratoria SMALLINT NULL,
+    temperatura NUMERIC(4, 1) NULL,
+    saturacao_oxigenio SMALLINT NULL,
+    peso NUMERIC(5, 2) NULL,
+    altura NUMERIC(4, 2) NULL,
+    escala_dor SMALLINT NULL CHECK (escala_dor BETWEEN 0 AND 10),
+    medido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY (id_consulta) REFERENCES consulta(id_consulta)
+);
+
+-- Prescrição estruturada (complementa o texto livre em prontuario.prescricao).
+CREATE TABLE item_prescricao (
+    id_item_prescricao INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_prontuario INT NOT NULL,
+    medicamento VARCHAR(150) NOT NULL,
+    principio_ativo VARCHAR(150) NULL,
+    dosagem VARCHAR(50) NULL,
+    via_administracao VARCHAR(50) NULL,
+    posologia VARCHAR(100) NULL,
+    duracao_tratamento VARCHAR(50) NULL,
+    quantidade VARCHAR(50) NULL,
+    FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario)
+);
+
+CREATE TABLE solicitacao_exame (
+    id_solicitacao_exame INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_prontuario INT NOT NULL,
+    exame VARCHAR(150) NOT NULL,
+    urgente BOOLEAN DEFAULT FALSE,
+    justificativa TEXT NULL,
+    status status_solicitacao_exame NOT NULL DEFAULT 'SOLICITADO',
+    solicitado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario)
+);
+
+-- Atestados e declarações de comparecimento emitidos a partir do prontuário.
+CREATE TABLE documento_clinico (
+    id_documento_clinico INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_prontuario INT NOT NULL,
+    tipo tipo_documento_clinico NOT NULL,
+    dias_afastamento SMALLINT NULL,
+    codigo_cid_relacionado VARCHAR(10) NULL,
+    texto TEXT NOT NULL,
+    emitido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario)
+);
+
+CREATE TABLE encaminhamento (
+    id_encaminhamento INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_prontuario INT NOT NULL,
+    id_especialidade_destino INT NOT NULL,
+    motivo TEXT NOT NULL,
+    prioridade prioridade_encaminhamento NOT NULL DEFAULT 'ROTINA',
+    emitido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario),
+    FOREIGN KEY (id_especialidade_destino) REFERENCES especialidade(id_especialidade)
 );
 
 -- =====================================================================
@@ -209,13 +342,25 @@ CREATE TABLE documento_anexo (
     FOREIGN KEY (id_consulta) REFERENCES consulta(id_consulta)
 );
 
--- Diagnóstico codificado (CID). Muitos-para-muitos: um prontuário pode ter
--- mais de um código associado.
+-- Diagnóstico codificado (CID-10). Muitos-para-muitos: um prontuário pode ter
+-- mais de um código associado. "principal" marca o diagnóstico que gerou o atendimento.
 CREATE TABLE diagnostico_cid (
+    id_diagnostico_cid INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_prontuario INT NOT NULL,
     codigo_cid VARCHAR(10) NOT NULL,
     descricao VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id_prontuario, codigo_cid),
+    principal BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario)
+);
+
+-- Diagnóstico codificado em CIAP2 (Classificação Internacional de Atenção
+-- Primária), usado em paralelo ao CID-10 — mesmo padrão do Tasy para APS.
+CREATE TABLE diagnostico_ciap2 (
+    id_diagnostico_ciap2 INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_prontuario INT NOT NULL,
+    codigo_ciap2 VARCHAR(10) NOT NULL,
+    descricao VARCHAR(255) NOT NULL,
+    principal BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (id_prontuario) REFERENCES prontuario(id_prontuario)
 );
 

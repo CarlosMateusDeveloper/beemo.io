@@ -1,7 +1,7 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.model.Consulta;
-import br.com.clinica.repository.ConsultaRepository;
+import br.com.clinica.model.Comorbidade;
+import br.com.clinica.repository.ComorbidadeRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,17 +11,17 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/consultas")
-public class ConsultaController {
+@RequestMapping("/api/comorbidades")
+public class ComorbidadeController {
 
-    private final ConsultaRepository repository;
+    private final ComorbidadeRepository repository;
 
-    public ConsultaController(ConsultaRepository repository) {
+    public ComorbidadeController(ComorbidadeRepository repository) {
         this.repository = repository;
     }
 
     @GetMapping
-    public List<Consulta> listar(@RequestParam(required = false) Integer idPaciente) {
+    public List<Comorbidade> listar(@RequestParam(required = false) Integer idPaciente) {
         if (idPaciente != null) {
             return repository.findByPacienteId(idPaciente);
         }
@@ -29,24 +29,26 @@ public class ConsultaController {
     }
 
     @GetMapping("/{id}")
-    public Consulta buscar(@PathVariable Integer id) {
+    public Comorbidade buscar(@PathVariable Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
-    public ResponseEntity<Consulta> criar(@Valid @RequestBody Consulta consulta) {
-        Consulta salva = repository.save(consulta);
+    public ResponseEntity<Comorbidade> criar(@Valid @RequestBody Comorbidade comorbidade) {
+        Comorbidade salva = repository.save(comorbidade);
         return ResponseEntity.status(HttpStatus.CREATED).body(salva);
     }
 
     @PutMapping("/{id}")
-    public Consulta atualizar(@PathVariable Integer id, @Valid @RequestBody Consulta dados) {
-        Consulta existente = repository.findById(id)
+    public Comorbidade atualizar(@PathVariable Integer id, @Valid @RequestBody Comorbidade dados) {
+        Comorbidade existente = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         existente.setPaciente(dados.getPaciente());
-        existente.setIdAgenda(dados.getIdAgenda());
-        existente.setStatusConsulta(dados.getStatusConsulta());
+        existente.setDescricao(dados.getDescricao());
+        existente.setCodigoCid(dados.getCodigoCid());
+        existente.setDataDiagnostico(dados.getDataDiagnostico());
+        existente.setAtivo(dados.getAtivo());
         return repository.save(existente);
     }
 

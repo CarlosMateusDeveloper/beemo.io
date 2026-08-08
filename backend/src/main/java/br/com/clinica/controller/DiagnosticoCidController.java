@@ -1,7 +1,7 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.model.Paciente;
-import br.com.clinica.repository.PacienteRepository;
+import br.com.clinica.model.DiagnosticoCid;
+import br.com.clinica.repository.DiagnosticoCidRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,44 +11,43 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/pacientes")
-public class PacienteController {
+@RequestMapping("/api/diagnosticos-cid")
+public class DiagnosticoCidController {
 
-    private final PacienteRepository repository;
+    private final DiagnosticoCidRepository repository;
 
-    public PacienteController(PacienteRepository repository) {
+    public DiagnosticoCidController(DiagnosticoCidRepository repository) {
         this.repository = repository;
     }
 
     @GetMapping
-    public List<Paciente> listar() {
+    public List<DiagnosticoCid> listar(@RequestParam(required = false) Integer idProntuario) {
+        if (idProntuario != null) {
+            return repository.findByProntuarioId(idProntuario);
+        }
         return repository.findAll();
     }
 
     @GetMapping("/{id}")
-    public Paciente buscar(@PathVariable Integer id) {
+    public DiagnosticoCid buscar(@PathVariable Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
-    public ResponseEntity<Paciente> criar(@Valid @RequestBody Paciente paciente) {
-        Paciente salvo = repository.save(paciente);
+    public ResponseEntity<DiagnosticoCid> criar(@Valid @RequestBody DiagnosticoCid diagnostico) {
+        DiagnosticoCid salvo = repository.save(diagnostico);
         return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
     }
 
     @PutMapping("/{id}")
-    public Paciente atualizar(@PathVariable Integer id, @Valid @RequestBody Paciente dados) {
-        Paciente existente = repository.findById(id)
+    public DiagnosticoCid atualizar(@PathVariable Integer id, @Valid @RequestBody DiagnosticoCid dados) {
+        DiagnosticoCid existente = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setNome(dados.getNome());
-        existente.setCpf(dados.getCpf());
-        existente.setDataNascimento(dados.getDataNascimento());
-        existente.setDdd(dados.getDdd());
-        existente.setNumero(dados.getNumero());
-        existente.setConvenio(dados.getConvenio());
-        existente.setHistoriaFamiliar(dados.getHistoriaFamiliar());
-        existente.setHistoriaSocial(dados.getHistoriaSocial());
+        existente.setProntuario(dados.getProntuario());
+        existente.setCodigoCid(dados.getCodigoCid());
+        existente.setDescricao(dados.getDescricao());
+        existente.setPrincipal(dados.getPrincipal());
         return repository.save(existente);
     }
 

@@ -1,7 +1,7 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.model.Paciente;
-import br.com.clinica.repository.PacienteRepository;
+import br.com.clinica.model.Encaminhamento;
+import br.com.clinica.repository.EncaminhamentoRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,44 +11,43 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/pacientes")
-public class PacienteController {
+@RequestMapping("/api/encaminhamentos")
+public class EncaminhamentoController {
 
-    private final PacienteRepository repository;
+    private final EncaminhamentoRepository repository;
 
-    public PacienteController(PacienteRepository repository) {
+    public EncaminhamentoController(EncaminhamentoRepository repository) {
         this.repository = repository;
     }
 
     @GetMapping
-    public List<Paciente> listar() {
+    public List<Encaminhamento> listar(@RequestParam(required = false) Integer idProntuario) {
+        if (idProntuario != null) {
+            return repository.findByProntuarioId(idProntuario);
+        }
         return repository.findAll();
     }
 
     @GetMapping("/{id}")
-    public Paciente buscar(@PathVariable Integer id) {
+    public Encaminhamento buscar(@PathVariable Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
-    public ResponseEntity<Paciente> criar(@Valid @RequestBody Paciente paciente) {
-        Paciente salvo = repository.save(paciente);
+    public ResponseEntity<Encaminhamento> criar(@Valid @RequestBody Encaminhamento encaminhamento) {
+        Encaminhamento salvo = repository.save(encaminhamento);
         return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
     }
 
     @PutMapping("/{id}")
-    public Paciente atualizar(@PathVariable Integer id, @Valid @RequestBody Paciente dados) {
-        Paciente existente = repository.findById(id)
+    public Encaminhamento atualizar(@PathVariable Integer id, @Valid @RequestBody Encaminhamento dados) {
+        Encaminhamento existente = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setNome(dados.getNome());
-        existente.setCpf(dados.getCpf());
-        existente.setDataNascimento(dados.getDataNascimento());
-        existente.setDdd(dados.getDdd());
-        existente.setNumero(dados.getNumero());
-        existente.setConvenio(dados.getConvenio());
-        existente.setHistoriaFamiliar(dados.getHistoriaFamiliar());
-        existente.setHistoriaSocial(dados.getHistoriaSocial());
+        existente.setProntuario(dados.getProntuario());
+        existente.setEspecialidadeDestino(dados.getEspecialidadeDestino());
+        existente.setMotivo(dados.getMotivo());
+        existente.setPrioridade(dados.getPrioridade());
         return repository.save(existente);
     }
 

@@ -41,9 +41,18 @@ public class ProntuarioController {
     public Prontuario atualizar(@PathVariable Integer id, @Valid @RequestBody Prontuario dados) {
         Prontuario existente = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        existente.setQueixaPrincipal(dados.getQueixaPrincipal());
+        existente.setHistoriaDoencaAtual(dados.getHistoriaDoencaAtual());
         existente.setDescricao(dados.getDescricao());
-        existente.setPrescricao(dados.getPrescricao());
+        existente.setExameFisico(dados.getExameFisico());
+        existente.setHipoteseDiagnostica(dados.getHipoteseDiagnostica());
         existente.setDiagnostico(dados.getDiagnostico());
+        existente.setTipoDiagnostico(dados.getTipoDiagnostico());
+        existente.setPrescricao(dados.getPrescricao());
+        existente.setPlanoTerapeutico(dados.getPlanoTerapeutico());
+        existente.setConduta(dados.getConduta());
+        existente.setMedicoResponsavel(dados.getMedicoResponsavel());
+        existente.setAssinadoEm(dados.getAssinadoEm());
         return repository.save(existente);
     }
 

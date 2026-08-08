@@ -1,7 +1,7 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.model.Agenda;
-import br.com.clinica.repository.AgendaRepository;
+import br.com.clinica.model.Alergia;
+import br.com.clinica.repository.AlergiaRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,43 +11,44 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/agendas")
-public class AgendaController {
+@RequestMapping("/api/alergias")
+public class AlergiaController {
 
-    private final AgendaRepository repository;
+    private final AlergiaRepository repository;
 
-    public AgendaController(AgendaRepository repository) {
+    public AlergiaController(AlergiaRepository repository) {
         this.repository = repository;
     }
 
     @GetMapping
-    public List<Agenda> listar(@RequestParam(required = false) Integer idMedico) {
-        if (idMedico != null) {
-            return repository.findByMedicoId(idMedico);
+    public List<Alergia> listar(@RequestParam(required = false) Integer idPaciente) {
+        if (idPaciente != null) {
+            return repository.findByPacienteId(idPaciente);
         }
         return repository.findAll();
     }
 
     @GetMapping("/{id}")
-    public Agenda buscar(@PathVariable Integer id) {
+    public Alergia buscar(@PathVariable Integer id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     @PostMapping
-    public ResponseEntity<Agenda> criar(@Valid @RequestBody Agenda agenda) {
-        Agenda salva = repository.save(agenda);
+    public ResponseEntity<Alergia> criar(@Valid @RequestBody Alergia alergia) {
+        Alergia salva = repository.save(alergia);
         return ResponseEntity.status(HttpStatus.CREATED).body(salva);
     }
 
     @PutMapping("/{id}")
-    public Agenda atualizar(@PathVariable Integer id, @Valid @RequestBody Agenda dados) {
-        Agenda existente = repository.findById(id)
+    public Alergia atualizar(@PathVariable Integer id, @Valid @RequestBody Alergia dados) {
+        Alergia existente = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setMedico(dados.getMedico());
-        existente.setSituacao(dados.getSituacao());
-        existente.setDataSlot(dados.getDataSlot());
-        existente.setHoraSlot(dados.getHoraSlot());
+        existente.setPaciente(dados.getPaciente());
+        existente.setTipo(dados.getTipo());
+        existente.setSubstancia(dados.getSubstancia());
+        existente.setGravidade(dados.getGravidade());
+        existente.setObservacao(dados.getObservacao());
         return repository.save(existente);
     }
 

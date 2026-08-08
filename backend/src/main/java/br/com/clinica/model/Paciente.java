@@ -47,4 +47,10 @@ public class Paciente {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_convenio")
     private Convenio convenio;
+
+    @Column(name = "historia_familiar", columnDefinition = "TEXT")
+    private String historiaFamiliar;
+
+    @Column(name = "historia_social", columnDefinition = "TEXT")
+    private String historiaSocial;
 }
