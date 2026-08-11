@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:learn-xol1-clmgqie2y-mateusgoncalves-projects.vercel.app)",
+      "Bash(taskkill //F //IM \"Docker Desktop.exe\")",
+      "PowerShell(winget install --id PostgreSQL.PostgreSQL.16 -e --source winget --accept-package-agreements --accept-source-agreements --silent --custom \"--enable-components server,commandlinetools --unattendedmodeui minimal --superpassword clinica\")",
+      "Bash(choco --version)",
+      "PowerShell(choco install postgresql16 -y --params '/Password:clinica' 2>&1)",
+      "Bash(powershell -NoProfile -Command \"Get-Service -Name '*postgres*' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem 'C:\\\\Program Files' -Filter 'PostgreSQL' -ErrorAction SilentlyContinue\")",
+      "Read(//c/Program Files/**)",
+      "Bash(./mvnw -q compile)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Bash(powershell -NoProfile -Command 'Get-Service | Where-Object {$_.Name -like '\\\\''*pg*'\\\\'' -or $_.DisplayName -like '\\\\''*Postgre*'\\\\''}')",
+      "Bash(ls \"/c/Program Files/PostgreSQL/17/bin\" 2>/dev/null | head -20 *)",
+      "Read(//c/Program Files/PostgreSQL/17/**)",
+      "Read(//c/Program Files/PostgreSQL/17/data/**)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Read(//c/Program Files/PostgreSQL/17//**)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(find /c/Users/carlo/AppData/Local/Temp -maxdepth 1 -iname \"*postgresql*\" -newer \"/c/Program Files/PostgreSQL/17/data/PG_VERSION\" 2>/dev/null | head -20 *)",
+      "Read(//c/Users/carlo/AppData/Local/Temp/**)",
+      "Bash(grep -iE \"error|fail|exception\" \"/c/Users/carlo/AppData/Local/Temp/install-postgresql.log\" | tail -40)",
+      "Bash(tail -80 \"/c/Users/carlo/AppData/Local/Temp/install-postgresql.log\")",
+      "Bash(go build *)",
+      "Bash(go vet *)",
+      "Bash(gh label *)",
+      "Bash(gh issue *)",
+      "Bash(tail -5 \"C:/Users/carlo/AppData/Local/Temp/claude/c--Users-carlo-clinica/3f2f601c-8688-49d9-8c9b-7bc38293bcad/tasks/bpgzsvedl.output\" 2>/dev/null; echo \"---check dir---\"; ls /c/Users/carlo/clinica-tools/pg/pgsql/bin 2>/dev/null | head -5)",
+      "Read(//c/Users/carlo/clinica-tools/pg/pgsql/bin/**)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5173/src/components/medicos/medicos.jsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/src/components/medicos/medicos.jsx)",
+      "Bash(echo \"build exit: $?\")",
+      "Bash(echo \"vet exit: $?\")",
+      "Bash(npx playwright *)",
+      "Bash(SHOTS_DIR=\"C:/Users/carlo/AppData/Local/Temp/claude/c--Users-carlo-clinica/3f2f601c-8688-49d9-8c9b-7bc38293bcad/scratchpad/shots\" node shot_real_api.js)"
+    ]
+  }
+}

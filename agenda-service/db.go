@@ -37,9 +37,17 @@ func openDB() *sql.DB {
 	return db
 }
 
-// bootstrapSchema cria o tipo/tabela de agenda caso ainda não existam. O
-// serviço Go é o dono da tabela "agenda" (o backend Java só guarda o FK
-// id_agenda em consulta).
+// bootstrapSchema cria o tipo/tabela de agenda caso ainda não existam — é uma
+// conveniência para rodar o agenda-service isolado em dev (sem o restante do
+// schema). Em qualquer ambiente integrado, database/schema_clinica.sql é a
+// fonte de verdade (inclusive da FK id_medico -> medico, que este bootstrap
+// não recria de propósito: medico não é uma tabela que este serviço deveria
+// criar). Se schema_clinica.sql já rodou, isso tudo vira no-op.
+//
+// "consulta" (ver consulta.go) não tem bootstrap aqui: ela referencia
+// paciente e agenda, então só faz sentido existir depois do schema
+// compartilhado. Se as tabelas não existirem, as queries falham com um erro
+// claro do Postgres em vez de tentar recriar tabelas de outro domínio.
 func bootstrapSchema(db *sql.DB) {
 	stmts := []string{
 		`DO $$ BEGIN

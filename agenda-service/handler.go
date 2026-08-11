@@ -80,7 +80,7 @@ func (h *agendaHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Type: "created", Agenda: a})
+	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "created", Agenda: a})
 	writeJSON(w, http.StatusCreated, a)
 }
 
@@ -111,7 +111,7 @@ func (h *agendaHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Type: "updated", Agenda: a})
+	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "updated", Agenda: a})
 	writeJSON(w, http.StatusOK, a)
 }
 
@@ -131,6 +131,6 @@ func (h *agendaHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Type: "deleted", Agenda: Agenda{ID: id}})
+	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "deleted", Agenda: Agenda{ID: id}})
 	w.WriteHeader(http.StatusNoContent)
 }

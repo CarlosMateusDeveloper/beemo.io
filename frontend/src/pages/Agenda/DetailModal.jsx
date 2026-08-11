@@ -10,7 +10,7 @@ const ACTION_CLASS = {
   neutral: 'agenda-action-cancel',
 }
 
-export default function DetailModal({ appointment, professionalName, professionalSpecialty, onClose, onChangeStatus, onEdit }) {
+export default function DetailModal({ appointment, professionalName, professionalSpecialty, pacientes, onClose, onChangeStatus, onEdit }) {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(null)
 
@@ -26,7 +26,7 @@ export default function DetailModal({ appointment, professionalName, professiona
   const transitions = STATUS_TRANSITIONS[appointment.status] ?? []
 
   function startEditing() {
-    setEditForm({ patient: appointment.patient, type: appointment.type, dur: appointment.dur })
+    setEditForm({ idPaciente: appointment.idPaciente, type: appointment.type, dur: appointment.dur })
     setEditing(true)
   }
 
@@ -56,7 +56,7 @@ export default function DetailModal({ appointment, professionalName, professiona
 
         {editing ? (
           <>
-            <AppointmentFields form={editForm} onChange={setEditForm} idPrefix="agenda-edit" />
+            <AppointmentFields form={editForm} onChange={setEditForm} idPrefix="agenda-edit" pacientes={pacientes} />
             <div className="agenda-modal-footer">
               <button className="agenda-btn-ghost" onClick={() => setEditing(false)}>Cancelar</button>
               <button className="agenda-btn-primary" onClick={saveEdit}>Salvar</button>

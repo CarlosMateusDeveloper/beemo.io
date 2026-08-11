@@ -2,7 +2,7 @@ import { DOW_FULL, MONTHS } from './constants'
 import { minutesToTime } from './dateUtils'
 import AppointmentFields from './AppointmentFields'
 
-export default function CreateModal({ createAt, form, professionalName, onChange, onCancel, onSave }) {
+export default function CreateModal({ createAt, form, professionalName, pacientes, onChange, onCancel, onSave }) {
   if (!createAt) return null
 
   const { date, minute } = createAt
@@ -15,7 +15,7 @@ export default function CreateModal({ createAt, form, professionalName, onChange
         <div className="agenda-modal-title">Nova consulta</div>
         <div className="agenda-modal-subtitle">{subtitle}</div>
 
-        <AppointmentFields form={form} onChange={onChange} idPrefix="agenda-create" />
+        <AppointmentFields form={form} onChange={onChange} idPrefix="agenda-create" pacientes={pacientes} />
 
         <div style={{ marginTop: 13 }}>
           <label className="agenda-label" htmlFor="agenda-create-status">Status inicial</label>
@@ -32,7 +32,7 @@ export default function CreateModal({ createAt, form, professionalName, onChange
 
         <div className="agenda-modal-footer">
           <button className="agenda-btn-ghost" onClick={onCancel}>Cancelar</button>
-          <button className="agenda-btn-primary" onClick={onSave}>Agendar</button>
+          <button className="agenda-btn-primary" onClick={onSave} disabled={!form.idPaciente}>Agendar</button>
         </div>
       </div>
     </div>

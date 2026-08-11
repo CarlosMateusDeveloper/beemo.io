@@ -20,6 +20,10 @@ CREATE TYPE status_consulta_enum AS ENUM (
     'Faltou'
 );
 
+-- Tipo do atendimento, usado pela tela de Agenda (frontend/src/pages/Agenda)
+-- pra rotular o card e calcular a duração padrão sugerida.
+CREATE TYPE tipo_consulta_enum AS ENUM ('Consulta', 'Retorno', 'Exame', 'Avaliação');
+
 -- 'paciente' não entra aqui: paciente nunca cria conta/login, a identidade
 -- dele é o número de WhatsApp (ver paciente + mensagem.telefone). usuario
 -- é só para quem de fato acessa um painel: médico e administrador.
@@ -124,6 +128,12 @@ CREATE TABLE consulta (
     id_paciente INT NOT NULL,
     id_agenda INT NOT NULL, -- consulta sempre precisa de um horário
     status_consulta status_consulta_enum DEFAULT 'Agendada',
+    tipo tipo_consulta_enum NOT NULL DEFAULT 'Consulta',
+    -- Resolve parcialmente a discussão da issue #3 (frontend): a duração fica
+    -- aqui só para exibição/cálculo de altura do card no calendário. Ainda NÃO
+    -- há checagem de sobreposição de horário no banco para consultas de mais
+    -- de um slot — "agenda" continua sendo um slot fixo por médico/data/hora.
+    duracao_minutos SMALLINT NOT NULL DEFAULT 30,
     FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente),
     FOREIGN KEY (id_agenda) REFERENCES agenda(id_agenda),
     UNIQUE (id_agenda) -- Garante que um slot de agenda só tenha uma consulta ativa

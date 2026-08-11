@@ -2,18 +2,25 @@ import { APPOINTMENT_TYPES } from './constants'
 
 // Campos compartilhados entre o formulário de criação (CreateModal) e o
 // modo de edição do DetailModal — evita duplicar o mesmo markup nos dois.
-export default function AppointmentFields({ form, onChange, idPrefix }) {
+// "Paciente" é um select de pacientes já cadastrados (não texto livre):
+// consulta.id_paciente é uma FK obrigatória no banco, não dá pra criar uma
+// consulta para um nome que não existe na tabela paciente.
+export default function AppointmentFields({ form, onChange, idPrefix, pacientes }) {
   return (
     <div className="agenda-form">
       <div>
         <label className="agenda-label" htmlFor={`${idPrefix}-patient`}>Paciente</label>
-        <input
+        <select
           id={`${idPrefix}-patient`}
-          className="agenda-input"
-          placeholder="Nome do paciente"
-          value={form.patient}
-          onChange={(e) => onChange({ ...form, patient: e.target.value })}
-        />
+          className="agenda-select"
+          value={form.idPaciente}
+          onChange={(e) => onChange({ ...form, idPaciente: Number(e.target.value) })}
+        >
+          <option value="">Selecione o paciente</option>
+          {pacientes.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="agenda-form-row">

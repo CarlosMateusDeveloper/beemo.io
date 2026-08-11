@@ -10,13 +10,8 @@ export const DOW_FULL = [
 ]
 export const MONTH_HEADER_DOWS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-export const PROFESSIONALS = [
-  { id: 'p1', name: 'Dra. Camila Rocha', specialty: 'Clínica geral' },
-  { id: 'p2', name: 'Dr. André Lima', specialty: 'Cardiologia' },
-  { id: 'p3', name: 'Dra. Paula Mendes', specialty: 'Dermatologia' },
-]
-
-export const SPECIALTIES = [...new Set(PROFESSIONALS.map((p) => p.specialty))]
+// PROFESSIONALS/SPECIALTIES não são mais mock: vêm de GET /medicos
+// (agenda-service) em tempo real — ver api.js e index.jsx.
 
 export const APPOINTMENT_TYPES = ['Consulta', 'Retorno', 'Exame', 'Avaliação']
 

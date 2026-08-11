@@ -10,8 +10,11 @@ import (
 )
 
 // agendaEvent é o que trafega no WebSocket sempre que uma agenda muda.
+// "entity" distingue de consultaEvent (consulta_handler.go), já que os dois
+// tipos de evento trafegam na mesma conexão /ws/agenda.
 type agendaEvent struct {
-	Type   string `json:"type"` // created | updated | deleted
+	Entity string `json:"entity"` // "agenda"
+	Type   string `json:"type"`   // created | updated | deleted
 	Agenda Agenda `json:"agenda"`
 }
 
@@ -29,7 +32,7 @@ func newHub(allowedOrigin string) *hub {
 	}
 }
 
-func (h *hub) broadcast(event agendaEvent) {
+func (h *hub) broadcast(event any) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		log.Printf("hub: erro ao serializar evento: %v", err)

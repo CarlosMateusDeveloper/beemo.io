@@ -32,6 +32,15 @@ func main() {
 	mux.HandleFunc("POST /agendas", h.create)
 	mux.HandleFunc("PUT /agendas/{id}", h.update)
 	mux.HandleFunc("DELETE /agendas/{id}", h.delete)
+
+	mux.HandleFunc("GET /consultas", h.listConsultas)
+	mux.HandleFunc("GET /consultas/{id}", h.getConsulta)
+	mux.HandleFunc("POST /consultas", h.createConsulta)
+	mux.HandleFunc("PUT /consultas/{id}", h.updateConsulta)
+
+	mux.HandleFunc("GET /medicos", h.listMedicos)
+	mux.HandleFunc("GET /pacientes", h.listPacientes)
+
 	mux.HandleFunc("GET /ws/agenda", h.hub.serveWS)
 
 	port := env("AGENDA_SERVICE_PORT", "8081")
