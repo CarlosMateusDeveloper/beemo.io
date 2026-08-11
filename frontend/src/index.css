@@ -34,6 +34,13 @@
   --status-cancelada-bg: #F2F4F7; --status-cancelada-fg: #8A94A6; --status-cancelada-border: #E2E6EC; --status-cancelada-dot: #9AA4B5;
   --status-faltou-bg: #FCEBE8; --status-faltou-fg: #AC3B2A; --status-faltou-border: #F3CFC8; --status-faltou-dot: #D2543F;
 
+  /* Semantica genérica (fora do dominio de status de consulta): sucesso,
+     alerta, perigo e informativo. Usado em KPIs, badges e deltas. */
+  --success: #1F8A54; --success-bg: #E4F5EC;
+  --warning: #92660A; --warning-bg: #FCF1D8;
+  --danger: #C23934; --danger-bg: #FBE7E5;
+  --info: #2563AA; --info-bg: #E7F0FB;
+
   color-scheme: light;
 }
 
@@ -69,6 +76,11 @@
   --status-realizada-bg: #17301F; --status-realizada-fg: #6FCB93; --status-realizada-border: #234A2E; --status-realizada-dot: #3FBE73;
   --status-cancelada-bg: #262A33; --status-cancelada-fg: #9AA4B8; --status-cancelada-border: #333947; --status-cancelada-dot: #7C8499;
   --status-faltou-bg: #331A17; --status-faltou-fg: #E58B78; --status-faltou-border: #4F241E; --status-faltou-dot: #E0644C;
+
+  --success: #4ECB8D; --success-bg: #163826;
+  --warning: #E8B93A; --warning-bg: #3A2F12;
+  --danger: #E8695C; --danger-bg: #3A1F1C;
+  --info: #6FA8E8; --info-bg: #1B2E44;
 
   color-scheme: dark;
 }
