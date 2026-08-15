@@ -1,0 +1,173 @@
+.pacientes-page {
+  flex: 1; min-height: 0; overflow: auto; background: var(--app-bg); color: var(--text-primary);
+  padding: 28px 32px 40px; box-sizing: border-box;
+}
+.pacientes-page *, .pacientes-page *::before, .pacientes-page *::after { box-sizing: border-box; }
+.pacientes-page button, .pacientes-page input, .pacientes-page select { font-family: inherit; }
+.pacientes-mono { font-family: 'IBM Plex Mono', monospace; }
+.pacientes-page .success { color: var(--success); }
+.pacientes-page .warning { color: var(--warning); }
+.pacientes-page .danger { color: var(--danger); }
+
+/* Cabeçalho + filtros */
+.pacientes-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.pacientes-titulo { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.pacientes-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.pacientes-busca { position: relative; min-width: 260px; }
+.pacientes-busca svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); }
+.pacientes-busca input {
+  width: 100%; height: 35px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+  padding: 0 12px 0 34px; font-size: 13.5px; color: var(--text-primary);
+}
+.pacientes-busca input::placeholder { color: var(--text-tertiary); }
+.pacientes-busca input:focus { outline: 2px solid var(--acc-line); outline-offset: 1px; }
+
+.pacientes-sel {
+  height: 35px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+  color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.pacientes-sel:hover { color: var(--text-primary); }
+
+.pacientes-conv { position: relative; }
+.pacientes-conv-trigger {
+  display: flex; align-items: center; gap: 8px; height: 35px; padding: 0 12px; border: 1px solid var(--border);
+  border-radius: 9px; background: var(--surface); color: var(--text-primary); font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+}
+.pacientes-conv-trigger:hover { background: var(--surface-hover); }
+.pacientes-conv-trigger svg { color: var(--text-tertiary); }
+.pacientes-conv-popover {
+  position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 30; width: 232px; padding: 8px 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-popover);
+}
+.pacientes-conv-item { display: flex; align-items: center; gap: 12px; padding: 7px 16px; font-size: 13px; cursor: pointer; }
+.pacientes-conv-item:hover { background: var(--surface-hover); }
+.pacientes-conv-checkbox { accent-color: var(--acc); width: 14px; height: 14px; margin: 0; }
+.pacientes-conv-nome { flex: 1; color: var(--text-primary); }
+.pacientes-conv-footer { display: flex; justify-content: flex-end; margin-top: 4px; padding: 6px 10px 0; border-top: 1px solid var(--border-faint); }
+.pacientes-link-btn { border: 0; background: transparent; color: var(--acc); font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 8px; border-radius: 7px; }
+.pacientes-link-btn:hover { background: var(--acc-soft); }
+
+.pacientes-btn-primario {
+  height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 0 15px; border: none; border-radius: 9px;
+  background: var(--acc); color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.pacientes-btn-primario:hover { background: var(--acc-deep); }
+
+/* KPIs */
+.pacientes-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.pacientes-kpi-card {
+  display: flex; flex-direction: column; padding: 16px 20px 18px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); text-align: left; font: inherit; color: inherit;
+}
+button.pacientes-kpi-card { cursor: pointer; transition: border-color .12s, background .12s; }
+button.pacientes-kpi-card:hover { border-color: var(--border); background: var(--surface-hover); }
+button.pacientes-kpi-card[aria-pressed="true"] { border-color: var(--acc-line); background: var(--acc-soft); }
+.pacientes-kpi-lab { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-tertiary); margin-bottom: 6px; }
+.pacientes-kpi-icon { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-muted); color: var(--text-secondary); }
+.pacientes-kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.pacientes-kpi-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 6px; }
+.pacientes-kpi-sub.up { color: var(--success); }
+.pacientes-kpi-sub.warn { color: var(--warning); }
+.pacientes-kpi-hint { font-size: 11.5px; color: var(--text-tertiary); margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+button.pacientes-kpi-card[aria-pressed="true"] .pacientes-kpi-hint { color: var(--acc-deep); }
+
+@media (max-width: 1180px) {
+  .pacientes-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Painel principal */
+.pacientes-painel { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.pacientes-painel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+.pacientes-painel-titulo { font-size: 14px; font-weight: 500; }
+.pacientes-painel-titulo span { color: var(--text-tertiary); font-weight: 400; }
+.pacientes-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--acc-deep); background: var(--acc-soft); border-radius: 999px; padding: 3px 6px 3px 11px; }
+.pacientes-chip button { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 4px; }
+.pacientes-chip.info { color: var(--info); background: var(--info-bg); }
+
+.pacientes-toggle { display: flex; background: var(--surface-muted); border-radius: 999px; padding: 3px; gap: 2px; }
+.pacientes-toggle button { background: none; border: none; border-radius: 999px; padding: 6px 15px; font-size: 13px; color: var(--text-tertiary); cursor: pointer; }
+.pacientes-toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text-primary); font-weight: 500; box-shadow: var(--shadow-segmented); }
+
+/* Skeleton (compartilhado tabela/kpi) */
+.pacientes-skel { border-radius: 8px; background: var(--surface-muted); }
+.pacientes-skel.shine {
+  background: linear-gradient(90deg, var(--surface-muted) 0%, var(--surface-hover) 45%, var(--surface-muted) 85%);
+  background-size: 360px 100%; animation: pacientesBrilho 1.3s linear infinite;
+}
+@keyframes pacientesBrilho { from { background-position: -360px 0; } to { background-position: 360px 0; } }
+
+/* Tabela */
+.pacientes-tabela-scroll { overflow-x: auto; }
+.pacientes-tabela { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
+.pacientes-tabela th {
+  position: sticky; top: 0; z-index: 5; background: var(--surface-muted); text-align: left; padding: 10px 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.pacientes-tabela th:first-child { padding-left: 20px; }
+.pacientes-tabela th.sortable { cursor: pointer; user-select: none; }
+.pacientes-tabela th.sortable:hover { color: var(--text-primary); }
+.pacientes-th-seta { margin-left: 6px; font-size: 8px; }
+.pacientes-tabela td { padding: 11px 14px; border-bottom: 1px solid var(--border-faint); vertical-align: middle; }
+.pacientes-tabela td:first-child { padding-left: 20px; }
+.pacientes-tabela tbody tr { cursor: pointer; }
+.pacientes-tabela tbody tr:hover { background: var(--surface-hover); }
+
+.pacientes-quem { display: flex; align-items: center; gap: 10px; }
+.pacientes-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--acc-soft); color: var(--acc-deep); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+.pacientes-quem-nome { font-size: 13.5px; }
+.pacientes-quem-meta { font-size: 11.5px; color: var(--text-tertiary); }
+.pacientes-dim { color: var(--text-disabled); }
+.pacientes-sub { font-size: 11.5px; color: var(--text-tertiary); }
+.pacientes-wa { display: inline-flex; align-items: center; gap: 6px; }
+.pacientes-wa svg { color: var(--acc); flex: none; }
+
+.pacientes-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.pacientes-badge .pacientes-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.pacientes-badge-ok { background: var(--success-bg); color: var(--success); }
+.pacientes-badge-risk { background: var(--warning-bg); color: var(--warning); }
+.pacientes-badge-off { background: var(--surface-muted); color: var(--text-tertiary); }
+.pacientes-badge-inc { background: var(--info-bg); color: var(--info); }
+.pacientes-badge-part { background: var(--surface-muted); color: var(--text-secondary); }
+
+.pacientes-vazio { padding: 56px 20px; text-align: center; }
+.pacientes-vazio p { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+.pacientes-vazio span { font-size: 13px; color: var(--text-tertiary); }
+
+.pacientes-painel-foot { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; border-top: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-tertiary); flex-wrap: wrap; gap: 10px; }
+.pacientes-pager { display: flex; gap: 5px; }
+.pacientes-pager button { background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; min-width: 28px; height: 28px; font-size: 12.5px; cursor: pointer; }
+.pacientes-pager button[aria-current] { background: var(--acc-soft); border-color: var(--acc-line); color: var(--acc-deep); }
+
+/* Kanban */
+.pacientes-board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 14px; }
+.pacientes-col { background: var(--app-bg); border: 1px solid var(--border); border-radius: 12px; padding: 11px; min-height: 420px; transition: border-color .12s, background .12s; }
+.pacientes-col.over { border-color: var(--acc-line); background: var(--acc-soft); }
+.pacientes-col-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; padding: 0 2px; }
+.pacientes-col-nome { font-size: 12.5px; font-weight: 600; }
+.pacientes-col-contagem { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 999px; padding: 1px 8px; }
+.pacientes-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 7px; cursor: grab; transition: border-color .12s, transform .12s; }
+.pacientes-card:hover { border-color: var(--acc-line); }
+.pacientes-card:active { cursor: grabbing; }
+.pacientes-card.dragging { opacity: .45; transform: rotate(-1.5deg); }
+.pacientes-card-nome { font-size: 12.5px; font-weight: 500; margin-bottom: 3px; }
+.pacientes-card-meta { font-size: 11px; color: var(--text-tertiary); display: flex; align-items: center; gap: 5px; }
+.pacientes-card-flag { font-size: 11px; margin-top: 7px; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; }
+.pacientes-card-flag.warn { background: var(--warning-bg); color: var(--warning); }
+.pacientes-card-flag.crit { background: var(--danger-bg); color: var(--danger); }
+.pacientes-card-flag.pend { background: var(--danger-bg); color: var(--danger); }
+.pacientes-card-flag.conv { background: var(--surface-muted); color: var(--text-secondary); }
+
+/* Toast */
+.pacientes-toast {
+  position: fixed; left: 32px; bottom: 24px; z-index: 60; display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-radius: 9px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-modal); font-size: 13px; color: var(--text-primary);
+}
+.pacientes-toast-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acc); flex: none; }
+
+@media (max-width: 1180px) {
+  .pacientes-board { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(200px, 1fr); overflow-x: auto; }
+}
