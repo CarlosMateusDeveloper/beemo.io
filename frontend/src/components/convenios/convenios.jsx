@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ConveniosFiltros from './ConveniosFiltros'
 import ConveniosKpis from './ConveniosKpis'
+import ConveniosLotes from './ConveniosLotes'
+import ConveniosResumo from './ConveniosResumo'
 import ConveniosTabela from './ConveniosTabela'
-import { GLOSAS } from './conveniosData'
+import { GLOSAS, LOTES } from './conveniosData'
 import './convenios.css'
 
 export function Convenios() {
+  const [aba, setAba] = useState('glosas')
   const [periodo, setPeriodo] = useState('Últimos 30 dias')
   const [convenios, setConvenios] = useState([])
   const [status, setStatus] = useState('')
@@ -67,6 +70,15 @@ export function Convenios() {
     mostrarToast(`Abrindo a glosa de ${glosa.paciente}…`)
   }
 
+  function abrirConvenio(convenio) {
+    // Sem /convenios/{id} ainda: mostra um toast, como nas outras telas.
+    mostrarToast(`Abrindo o convênio ${convenio.convenio}…`)
+  }
+
+  function abrirLote(lote) {
+    mostrarToast(`Abrindo o lote ${lote.id}…`)
+  }
+
   return (
     <div className="convenios-page">
       <ConveniosFiltros
@@ -79,21 +91,33 @@ export function Convenios() {
       <ConveniosKpis filtroPrazo={filtroPrazo} onToggleFiltroPrazo={toggleFiltroPrazo} />
 
       <div className="convenios-tabs">
-        <div className="convenios-tab active">Glosas<span className="convenios-tab-count">{GLOSAS.length}</span></div>
-        <div className="convenios-tab">Convênios<span className="convenios-tab-count">4</span></div>
-        <div className="convenios-tab">Lotes<span className="convenios-tab-count">12</span></div>
+        <button type="button" className={`convenios-tab ${aba === 'glosas' ? 'active' : ''}`} onClick={() => setAba('glosas')}>
+          Glosas<span className="convenios-tab-count">{GLOSAS.length}</span>
+        </button>
+        <button type="button" className={`convenios-tab ${aba === 'convenios' ? 'active' : ''}`} onClick={() => setAba('convenios')}>
+          Convênios<span className="convenios-tab-count">4</span>
+        </button>
+        <button type="button" className={`convenios-tab ${aba === 'lotes' ? 'active' : ''}`} onClick={() => setAba('lotes')}>
+          Lotes<span className="convenios-tab-count">{LOTES.length}</span>
+        </button>
       </div>
 
-      <ConveniosTabela
-        linhas={linhas}
-        total={GLOSAS.length}
-        selecionados={selecionados}
-        onToggle={toggleSelecionado}
-        onToggleTodos={toggleTodos}
-        onLimparSelecao={() => setSelecionados(new Set())}
-        onAcaoLote={acaoLote}
-        onAbrirGlosa={abrirGlosa}
-      />
+      {aba === 'glosas' && (
+        <ConveniosTabela
+          linhas={linhas}
+          total={GLOSAS.length}
+          selecionados={selecionados}
+          onToggle={toggleSelecionado}
+          onToggleTodos={toggleTodos}
+          onLimparSelecao={() => setSelecionados(new Set())}
+          onAcaoLote={acaoLote}
+          onAbrirGlosa={abrirGlosa}
+        />
+      )}
+
+      {aba === 'convenios' && <ConveniosResumo onAbrirConvenio={abrirConvenio} />}
+
+      {aba === 'lotes' && <ConveniosLotes onAbrirLote={abrirLote} />}
 
       {toast && (
         <div className="convenios-toast">

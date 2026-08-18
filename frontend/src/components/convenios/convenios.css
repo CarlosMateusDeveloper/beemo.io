@@ -65,7 +65,12 @@
 
 /* Tabs */
 .convenios-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
-.convenios-tab { display: flex; align-items: center; gap: 7px; padding: 9px 1px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: 14px; color: var(--text-tertiary); }
+.convenios-tab {
+  display: flex; align-items: center; gap: 7px; padding: 9px 1px; margin-bottom: -1px; border: none;
+  border-bottom: 2px solid transparent; background: transparent; font: inherit; font-size: 14px;
+  color: var(--text-tertiary); cursor: pointer;
+}
+.convenios-tab:hover { color: var(--text-secondary); }
 .convenios-tab.active { color: var(--text-primary); font-weight: 500; border-color: var(--text-primary); }
 .convenios-tab-count { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 5px; padding: 1px 6px; }
 .convenios-tab.active .convenios-tab-count { color: var(--text-secondary); background: var(--surface-hover); }
@@ -119,6 +124,9 @@ td.num { text-align: right; }
 .convenios-badge.st-info-tracejado { background: transparent; color: var(--info); border: 1px dashed var(--info); }
 .convenios-badge.st-ok { background: var(--success-bg); color: var(--success); }
 .convenios-badge.st-perdida { background: var(--surface-muted); color: var(--text-tertiary); }
+.convenios-badge.st-warn { background: var(--warning-bg); color: var(--warning); }
+.convenios-valor.p-red { color: var(--danger); }
+.convenios-alerta-tabela { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--warning); margin-top: 4px; }
 .convenios-resp { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .convenios-resp-av { width: 22px; height: 22px; flex: none; border-radius: 999px; background: var(--acc-soft); color: var(--acc-deep); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Sans', sans-serif; font-size: 9.5px; font-weight: 700; }
 .convenios-resp-vazio { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-tertiary); }
