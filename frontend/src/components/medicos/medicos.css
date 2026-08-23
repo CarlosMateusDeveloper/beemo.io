@@ -4,7 +4,7 @@
 }
 .medicos-page *, .medicos-page *::before, .medicos-page *::after { box-sizing: border-box; }
 .medicos-page button, .medicos-page input, .medicos-page select { font-family: inherit; }
-.medicos-mono { font-family: 'IBM Plex Mono', monospace; }
+.medicos-mono { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; }
 .medicos-page .success { color: var(--success); }
 .medicos-page .warning { color: var(--warning); }
 .medicos-page .danger { color: var(--danger); }
@@ -41,7 +41,7 @@
 .medicos-esp-item:hover { background: var(--surface-hover); }
 .medicos-esp-checkbox { accent-color: var(--acc); width: 14px; height: 14px; margin: 0; }
 .medicos-esp-nome { flex: 1; color: var(--text-primary); }
-.medicos-esp-contagem { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-tertiary); }
+.medicos-esp-contagem { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: var(--text-tertiary); }
 .medicos-esp-footer { display: flex; justify-content: flex-end; margin-top: 4px; padding: 6px 10px 0; border-top: 1px solid var(--border-subtle); }
 
 .medicos-link-btn {
@@ -82,11 +82,11 @@
 }
 @keyframes medicosBrilho { from { background-position: -360px 0; } to { background-position: 360px 0; } }
 
-.medicos-kpi-vazio-valor { margin-top: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 28px; line-height: 1; color: var(--text-disabled); }
+.medicos-kpi-vazio-valor { margin-top: 10px; font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 28px; line-height: 1; color: var(--text-disabled); }
 .medicos-kpi-vazio-texto { margin-top: 10px; font-size: 13px; color: var(--text-tertiary); }
 
 .medicos-kpi-valor-row { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
-.medicos-kpi-valor { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
+.medicos-kpi-valor { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-weight: 600; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em; }
 .medicos-kpi-delta { display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 500; }
 .medicos-kpi-barra { height: 6px; margin-top: 12px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
 .medicos-kpi-barra-fill { height: 100%; border-radius: 999px; background: var(--acc); }
@@ -101,7 +101,7 @@
 .medicos-kpi-pill.danger { background: var(--danger-bg); color: var(--danger); }
 .medicos-kpi-linha-info { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--text-secondary); }
 .medicos-kpi-tracinho { width: 30px; height: 4px; border-radius: 999px; background: var(--info); }
-.medicos-kpi-mono { font-family: 'IBM Plex Mono', monospace; color: var(--text-primary); }
+.medicos-kpi-mono { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; color: var(--text-primary); }
 
 @media (max-width: 1240px) {
   .medicos-kpis { grid-template-columns: 1fr 1fr; }
@@ -149,7 +149,7 @@
 .medicos-row-medico { display: flex; align-items: center; gap: 12px; }
 .medicos-avatar {
   width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center;
-  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
   background: var(--surface-muted); color: var(--text-primary);
 }
 .medicos-avatar.inativo { background: transparent; border: 1px solid var(--border); color: var(--text-tertiary); }

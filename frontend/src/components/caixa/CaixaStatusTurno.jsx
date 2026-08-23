@@ -7,7 +7,7 @@ export default function CaixaStatusTurno({ onFecharCaixa }) {
       <div className="caixa-status-left">
         <div className="caixa-status-live">
           <span className="caixa-status-dot" />
-          <span>Caixa aberto desde {TURNO.horaAbertura} · {TURNO.operador.split(' ')[0]}</span>
+          <span>Caixa aberto{TURNO.horaAbertura ? ` desde ${TURNO.horaAbertura}` : ''} · {TURNO.operador.split(' ')[0]}</span>
         </div>
         <div className="caixa-status-total">{brl(TURNO.totalHoje)}</div>
         <div className="caixa-status-sub">{TURNO.recebimentosHoje} recebimentos hoje</div>

@@ -81,10 +81,11 @@ export function Pacientes() {
   const linhas = useMemo(() => linhasOrdenadas.map((p) => ({ ...p, statusTxt: statusLabel(p.status) })), [linhasOrdenadas])
 
   const kpis = useMemo(() => {
-    const riscoPct = (KPI_BASE.risco / KPI_BASE.baseAtiva) * 100
+    const riscoPct = KPI_BASE.baseAtiva ? (KPI_BASE.risco / KPI_BASE.baseAtiva) * 100 : 0
+    const baseAtivaPct = KPI_BASE.totalCadastros ? Math.round((KPI_BASE.baseAtiva / KPI_BASE.totalCadastros) * 100) : 0
     return {
       baseAtivaTxt: KPI_BASE.baseAtiva.toLocaleString('pt-BR'),
-      baseApoio: `de ${KPI_BASE.totalCadastros.toLocaleString('pt-BR')} cadastros · ${Math.round((KPI_BASE.baseAtiva / KPI_BASE.totalCadastros) * 100)}%`,
+      baseApoio: `de ${KPI_BASE.totalCadastros.toLocaleString('pt-BR')} cadastros · ${baseAtivaPct}%`,
       novosTxt: String(KPI_BASE.novos),
       novosApoio: `+${KPI_BASE.novosDeltaPct}% · ${KPI_BASE.novosCanalPct}% via WhatsApp`,
       riscoTxt: String(KPI_BASE.risco),

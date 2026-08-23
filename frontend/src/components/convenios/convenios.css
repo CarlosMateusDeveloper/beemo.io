@@ -4,7 +4,7 @@
 }
 .convenios-page *, .convenios-page *::before, .convenios-page *::after { box-sizing: border-box; }
 .convenios-page button, .convenios-page input, .convenios-page select { font-family: inherit; }
-.convenios-mono { font-family: 'IBM Plex Mono', monospace; }
+.convenios-mono { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; }
 
 /* Cabeçalho + filtros */
 .convenios-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -49,7 +49,7 @@
 .convenios-kpi.danger .convenios-kpi-lab { color: #FFC9C2; font-weight: 500; }
 .convenios-kpi-lab svg { width: 16px; height: 16px; flex: none; color: var(--text-tertiary); }
 .convenios-kpi.danger .convenios-kpi-lab svg { color: var(--danger); }
-.convenios-kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.convenios-kpi-val { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .convenios-kpi.danger .convenios-kpi-val { color: var(--danger); }
 .convenios-kpi-val.warn { color: var(--warning); }
 .convenios-kpi-val.ok { color: var(--success); }
@@ -72,7 +72,7 @@
 }
 .convenios-tab:hover { color: var(--text-secondary); }
 .convenios-tab.active { color: var(--text-primary); font-weight: 500; border-color: var(--text-primary); }
-.convenios-tab-count { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 5px; padding: 1px 6px; }
+.convenios-tab-count { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 10.5px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 5px; padding: 1px 6px; }
 .convenios-tab.active .convenios-tab-count { color: var(--text-secondary); background: var(--surface-hover); }
 
 /* Painel / tabela */
@@ -107,17 +107,17 @@ td.num { text-align: right; }
 .convenios-pac { font-size: 13.5px; }
 .convenios-proc { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
 .convenios-conv-cell { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
-.convenios-conv-sigla { width: 22px; height: 22px; flex: none; border-radius: 6px; background: var(--surface-muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--text-tertiary); }
+.convenios-conv-sigla { width: 22px; height: 22px; flex: none; border-radius: 6px; background: var(--surface-muted); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 9.5px; color: var(--text-tertiary); }
 .convenios-motivo { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.convenios-motivo-cod { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-tertiary); background: var(--surface-muted); border: 1px solid var(--border); border-radius: 5px; padding: 2px 5px; flex: none; }
+.convenios-motivo-cod { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 10.5px; color: var(--text-tertiary); background: var(--surface-muted); border: 1px solid var(--border); border-radius: 5px; padding: 2px 5px; flex: none; }
 .convenios-motivo-txt { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.convenios-valor { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
-.convenios-prazo-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+.convenios-valor { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-weight: 600; }
+.convenios-prazo-val { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-weight: 600; }
 .convenios-prazo-val.p-red { color: var(--danger); }
 .convenios-prazo-val.p-amber { color: var(--warning); }
 .convenios-prazo-val.p-neutral { color: var(--text-secondary); }
 .convenios-prazo-val.p-off { color: var(--text-tertiary); font-weight: 500; font-family: inherit; font-size: 13.5px; }
-.convenios-prazo-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+.convenios-prazo-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; }
 .convenios-badge { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 999px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
 .convenios-badge.st-neutro { background: var(--surface-muted); color: var(--text-secondary); }
 .convenios-badge.st-info { background: var(--info-bg); color: var(--info); border: 1px solid transparent; }
@@ -140,3 +140,8 @@ td.num { text-align: right; }
 .convenios-toast-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acc); flex: none; }
 
 .convenios-foot { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; border-top: 1px solid var(--border-subtle); font-size: 12.5px; color: var(--text-tertiary); flex-wrap: wrap; gap: 10px; }
+
+.convenios-vazio { padding: 56px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.convenios-vazio-tile { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-tertiary); }
+.convenios-vazio-titulo { font-size: 16px; font-weight: 600; }
+.convenios-vazio-texto { font-size: 13px; color: var(--text-tertiary); max-width: 46ch; }

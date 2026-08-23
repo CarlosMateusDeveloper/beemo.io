@@ -4,7 +4,7 @@
 }
 .pacientes-page *, .pacientes-page *::before, .pacientes-page *::after { box-sizing: border-box; }
 .pacientes-page button, .pacientes-page input, .pacientes-page select { font-family: inherit; }
-.pacientes-mono { font-family: 'IBM Plex Mono', monospace; }
+.pacientes-mono { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; }
 .pacientes-page .success { color: var(--success); }
 .pacientes-page .warning { color: var(--warning); }
 .pacientes-page .danger { color: var(--danger); }
@@ -66,7 +66,7 @@ button.pacientes-kpi-card:hover { border-color: var(--border); background: var(-
 button.pacientes-kpi-card[aria-pressed="true"] { border-color: var(--acc-line); background: var(--acc-soft); }
 .pacientes-kpi-lab { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-tertiary); margin-bottom: 6px; }
 .pacientes-kpi-icon { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-muted); color: var(--text-secondary); }
-.pacientes-kpi-val { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.pacientes-kpi-val { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 28px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
 .pacientes-kpi-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 6px; }
 .pacientes-kpi-sub.up { color: var(--success); }
 .pacientes-kpi-sub.warn { color: var(--warning); }
@@ -147,7 +147,7 @@ button.pacientes-kpi-card[aria-pressed="true"] .pacientes-kpi-hint { color: var(
 .pacientes-col.over { border-color: var(--acc-line); background: var(--acc-soft); }
 .pacientes-col-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; padding: 0 2px; }
 .pacientes-col-nome { font-size: 12.5px; font-weight: 600; }
-.pacientes-col-contagem { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 999px; padding: 1px 8px; }
+.pacientes-col-contagem { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; font-size: 11px; color: var(--text-tertiary); background: var(--surface-muted); border-radius: 999px; padding: 1px 8px; }
 .pacientes-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 7px; cursor: grab; transition: border-color .12s, transform .12s; }
 .pacientes-card:hover { border-color: var(--acc-line); }
 .pacientes-card:active { cursor: grabbing; }

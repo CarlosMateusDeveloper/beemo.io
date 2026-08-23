@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, SearchX } from 'lucide-react'
 import { brl } from './caixaData'
 
 export default function CaixaReceberHoje({ linhas, pendentesQtd, pendentesValor, onReceber }) {
@@ -12,6 +12,13 @@ export default function CaixaReceberHoje({ linhas, pendentesQtd, pendentesValor,
         <span className="caixa-painel-meta">{pendentesQtd} pendentes · <strong>{brl(pendentesValor)}</strong></span>
       </div>
 
+      {linhas.length === 0 ? (
+        <div className="caixa-vazio">
+          <span className="caixa-vazio-tile"><SearchX size={20} strokeWidth={1.6} /></span>
+          <div className="caixa-vazio-titulo">Nada a receber</div>
+          <div className="caixa-vazio-texto">Consultas do dia com pagamento pendente aparecem aqui.</div>
+        </div>
+      ) : (
       <div>
         {linhas.map((r) => (
           <div key={r.id} className="caixa-row">
@@ -40,6 +47,7 @@ export default function CaixaReceberHoje({ linhas, pendentesQtd, pendentesValor,
           </div>
         ))}
       </div>
+      )}
     </section>
   )
 }

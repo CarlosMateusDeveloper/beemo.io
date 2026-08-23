@@ -14,7 +14,7 @@ export function Caixa() {
   const [painel, setPainel] = useState(null) // null | 'pay' | 'close'
   const [payId, setPayId] = useState(null)
   const [pay, setPay] = useState(PAY_VAZIO)
-  const [contado, setContado] = useState(formatNum(605))
+  const [contado, setContado] = useState(formatNum(TURNO.dinheiro))
   const [obs, setObs] = useState('')
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)

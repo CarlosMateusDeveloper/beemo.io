@@ -1,7 +1,19 @@
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, SearchX } from 'lucide-react'
 import { brl, CONVENIOS_RESUMO } from './conveniosData'
 
 export default function ConveniosResumo({ onAbrirConvenio }) {
+  if (CONVENIOS_RESUMO.length === 0) {
+    return (
+      <div className="convenios-painel">
+        <div className="convenios-vazio">
+          <span className="convenios-vazio-tile"><SearchX size={20} strokeWidth={1.6} /></span>
+          <div className="convenios-vazio-titulo">Nenhum convênio apurado</div>
+          <div className="convenios-vazio-texto">A comparação entre convênios aparece aqui assim que houver atendimentos faturados.</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="convenios-painel">
       <div className="convenios-tabela-scroll">

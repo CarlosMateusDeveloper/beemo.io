@@ -1,6 +1,19 @@
+import { SearchX } from 'lucide-react'
 import { brl, LOTES, statusLoteMeta } from './conveniosData'
 
 export default function ConveniosLotes({ onAbrirLote }) {
+  if (LOTES.length === 0) {
+    return (
+      <div className="convenios-painel">
+        <div className="convenios-vazio">
+          <span className="convenios-vazio-tile"><SearchX size={20} strokeWidth={1.6} /></span>
+          <div className="convenios-vazio-titulo">Nenhum lote enviado</div>
+          <div className="convenios-vazio-texto">Remessas enviadas ao convênio aparecem aqui, com a conciliação entre valor enviado e pago.</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="convenios-painel">
       <div className="convenios-tabela-scroll">

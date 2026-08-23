@@ -1,4 +1,4 @@
-import { FileText, UserPlus, X } from 'lucide-react'
+import { FileText, SearchX, UserPlus, X } from 'lucide-react'
 import { brl, statusMeta } from './conveniosData'
 
 function prazoClasse(dias) {
@@ -37,6 +37,15 @@ export default function ConveniosTabela({
         </div>
       )}
 
+      {linhas.length === 0 ? (
+        <div className="convenios-vazio">
+          <span className="convenios-vazio-tile"><SearchX size={20} strokeWidth={1.6} /></span>
+          <div className="convenios-vazio-titulo">{total === 0 ? 'Nenhuma glosa registrada' : 'Nenhuma glosa com esse filtro'}</div>
+          <div className="convenios-vazio-texto">
+            {total === 0 ? 'Quando um convênio negar um atendimento, a glosa aparece aqui.' : 'Ajuste os filtros para ver a fila de glosas.'}
+          </div>
+        </div>
+      ) : (
       <div className="convenios-tabela-scroll">
         <table className="convenios-tabela">
           <thead>
@@ -111,6 +120,7 @@ export default function ConveniosTabela({
           </tbody>
         </table>
       </div>
+      )}
 
       <div className="convenios-foot">
         <span>Exibindo {linhas.length} de {total} glosas · ordenado por prazo crescente</span>
