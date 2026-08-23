@@ -1,7 +1,13 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.PacienteFilaItemDto;
+import br.com.clinica.dto.PacienteListagemItemDto;
+import br.com.clinica.dto.PacientesKpisResponse;
 import br.com.clinica.model.Paciente;
 import br.com.clinica.repository.PacienteRepository;
+import br.com.clinica.service.PacienteFilaService;
+import br.com.clinica.service.PacienteKpiService;
+import br.com.clinica.service.PacienteListagemService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,14 +21,38 @@ import java.util.List;
 public class PacienteController {
 
     private final PacienteRepository repository;
+    private final PacienteKpiService kpiService;
+    private final PacienteListagemService listagemService;
+    private final PacienteFilaService filaService;
 
-    public PacienteController(PacienteRepository repository) {
+    public PacienteController(
+            PacienteRepository repository, PacienteKpiService kpiService,
+            PacienteListagemService listagemService, PacienteFilaService filaService
+    ) {
         this.repository = repository;
+        this.kpiService = kpiService;
+        this.listagemService = listagemService;
+        this.filaService = filaService;
     }
 
     @GetMapping
     public List<Paciente> listar() {
         return repository.findAll();
+    }
+
+    @GetMapping("/kpis")
+    public PacientesKpisResponse kpis() {
+        return kpiService.calcular();
+    }
+
+    @GetMapping("/listagem")
+    public List<PacienteListagemItemDto> listagem() {
+        return listagemService.listar();
+    }
+
+    @GetMapping("/fila")
+    public List<PacienteFilaItemDto> fila() {
+        return filaService.listarHoje();
     }
 
     @GetMapping("/{id}")

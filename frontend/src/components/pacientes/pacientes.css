@@ -160,6 +160,37 @@ button.pacientes-kpi-card[aria-pressed="true"] .pacientes-kpi-hint { color: var(
 .pacientes-card-flag.pend { background: var(--danger-bg); color: var(--danger); }
 .pacientes-card-flag.conv { background: var(--surface-muted); color: var(--text-secondary); }
 
+/* Modal — novo paciente */
+.pacientes-overlay {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.pacientes-modal {
+  width: 420px; max-width: calc(100vw - 32px); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; box-shadow: var(--shadow-modal);
+}
+.pacientes-modal-title { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.pacientes-modal-subtitle { font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 16px; }
+.pacientes-modal-erro { font-size: 12.5px; color: var(--danger); background: var(--danger-bg); border-radius: 8px; padding: 8px 11px; margin-bottom: 14px; }
+.pacientes-modal-campo { margin-bottom: 13px; }
+.pacientes-modal-linha { display: flex; gap: 10px; }
+.pacientes-modal-linha .pacientes-modal-campo { flex: 1; }
+.pacientes-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+.pacientes-input, .pacientes-select {
+  width: 100%; height: 35px; border: 1px solid var(--border); border-radius: 8px; background: var(--app-bg);
+  color: var(--text-primary); font-size: 13.5px; padding: 0 10px; box-sizing: border-box;
+}
+.pacientes-select { cursor: pointer; }
+.pacientes-input:focus, .pacientes-select:focus { outline: 2px solid var(--acc-line); outline-offset: 1px; }
+.pacientes-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.pacientes-btn-ghost {
+  height: 35px; padding: 0 15px; border: 1px solid var(--border); border-radius: 9px; background: transparent;
+  color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.pacientes-btn-ghost:hover { background: var(--surface-hover); }
+.pacientes-btn-primario:disabled { opacity: 0.5; cursor: not-allowed; }
+.pacientes-btn-primario:disabled:hover { background: var(--acc); }
+
 /* Toast */
 .pacientes-toast {
   position: fixed; left: 32px; bottom: 24px; z-index: 60; display: flex; align-items: center; gap: 10px;

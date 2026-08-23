@@ -104,7 +104,7 @@ export default function PacientesTabela({
                         <span className="pacientes-avatar">{p.iniciais}</span>
                         <span>
                           <div className="pacientes-quem-nome">{p.nome}</div>
-                          <div className="pacientes-quem-meta">{p.idade} anos · {p.sexo}</div>
+                          <div className="pacientes-quem-meta">{p.idade} anos</div>
                         </span>
                       </div>
                     </td>

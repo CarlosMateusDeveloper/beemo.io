@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Plus, Search } from 'lucide-react'
-import { CONVENIOS, PERIODOS } from './pacientesData'
+import { PERIODOS } from './pacientesData'
 
 export default function PacientesFiltros({
-  busca, onBuscaChange, periodo, onPeriodoChange, convenios, onConveniosChange,
+  busca, onBuscaChange, periodo, onPeriodoChange, convenios, onConveniosChange, opcoesConvenio,
   status, onStatusChange, onNovoPaciente,
 }) {
   const [convAberto, setConvAberto] = useState(false)
@@ -55,7 +55,7 @@ export default function PacientesFiltros({
           </button>
           {convAberto && (
             <div className="pacientes-conv-popover" role="listbox" aria-label="Convênios">
-              {CONVENIOS.map((nome) => (
+              {opcoesConvenio.map((nome) => (
                 <label key={nome} className="pacientes-conv-item">
                   <input
                     type="checkbox" className="pacientes-conv-checkbox"

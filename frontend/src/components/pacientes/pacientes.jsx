@@ -3,14 +3,12 @@ import PacientesFiltros from './PacientesFiltros'
 import PacientesKpis from './PacientesKpis'
 import PacientesTabela from './PacientesTabela'
 import PacientesKanban from './PacientesKanban'
+import NovoPacienteModal from './NovoPacienteModal'
+import { fetchConvenios, fetchPacientesFila, fetchPacientesKpis, fetchPacientesListagem } from './api'
 import {
-  COLUNAS_KANBAN, EVENTO_POR_COLUNA, KPI_BASE, PACIENTES, statusLabel,
+  COLUNAS_KANBAN_DEF, EVENTO_POR_COLUNA, iniciaisDe, statusLabel,
 } from './pacientesData'
 import './pacientes.css'
-
-function clonarColunas() {
-  return COLUNAS_KANBAN.map((c) => ({ ...c, cards: c.cards.map((card) => ({ ...card })) }))
-}
 
 export function Pacientes() {
   const [busca, setBusca] = useState('')
@@ -22,18 +20,59 @@ export function Pacientes() {
   const [ordem, setOrdem] = useState('ultima')
   const [direcao, setDirecao] = useState('desc')
   const [selecionados, setSelecionados] = useState(new Set())
-  const [carregando, setCarregando] = useState(true)
-  const [colunasKanban, setColunasKanban] = useState(clonarColunas)
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
+  const [modalAberto, setModalAberto] = useState(false)
 
-  // Simula a latência do futuro GET /pacientes ao trocar filtros, para o
-  // skeleton ter uso real e não só aparecer no primeiro carregamento.
+  const [kpisApi, setKpisApi] = useState(null)
+  const [carregandoKpis, setCarregandoKpis] = useState(true)
+  const [erroKpis, setErroKpis] = useState(null)
+
+  const [pacientesApi, setPacientesApi] = useState([])
+  const [carregandoTabela, setCarregandoTabela] = useState(true)
+  const [erroTabela, setErroTabela] = useState(null)
+
+  const [filaApi, setFilaApi] = useState([])
+  const [erroFila, setErroFila] = useState(null)
+
+  const [opcoesConvenio, setOpcoesConvenio] = useState([])
+
   useEffect(() => {
-    setCarregando(true)
-    const t = setTimeout(() => setCarregando(false), 420)
-    return () => clearTimeout(t)
-  }, [busca, periodo, convenios, status, filtroKpi])
+    let cancelado = false
+    setCarregandoKpis(true)
+    setErroKpis(null)
+    fetchPacientesKpis()
+      .then((dados) => { if (!cancelado) setKpisApi(dados) })
+      .catch((err) => { if (!cancelado) setErroKpis(err.message) })
+      .finally(() => { if (!cancelado) setCarregandoKpis(false) })
+    return () => { cancelado = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
+    setCarregandoTabela(true)
+    setErroTabela(null)
+    fetchPacientesListagem()
+      .then((dados) => { if (!cancelado) setPacientesApi(dados) })
+      .catch((err) => { if (!cancelado) setErroTabela(err.message) })
+      .finally(() => { if (!cancelado) setCarregandoTabela(false) })
+    return () => { cancelado = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
+    setErroFila(null)
+    fetchPacientesFila()
+      .then((dados) => { if (!cancelado) setFilaApi(dados) })
+      .catch((err) => { if (!cancelado) setErroFila(err.message) })
+    return () => { cancelado = true }
+  }, [])
+
+  useEffect(() => {
+    fetchConvenios()
+      .then((lista) => setOpcoesConvenio(lista.map((c) => c.nome)))
+      .catch(() => { /* filtro de convênio fica vazio se a lista falhar */ })
+  }, [])
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
@@ -57,7 +96,7 @@ export function Pacientes() {
 
   const linhasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase()
-    return PACIENTES.filter((p) => {
+    return pacientesApi.filter((p) => {
       if (status === 'Ativos' && p.status === 'off') return false
       if (filtroKpi === 'risk' && p.status !== 'risk') return false
       if (filtroKpi === 'inc' && p.status !== 'inc') return false
@@ -65,7 +104,7 @@ export function Pacientes() {
       if (termo && !(p.nome.toLowerCase().includes(termo) || p.telefone.includes(termo))) return false
       return true
     })
-  }, [busca, status, filtroKpi, convenios])
+  }, [pacientesApi, busca, status, filtroKpi, convenios])
 
   const linhasOrdenadas = useMemo(() => {
     const chaves = { nome: 'nome', ultima: 'ultimaData', proxima: 'proximaData', status: 'status' }
@@ -78,23 +117,36 @@ export function Pacientes() {
     })
   }, [linhasFiltradas, ordem, direcao])
 
-  const linhas = useMemo(() => linhasOrdenadas.map((p) => ({ ...p, statusTxt: statusLabel(p.status) })), [linhasOrdenadas])
+  const linhas = useMemo(() => linhasOrdenadas.map((p) => ({
+    ...p, statusTxt: statusLabel(p.status), iniciais: iniciaisDe(p.nome),
+  })), [linhasOrdenadas])
 
   const kpis = useMemo(() => {
-    const riscoPct = KPI_BASE.baseAtiva ? (KPI_BASE.risco / KPI_BASE.baseAtiva) * 100 : 0
-    const baseAtivaPct = KPI_BASE.totalCadastros ? Math.round((KPI_BASE.baseAtiva / KPI_BASE.totalCadastros) * 100) : 0
-    return {
-      baseAtivaTxt: KPI_BASE.baseAtiva.toLocaleString('pt-BR'),
-      baseApoio: `de ${KPI_BASE.totalCadastros.toLocaleString('pt-BR')} cadastros · ${baseAtivaPct}%`,
-      novosTxt: String(KPI_BASE.novos),
-      novosApoio: `+${KPI_BASE.novosDeltaPct}% · ${KPI_BASE.novosCanalPct}% via WhatsApp`,
-      riscoTxt: String(KPI_BASE.risco),
-      riscoCor: riscoPct > 10 ? 'danger' : 'warning',
-      riscoApoio: `${Math.round(riscoPct)}% da base ativa · sem retorno há 8+ meses`,
-      incTxt: String(KPI_BASE.incompletos),
-      incApoio: `${KPI_BASE.incompletosSemDocumento} sem documento`,
+    const base = kpisApi ?? {
+      totalCadastros: 0, baseAtiva: 0, novos: 0, novosDeltaPct: 0, novosCanalWhatsappPct: 0,
+      risco: 0, incompletos: 0, incompletosSemDocumento: 0,
     }
-  }, [])
+    const riscoPct = base.baseAtiva ? (base.risco / base.baseAtiva) * 100 : 0
+    const baseAtivaPct = base.totalCadastros ? Math.round((base.baseAtiva / base.totalCadastros) * 100) : 0
+    return {
+      baseAtivaTxt: base.baseAtiva.toLocaleString('pt-BR'),
+      baseApoio: `de ${base.totalCadastros.toLocaleString('pt-BR')} cadastros · ${baseAtivaPct}%`,
+      novosTxt: String(base.novos),
+      novosApoio: `${base.novosDeltaPct >= 0 ? '+' : ''}${base.novosDeltaPct}% vs. mês anterior · ${base.novosCanalWhatsappPct}% via WhatsApp`,
+      riscoTxt: String(base.risco),
+      riscoCor: riscoPct > 10 ? 'danger' : 'warning',
+      riscoApoio: `${Math.round(riscoPct)}% da base ativa · sem retorno há 6-12 meses`,
+      incTxt: String(base.incompletos),
+      incApoio: `${base.incompletosSemDocumento} sem documento`,
+    }
+  }, [kpisApi])
+
+  const colunasKanban = useMemo(() => (
+    COLUNAS_KANBAN_DEF.map((def) => ({
+      ...def,
+      cards: filaApi.filter((c) => c.coluna === def.id),
+    }))
+  ), [filaApi])
 
   function ordenarPor(coluna) {
     if (ordem === coluna) setDirecao((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -127,35 +179,36 @@ export function Pacientes() {
   }
 
   function moverCard(origemId, destinoId, index) {
+    // Ainda só visual: mover no board não faz PUT no backend pra mudar o
+    // status_consulta/checkin — a fila volta ao estado real no próximo fetch.
     const cardAtual = colunasKanban.find((c) => c.id === origemId)?.cards[index]
     if (!cardAtual) return
-    setColunasKanban((prev) => {
-      const clone = prev.map((c) => ({ ...c, cards: [...c.cards] }))
-      const origem = clone.find((c) => c.id === origemId)
-      const destino = clone.find((c) => c.id === destinoId)
-      const [movido] = origem.cards.splice(index, 1)
-      if (destinoId === 'recepcao' && movido.esperaMin == null) movido.esperaMin = 0
-      if (destinoId !== 'recepcao' && movido.esperaMin != null) delete movido.esperaMin
-      destino.cards.unshift(movido)
-      return clone
-    })
+    setFilaApi((prev) => prev.map((c) => (c === cardAtual ? { ...c, coluna: destinoId } : c)))
     mostrarToast(`${EVENTO_POR_COLUNA[destinoId]} — ${cardAtual.nome}`)
   }
 
+  const erro = erroKpis || erroTabela || erroFila
   const filtroTexto = filtroKpi === 'risk' ? 'em risco de abandono' : filtroKpi === 'inc' ? 'cadastros incompletos' : ''
-  const footTexto = `Mostrando ${linhas.length} de ${PACIENTES.length} pacientes carregados`
+  const footTexto = `Mostrando ${linhas.length} de ${pacientesApi.length} pacientes carregados`
 
   return (
     <div className="pacientes-page">
       <PacientesFiltros
         busca={busca} onBuscaChange={setBusca}
         periodo={periodo} onPeriodoChange={setPeriodo}
-        convenios={convenios} onConveniosChange={setConvenios}
+        convenios={convenios} onConveniosChange={setConvenios} opcoesConvenio={opcoesConvenio}
         status={status} onStatusChange={setStatus}
-        onNovoPaciente={() => mostrarToast('Formulário de novo paciente ainda não implementado.')}
+        onNovoPaciente={() => setModalAberto(true)}
       />
 
-      <PacientesKpis carregando={carregando} filtro={filtroKpi} onFiltro={aplicarFiltroKpi} dados={kpis} />
+      {erro && (
+        <div className="pacientes-modal-erro" style={{ marginBottom: 16 }}>
+          Não foi possível carregar a tela ({erro}). Confirme se a API está rodando em{' '}
+          {import.meta.env.VITE_API_URL || 'http://localhost:8080'}.
+        </div>
+      )}
+
+      <PacientesKpis carregando={carregandoKpis} filtro={filtroKpi} onFiltro={aplicarFiltroKpi} dados={kpis} />
 
       <div className="pacientes-painel">
         <div className="pacientes-painel-head">
@@ -179,7 +232,7 @@ export function Pacientes() {
 
         {view === 'tabela' ? (
           <PacientesTabela
-            carregando={carregando} linhas={linhas} ordem={ordem} direcao={direcao} onOrdenar={ordenarPor}
+            carregando={carregandoTabela} linhas={linhas} ordem={ordem} direcao={direcao} onOrdenar={ordenarPor}
             onAbrirPaciente={abrirPaciente}
             selecionados={selecionados} onToggleSelecionado={toggleSelecionado} onToggleTodos={toggleTodos}
             onAcaoLote={acaoLote} footTexto={footTexto}
@@ -198,6 +251,16 @@ export function Pacientes() {
         <div className="pacientes-toast" role="status" aria-live="polite">
           <span className="pacientes-toast-dot" />{toast}
         </div>
+      )}
+
+      {modalAberto && (
+        <NovoPacienteModal
+          onClose={() => setModalAberto(false)}
+          onCriado={(paciente) => {
+            setModalAberto(false)
+            mostrarToast(`${paciente.nome} cadastrado com sucesso.`)
+          }}
+        />
       )}
     </div>
   )
