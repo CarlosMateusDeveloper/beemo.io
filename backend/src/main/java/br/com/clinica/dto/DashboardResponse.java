@@ -12,7 +12,10 @@ public record DashboardResponse(
         OcupacaoDto ocupacao,
         NoShowDto noShow,
         NovosRetornosDto novosRetornos,
-        List<RankingItemDto> ranking
+        List<RankingItemDto> ranking,
+        PagadorDto pagador,
+        List<SerieItemDto> serieTemporal,
+        String serieUnidade
 ) {
 
     public record OcupacaoDto(int preenchidos, int totalSlots, double percentual) {
@@ -28,5 +31,21 @@ public record DashboardResponse(
             Integer id, String nome, String especialidade,
             int totalConsultas, BigDecimal faturamento, int faltas, double noShowPct
     ) {
+    }
+
+    // convenioPercentual é sobre (convenioValor + particularValor); porTipo usa
+    // consulta.tipo (Consulta/Retorno/Exame/Avaliação) — não há tabela de
+    // procedimento/preço por item no schema hoje, então o mix real disponível
+    // é por tipo de atendimento, não por procedimento.
+    public record PagadorDto(
+            BigDecimal convenioValor, BigDecimal particularValor, double convenioPercentual,
+            List<TipoAtendimentoDto> porTipo
+    ) {
+    }
+
+    public record TipoAtendimentoDto(String tipo, BigDecimal faturamento) {
+    }
+
+    public record SerieItemDto(String label, BigDecimal receita, int atendimentos, int cancelamentos, int faltas) {
     }
 }

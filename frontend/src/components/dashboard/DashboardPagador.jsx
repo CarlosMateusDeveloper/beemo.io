@@ -49,7 +49,7 @@ export default function DashboardPagador({ carregando, empty, dados }) {
           </div>
 
           <div className="dashboard-procs">
-            <div className="dashboard-procs-titulo">Top 3 procedimentos por receita</div>
+            <div className="dashboard-procs-titulo">Receita por tipo de atendimento</div>
             {dados.procs.map((p) => (
               <div key={p.nome} className="dashboard-proc-item">
                 <div className="dashboard-proc-linha"><span>{p.nome}</span><span>{p.valorTxt}</span></div>

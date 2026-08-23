@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import DashboardFiltros from './DashboardFiltros'
 import DashboardKpis from './DashboardKpis'
+import DashboardFaturamento from './DashboardFaturamento'
+import DashboardPagador from './DashboardPagador'
 import DashboardRanking from './DashboardRanking'
 import DashboardNovosRetornos from './DashboardNovosRetornos'
 import { fetchDashboard, fetchMedicos } from './api'
@@ -17,6 +19,9 @@ function mapearResposta(resp) {
 
   const noShowCor = resp.noShow.percentual > 20 ? 'danger' : resp.noShow.percentual >= 10 ? 'warning' : 'neutral'
   const maxFaturamento = Math.max(1, ...resp.ranking.map((r) => r.faturamento || 0))
+
+  const maxTipo = Math.max(1, ...resp.pagador.porTipo.map((t) => t.faturamento || 0))
+  const partPct = 100 - resp.pagador.convenioPercentual
 
   return {
     empty: false,
@@ -47,6 +52,21 @@ function mapearResposta(resp) {
       barraPct: `${((r.faturamento || 0) / maxFaturamento * 100).toFixed(0)}%`,
     })),
     novosRetornos: resp.novosRetornos,
+    pagador: {
+      convPct: resp.pagador.convenioPercentual,
+      convPctTxt: pct(resp.pagador.convenioPercentual, 0),
+      partPct,
+      partPctTxt: pct(partPct, 0),
+      convValTxt: brl(resp.pagador.convenioValor),
+      partValTxt: brl(resp.pagador.particularValor),
+      procs: resp.pagador.porTipo.map((t) => ({
+        nome: t.tipo,
+        valorTxt: brl(t.faturamento),
+        barraPct: `${((t.faturamento || 0) / maxTipo * 100).toFixed(0)}%`,
+      })),
+    },
+    faturamentoSerie: resp.serieTemporal,
+    faturamentoUnidade: resp.serieUnidade,
   }
 }
 
@@ -95,6 +115,14 @@ export function Dashboard() {
       )}
 
       <DashboardKpis carregando={carregando} vazio={!carregando && vazio} dados={dados.kpi} />
+
+      <div className="dashboard-row-mid">
+        <DashboardFaturamento
+          carregando={carregando} empty={vazio}
+          unidade={dados.faturamentoUnidade} serie={dados.faturamentoSerie}
+        />
+        <DashboardPagador carregando={carregando} empty={vazio} dados={dados.pagador} />
+      </div>
 
       <div className="dashboard-row-bottom">
         <DashboardRanking carregando={carregando} empty={vazio} linhas={dados.ranking || []} />

@@ -8,18 +8,22 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 // Agrega o painel do Dashboard a partir do que o schema hoje sustenta de
-// verdade: consulta (status), agenda (ocupação — tabela do agenda-service,
-// mesmo Postgres, sem entidade JPA aqui) e fatura (faturamento real). Sem
-// dado inventado: o que a base não tem (ex. mix de procedimento) fica de
-// fora da resposta em vez de aparecer como número fictício.
+// verdade: consulta (status, tipo), agenda (ocupação — tabela do
+// agenda-service, mesmo Postgres, sem entidade JPA aqui), paciente
+// (convênio x particular) e fatura (faturamento real). Sem dado inventado:
+// o schema não tem tabela de procedimento com preço por item, então o mix
+// de receita é por tipo de atendimento (consulta.tipo), não por procedimento;
+// não há meta de faturamento configurável, então a série temporal não traz meta.
 @Service
 public class DashboardService {
 
@@ -65,6 +69,10 @@ public class DashboardService {
         int realizadas = 0;
         Set<Integer> pacienteIds = new LinkedHashSet<>();
         Map<Integer, RankingAcc> porMedico = new LinkedHashMap<>();
+        Map<String, BigDecimal> porTipo = new LinkedHashMap<>();
+        BigDecimal convenioValor = BigDecimal.ZERO;
+        BigDecimal particularValor = BigDecimal.ZERO;
+        Map<LocalDate, SerieAcc> porDia = new TreeMap<>();
 
         for (Object[] linha : linhas) {
             Integer idPaciente = ((Number) linha[1]).intValue();
@@ -73,6 +81,9 @@ public class DashboardService {
             String medicoNome = (String) linha[4];
             String especialidadeNome = (String) linha[5];
             BigDecimal valorFatura = linha[6] == null ? BigDecimal.ZERO : (BigDecimal) linha[6];
+            String tipoConsulta = (String) linha[7];
+            boolean particular = linha[8] == null;
+            LocalDate dataSlot = paraLocalDate(linha[9]);
 
             pacienteIds.add(idPaciente);
             faturamento = faturamento.add(valorFatura);
@@ -83,6 +94,16 @@ public class DashboardService {
             acc.total++;
             acc.faturamento = acc.faturamento.add(valorFatura);
             if ("Faltou".equals(status)) acc.faltas++;
+
+            porTipo.merge(tipoConsulta, valorFatura, BigDecimal::add);
+            if (particular) particularValor = particularValor.add(valorFatura);
+            else convenioValor = convenioValor.add(valorFatura);
+
+            SerieAcc diaAcc = porDia.computeIfAbsent(dataSlot, d -> new SerieAcc());
+            diaAcc.receita = diaAcc.receita.add(valorFatura);
+            if ("Cancelada".equals(status)) diaAcc.cancelamentos++;
+            else if ("Faltou".equals(status)) diaAcc.faltas++;
+            else diaAcc.atendimentos++;
         }
 
         int[] novosRetornos = calcularNovosRetornos(pacienteIds, inicio, fim);
@@ -100,13 +121,53 @@ public class DashboardService {
                 ))
                 .collect(Collectors.toList());
 
+        BigDecimal totalPagador = convenioValor.add(particularValor);
+        double convenioPct = totalPagador.signum() == 0 ? 0
+                : arredondar(convenioValor.doubleValue() * 100.0 / totalPagador.doubleValue());
+        List<DashboardResponse.TipoAtendimentoDto> porTipoDto = porTipo.entrySet().stream()
+                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                .map(e -> new DashboardResponse.TipoAtendimentoDto(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+        DashboardResponse.PagadorDto pagador =
+                new DashboardResponse.PagadorDto(convenioValor, particularValor, convenioPct, porTipoDto);
+
+        List<DashboardResponse.SerieItemDto> serieTemporal = construirSerie(periodo, inicio, fim, porDia);
+        String serieUnidade = ("Mês".equals(periodo) || "Mes".equals(periodo)) ? "por semana" : "por dia";
+
         return new DashboardResponse(
                 false, totalConsultas, faturamento,
                 new DashboardResponse.OcupacaoDto(ocupacao[0], ocupacao[1], ocupacaoPct),
                 new DashboardResponse.NoShowDto(faltas, baseAtendimentos, noShowPct),
                 new DashboardResponse.NovosRetornosDto(novosRetornos[0], novosRetornos[1]),
-                ranking
+                ranking, pagador, serieTemporal, serieUnidade
         );
+    }
+
+    // "Mês" agrupa em semanas do calendário (dias 1-7, 8-14, ...) pra não virar
+    // um gráfico de ~30 barras; "Hoje" e "7 dias" ficam por dia.
+    private List<DashboardResponse.SerieItemDto> construirSerie(
+            String periodo, LocalDate inicio, LocalDate fim, Map<LocalDate, SerieAcc> porDia
+    ) {
+        List<DashboardResponse.SerieItemDto> serie = new ArrayList<>();
+        if ("Mês".equals(periodo) || "Mes".equals(periodo)) {
+            Map<Integer, SerieAcc> porSemana = new TreeMap<>();
+            for (Map.Entry<LocalDate, SerieAcc> entrada : porDia.entrySet()) {
+                int semana = (entrada.getKey().getDayOfMonth() - 1) / 7;
+                porSemana.computeIfAbsent(semana, k -> new SerieAcc()).somar(entrada.getValue());
+            }
+            int totalSemanas = (fim.getDayOfMonth() - 1) / 7 + 1;
+            for (int i = 0; i < totalSemanas; i++) {
+                SerieAcc acc = porSemana.getOrDefault(i, new SerieAcc());
+                serie.add(acc.paraDto("Sem " + (i + 1)));
+            }
+        } else {
+            for (LocalDate dia = inicio; !dia.isAfter(fim); dia = dia.plusDays(1)) {
+                SerieAcc acc = porDia.getOrDefault(dia, new SerieAcc());
+                String label = "Hoje".equals(periodo) ? "Hoje" : String.format("%02d/%02d", dia.getDayOfMonth(), dia.getMonthValue());
+                serie.add(acc.paraDto(label));
+            }
+        }
+        return serie;
     }
 
     private int[] calcularOcupacao(LocalDate inicio, LocalDate fim, Integer medicoId) {
@@ -116,7 +177,7 @@ public class DashboardService {
                         "  COUNT(*) AS total " +
                         "FROM agenda " +
                         "WHERE data_slot BETWEEN :inicio AND :fim " +
-                        "  AND (:medicoId IS NULL OR id_medico = :medicoId)"
+                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR id_medico = :medicoId)"
         );
         query.setParameter("inicio", inicio);
         query.setParameter("fim", fim);
@@ -130,14 +191,16 @@ public class DashboardService {
         Query query = entityManager.createNativeQuery(
                 "SELECT c.id_consulta, c.id_paciente, c.status_consulta::text, " +
                         "  a.id_medico, m.nome AS medico_nome, e.nome AS especialidade_nome, " +
-                        "  f.valor AS fatura_valor " +
+                        "  f.valor AS fatura_valor, c.tipo::text AS tipo_consulta, " +
+                        "  p.id_convenio, a.data_slot " +
                         "FROM consulta c " +
                         "JOIN agenda a ON c.id_agenda = a.id_agenda " +
                         "JOIN medico m ON a.id_medico = m.id_medico " +
                         "JOIN especialidade e ON m.id_especialidade = e.id_especialidade " +
+                        "JOIN paciente p ON c.id_paciente = p.id_paciente " +
                         "LEFT JOIN fatura f ON f.id_consulta = c.id_consulta " +
                         "WHERE a.data_slot BETWEEN :inicio AND :fim " +
-                        "  AND (:medicoId IS NULL OR a.id_medico = :medicoId)"
+                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId)"
         );
         query.setParameter("inicio", inicio);
         query.setParameter("fim", fim);
@@ -188,7 +251,10 @@ public class DashboardService {
                 new DashboardResponse.OcupacaoDto(0, 0, 0),
                 new DashboardResponse.NoShowDto(0, 0, 0),
                 new DashboardResponse.NovosRetornosDto(0, 0),
-                List.of()
+                List.of(),
+                new DashboardResponse.PagadorDto(BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
+                List.of(),
+                null
         );
     }
 
@@ -204,6 +270,24 @@ public class DashboardService {
             this.id = id;
             this.nome = nome;
             this.especialidade = especialidade;
+        }
+    }
+
+    private static class SerieAcc {
+        BigDecimal receita = BigDecimal.ZERO;
+        int atendimentos = 0;
+        int cancelamentos = 0;
+        int faltas = 0;
+
+        void somar(SerieAcc outro) {
+            receita = receita.add(outro.receita);
+            atendimentos += outro.atendimentos;
+            cancelamentos += outro.cancelamentos;
+            faltas += outro.faltas;
+        }
+
+        DashboardResponse.SerieItemDto paraDto(String label) {
+            return new DashboardResponse.SerieItemDto(label, receita, atendimentos, cancelamentos, faltas);
         }
     }
 }
