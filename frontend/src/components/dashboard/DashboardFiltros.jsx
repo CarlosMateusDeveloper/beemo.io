@@ -1,6 +1,6 @@
-import { PERIODOS, PROFISSIONAIS } from './dashboardData'
+import { PERIODOS } from './dashboardData'
 
-export default function DashboardFiltros({ periodo, onPeriodoChange, profissionalId, onProfissionalChange }) {
+export default function DashboardFiltros({ periodo, onPeriodoChange, profissionalId, onProfissionalChange, profissionais }) {
   return (
     <div className="dashboard-filtros">
       <div className="dashboard-seg" role="radiogroup" aria-label="Período">
@@ -22,7 +22,7 @@ export default function DashboardFiltros({ periodo, onPeriodoChange, profissiona
         aria-label="Profissional"
       >
         <option value="todos">Todos os profissionais</option>
-        {PROFISSIONAIS.map((p) => (
+        {profissionais.map((p) => (
           <option key={p.id} value={p.id}>{p.nome}</option>
         ))}
       </select>

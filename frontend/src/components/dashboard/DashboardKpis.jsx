@@ -24,17 +24,14 @@ export default function DashboardKpis({ carregando, vazio, dados }) {
       <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon acc"><Wallet size={16} strokeWidth={1.8} /></span>
-          {carregando || vazio ? 'Faturamento' : dados.faturamento.titulo}
+          Faturado no período
         </div>
         {carregando ? <Skeleton valorW="130px" /> : vazio ? <Vazio /> : (
           <>
             <div className="dashboard-kpi-valor-row">
               <span className="dashboard-kpi-valor">{dados.faturamento.valorTxt}</span>
-              <span className={`dashboard-kpi-delta ${dados.faturamento.positivo ? 'success' : 'danger'}`}>
-                {dados.faturamento.positivo ? '▲' : '▼'}
-              </span>
             </div>
-            <div className="dashboard-kpi-apoio">{dados.faturamento.deltaTxt}</div>
+            <div className="dashboard-kpi-apoio">{dados.faturamento.apoio}</div>
           </>
         )}
       </div>
@@ -67,7 +64,7 @@ export default function DashboardKpis({ carregando, vazio, dados }) {
             <div className="dashboard-kpi-valor-row">
               <span className={`dashboard-kpi-valor ${dados.noShow.cor}`}>{dados.noShow.valorTxt}</span>
             </div>
-            <div className="dashboard-kpi-apoio">{dados.noShow.apoio} · custo estimado {dados.noShow.custoTxt}</div>
+            <div className="dashboard-kpi-apoio">{dados.noShow.apoio}</div>
           </>
         )}
       </div>
