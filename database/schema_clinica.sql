@@ -108,7 +108,15 @@ CREATE TABLE medico (
     id_medico INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     crm VARCHAR(20) UNIQUE NOT NULL,
-    ativo BOOLEAN DEFAULT TRUE,
+    -- Substitui o antigo "ativo BOOLEAN": a tela /medicos precisa distinguir
+    -- férias/afastamento de desligamento definitivo (issue #17).
+    status VARCHAR(10) NOT NULL DEFAULT 'ativo'
+        CHECK (status IN ('ativo', 'ferias', 'afastado', 'desligado')),
+    -- % repassado ao médico sobre o faturamento bruto, usado pra receita
+    -- líquida em /medicos. NULL = repasse ainda não configurado pra esse
+    -- médico (issue #17) — a tela cai pra mostrar só a bruta nesse caso.
+    repasse_percentual NUMERIC(5, 2) NULL
+        CHECK (repasse_percentual IS NULL OR (repasse_percentual BETWEEN 0 AND 100)),
     id_especialidade INT NOT NULL,
     FOREIGN KEY (id_especialidade) REFERENCES especialidade(id_especialidade)
 );
@@ -134,6 +142,13 @@ CREATE TABLE consulta (
     -- há checagem de sobreposição de horário no banco para consultas de mais
     -- de um slot — "agenda" continua sendo um slot fixo por médico/data/hora.
     duracao_minutos SMALLINT NOT NULL DEFAULT 30,
+    -- Horário real em que o atendimento começou (distinto de agenda.hora_slot,
+    -- que é o horário marcado) e momento do cancelamento — usados pra
+    -- pontualidade/atraso médio e horas perdidas por cancelamento <24h em
+    -- /medicos (issue #17). Preenchidos pelo agenda-service nas transições de
+    -- status pra 'Em Atendimento'/'Cancelada', não por este backend.
+    iniciado_em TIMESTAMPTZ NULL,
+    cancelado_em TIMESTAMPTZ NULL,
     FOREIGN KEY (id_paciente) REFERENCES paciente(id_paciente),
     FOREIGN KEY (id_agenda) REFERENCES agenda(id_agenda),
     UNIQUE (id_agenda) -- Garante que um slot de agenda só tenha uma consulta ativa
@@ -474,3 +489,149 @@ CREATE TABLE pesquisa_satisfacao (
     respondido_em TIMESTAMPTZ NULL,
     FOREIGN KEY (id_consulta) REFERENCES consulta(id_consulta)
 );
+
+-- =====================================================================
+-- FASE 10 — Painel /whatsapp (conversas, assistente, desempenho)
+-- =====================================================================
+
+-- Tabela de tenant minima. O restante do schema ainda e mono-clinica (ver
+-- roadmap "multiempresa" na Fase 0, ainda nao implementada) — so as tabelas
+-- novas desta secao ja nascem preparadas com id_clinica, pra nao ter que
+-- reescrever exatamente a parte que o produto chama de coracao do sistema.
+CREATE TABLE clinica (
+    id_clinica INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TYPE estado_conversa_bot AS ENUM ('bot', 'aguardando', 'com_agente');
+
+-- Uma linha por (clinica, telefone): a "caixa de entrada" do WhatsApp. O
+-- historico de mensagens continua em `mensagem` (correlacionado por
+-- telefone, mesmo padrao que a tabela ja usa) — esta tabela guarda so o
+-- estado da conversa (quem esta cuidando dela agora).
+CREATE TABLE conversa (
+    id_conversa INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_clinica INT NOT NULL REFERENCES clinica(id_clinica),
+    id_paciente INT NULL REFERENCES paciente(id_paciente),
+    telefone VARCHAR(20) NOT NULL,
+    estado estado_conversa_bot NOT NULL DEFAULT 'bot',
+    -- Sem FK pra usuario: ainda nao existe sessao/login real (Fase 0 do
+    -- roadmap). Mesmo placeholder que o frontend ja usa hoje.
+    agente_nome VARCHAR(100) NULL,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (id_clinica, telefone)
+);
+
+CREATE INDEX idx_conversa_clinica_estado ON conversa(id_clinica, estado);
+
+-- Quem mandou cada mensagem de saida (bot ou atendente humano). Aditivo e
+-- nullable — nao quebra nada que ja grava em `mensagem` hoje. Mensagens de
+-- entrada (direcao='entrada') sao sempre do paciente; a aplicacao e quem
+-- garante essa regra, sem CHECK constraint (mesmo estilo do resto do schema).
+CREATE TYPE remetente_mensagem AS ENUM ('paciente', 'bot', 'agente');
+ALTER TABLE mensagem ADD COLUMN remetente remetente_mensagem NULL;
+ALTER TABLE mensagem ADD COLUMN id_usuario_remetente INT NULL REFERENCES usuario(id);
+
+-- Liga/desliga por clinica. Nome e texto de impacto de cada capacidade sao
+-- copy de produto (constante no backend), nao dado de linha.
+CREATE TABLE capacidade_bot_config (
+    id_clinica INT NOT NULL REFERENCES clinica(id_clinica),
+    capacidade_id VARCHAR(40) NOT NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (id_clinica, capacidade_id)
+);
+
+-- Override por clinica dos textos de cada capacidade. Sem linha aqui = usa
+-- o default (constante no backend, mesmo texto que ja existia hardcoded no
+-- frontend).
+CREATE TABLE mensagem_template_bot (
+    id_clinica INT NOT NULL REFERENCES clinica(id_clinica),
+    capacidade_id VARCHAR(40) NOT NULL,
+    campo VARCHAR(20) NOT NULL,
+    texto TEXT NOT NULL,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (id_clinica, capacidade_id, campo)
+);
+
+-- Regras de escalonamento/horario/disparo, uma linha por clinica. JSONB
+-- porque o formato ja e aninhado no frontend e nao ha necessidade de
+-- consultar campo a campo via SQL.
+CREATE TABLE regra_atendimento_bot (
+    id_clinica INT PRIMARY KEY REFERENCES clinica(id_clinica),
+    regras JSONB NOT NULL,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------
+-- Seeds — clinica 1 (mono-clinica por enquanto) com o mesmo conteudo que
+-- ja estava hardcoded no frontend mock. Nao e dado inventado: e o copy
+-- real que o produto ja tinha decidido, so migrando pra dentro do banco.
+-- ---------------------------------------------------------------------
+
+INSERT INTO clinica (id_clinica, nome) OVERRIDING SYSTEM VALUE VALUES (1, 'Clínica Vitalis');
+SELECT setval(pg_get_serial_sequence('clinica', 'id_clinica'), 1, true);
+
+INSERT INTO capacidade_bot_config (id_clinica, capacidade_id, ativo) VALUES
+    (1, 'confirmar_presenca', TRUE),
+    (1, 'consultar_horario', TRUE),
+    (1, 'marcar_consulta', TRUE),
+    (1, 'remarcar_cancelar', TRUE),
+    (1, 'vaga_aberta', TRUE),
+    (1, 'cadastro_novo', TRUE),
+    (1, 'aviso_exame', FALSE);
+
+INSERT INTO mensagem_template_bot (id_clinica, capacidade_id, campo, texto) VALUES
+    (1, 'confirmar_presenca', 'saudacao', 'Oi {nome}! Confirma presença na consulta de {data} às {hora} com {medico}?' || E'\n' || '1 · confirmar · 2 · remarcar'),
+    (1, 'confirmar_presenca', 'opcoes', 'Responda 1 para confirmar ou 2 se precisar remarcar.'),
+    (1, 'confirmar_presenca', 'confirmacao', 'Presença confirmada para {data} às {hora}. Até lá!'),
+    (1, 'confirmar_presenca', 'naoEntendi', 'Não entendi. Responda 1 para confirmar ou 2 para remarcar.'),
+
+    (1, 'consultar_horario', 'saudacao', 'Oi {nome}! Sua próxima consulta é {data} às {hora}, com {medico} ({especialidade}).'),
+    (1, 'consultar_horario', 'opcoes', 'Quer que eu remarque ou cancele esse horário?' || E'\n' || '1 · remarcar · 2 · cancelar · 3 · não, obrigado'),
+    (1, 'consultar_horario', 'confirmacao', 'Certo, {nome}! Fica como está: {data} às {hora}.'),
+    (1, 'consultar_horario', 'naoEntendi', 'Não entendi. Responda o número da opção ou escreva "atendente".'),
+
+    (1, 'marcar_consulta', 'saudacao', 'Oi {nome}, tudo bem? Sou o assistente da {clinica}.'),
+    (1, 'marcar_consulta', 'opcoes', 'Para qual especialidade? Ex.: cardiologia, ortopedia, dermatologia.'),
+    (1, 'marcar_consulta', 'confirmacao', 'Pronto, {nome}! {data} às {hora} com {medico}.'),
+    (1, 'marcar_consulta', 'naoEntendi', 'Não entendi. Responda o número da opção ou escreva "atendente".'),
+
+    (1, 'remarcar_cancelar', 'saudacao', 'Oi {nome}! Sua consulta de {data} às {hora} precisa ser remarcada?' || E'\n' || '1 · sim · 2 · não'),
+    (1, 'remarcar_cancelar', 'opcoes', 'Tenho estes horários com {medico}:' || E'\n' || '1 · próxima quinta às 14:20 · 2 · próxima sexta às 09:40'),
+    (1, 'remarcar_cancelar', 'confirmacao', 'Pronto! Remarquei para {data} às {hora}.'),
+    (1, 'remarcar_cancelar', 'naoEntendi', 'Não entendi. Responda 1 ou 2, ou escreva "atendente".'),
+
+    (1, 'vaga_aberta', 'saudacao', 'Oi {nome}! Abriu uma vaga com {medico} ({especialidade}) em {data} às {hora}. Quer ficar com ela?'),
+    (1, 'vaga_aberta', 'opcoes', 'Responda 1 para confirmar essa vaga ou 2 para continuar na fila de espera.'),
+    (1, 'vaga_aberta', 'confirmacao', 'Vaga confirmada, {nome}! {data} às {hora} com {medico}.'),
+    (1, 'vaga_aberta', 'naoEntendi', 'Não entendi. Responda 1 para confirmar a vaga ou 2 para continuar esperando.'),
+
+    (1, 'cadastro_novo', 'saudacao', 'Oi! Não encontrei esse número no nosso cadastro. Antes de marcar, pode me dizer seu nome completo?'),
+    (1, 'cadastro_novo', 'opcoes', 'Agora preciso da sua data de nascimento e, se tiver, o convênio.'),
+    (1, 'cadastro_novo', 'confirmacao', 'Cadastro feito, {nome}! Agora vamos escolher o horário.'),
+    (1, 'cadastro_novo', 'naoEntendi', 'Não entendi. Pode escrever seu nome completo, por favor?'),
+
+    (1, 'aviso_exame', 'saudacao', 'Oi {nome}! O resultado do seu exame já está disponível.'),
+    (1, 'aviso_exame', 'opcoes', 'Quer que eu envie por aqui ou prefere retirar na recepção da {clinica}?' || E'\n' || '1 · enviar por aqui · 2 · vou retirar'),
+    (1, 'aviso_exame', 'confirmacao', 'Certo, {nome}! Já providenciamos.'),
+    (1, 'aviso_exame', 'naoEntendi', 'Não entendi. Responda 1 para receber por aqui ou 2 se for retirar na recepção.');
+
+INSERT INTO regra_atendimento_bot (id_clinica, regras) VALUES (1, '{
+    "escalonamento": {
+        "pedirAtendenteSempre": true,
+        "naoEntendeuLimite": 2,
+        "palavrasChave": ["urgente", "dor", "emergência"]
+    },
+    "horarios": {
+        "atendimentoHumano": "seg–sex 08:00–18:00",
+        "sabado": "08:00–12:00"
+    },
+    "disparos": {
+        "confirmacaoPresencaHoras": 24,
+        "avisoResultadoExameAtivo": true
+    },
+    "limiteMensagensPorPacientePorDia": 3
+}'::jsonb);

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { ESPECIALIDADES, MEDICOS, PERIODOS } from './medicosData'
+import { PERIODOS } from './medicosData'
 
 export default function MedicosFiltros({
   periodo, onPeriodoChange, status, onStatusChange, especialidades, onEspecialidadesChange,
+  listaEspecialidades, medicos,
 }) {
   const [espAberto, setEspAberto] = useState(false)
   const popoverRef = useRef(null)
@@ -17,11 +18,11 @@ export default function MedicosFiltros({
     return () => document.removeEventListener('mousedown', onPointerDown)
   }, [espAberto])
 
-  const listaEsp = useMemo(() => ESPECIALIDADES.map((nome) => ({
-    nome,
-    selecionada: especialidades.includes(nome),
-    total: MEDICOS.filter((m) => m.especialidade === nome && (status === 'Todos' || m.status !== 'desligado')).length,
-  })), [especialidades, status])
+  const listaEsp = useMemo(() => listaEspecialidades.map((e) => ({
+    nome: e.nome,
+    selecionada: especialidades.includes(e.nome),
+    total: medicos.filter((m) => m.especialidade === e.nome && (status === 'Todos' || m.status === 'ativo')).length,
+  })), [listaEspecialidades, medicos, especialidades, status])
 
   const rotuloEsp = especialidades.length === 0
     ? 'Todas as especialidades'

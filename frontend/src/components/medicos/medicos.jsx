@@ -2,8 +2,40 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import MedicosFiltros from './MedicosFiltros'
 import MedicosKpis from './MedicosKpis'
 import MedicosTabela from './MedicosTabela'
-import { MEDICOS, VOLUME_MINIMO_PADRAO, TICKET_MEDIO, brl, pct, horasFmt, escalarMedico } from './medicosData'
+import { fetchEspecialidades, fetchMedicosPainel } from './api'
+import { VOLUME_MINIMO_PADRAO, brl, horasFmt, iniciaisDe, pct } from './medicosData'
 import './medicos.css'
+
+const STATUS_ROTULO = { ativo: 'ativo', ferias: 'férias', afastado: 'afastado', desligado: 'desligado' }
+
+function mapearMedico(m) {
+  return {
+    id: m.id,
+    nome: m.nome,
+    crm: m.crm,
+    especialidade: m.especialidade,
+    especialidadeId: m.especialidadeId,
+    status: m.status,
+    atendimentos: m.atendimentos,
+    novos: m.novos,
+    retornos: m.retornos,
+    receitaBruta: m.receitaBruta,
+    repassePercentual: m.repassePercentual,
+    receitaLiquida: m.receitaLiquida,
+    horariosUsados: m.horariosUsados,
+    horariosAbertos: m.horariosAbertos,
+    noShow: m.noShowPct,
+    pacientesTotal: m.pacientesTotal,
+    pacientesRetorno: m.pacientesRetorno,
+    retorno: m.pacientesTotal ? (m.pacientesRetorno / m.pacientesTotal) * 100 : 0,
+    consultasComInicio: m.consultasComInicio,
+    consultasPontuais: m.consultasPontuais,
+    atrasoMedioMin: m.atrasoMedioMin,
+    horasPerdidas: m.horasPerdidas,
+    proximoHorario: m.proximoHorarioTxt,
+    proximoHorarioNota: m.proximoTipo,
+  }
+}
 
 export function Medicos() {
   const [periodo, setPeriodo] = useState('Mês')
@@ -15,25 +47,35 @@ export function Medicos() {
   const [manual, setManual] = useState(false)
   const [volumeMinimoAtivo, setVolumeMinimoAtivo] = useState(true)
   const [abrindo, setAbrindo] = useState(null)
-  const [carregando, setCarregando] = useState(true)
   const toastTimer = useRef(null)
 
-  // Simula a latência do futuro GET /medicos ao trocar filtros, para que o
-  // skeleton da tela tenha uso real e não só apareça no primeiro load.
+  const [medicosApi, setMedicosApi] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState(null)
+  const [listaEspecialidades, setListaEspecialidades] = useState([])
+
   useEffect(() => {
+    fetchEspecialidades().then(setListaEspecialidades).catch(() => { /* filtro fica vazio se falhar */ })
+  }, [])
+
+  useEffect(() => {
+    let cancelado = false
     setCarregando(true)
-    const t = setTimeout(() => setCarregando(false), 420)
-    return () => clearTimeout(t)
-  }, [periodo, status, especialidades])
+    setErro(null)
+    fetchMedicosPainel(periodo)
+      .then((resp) => { if (!cancelado) setMedicosApi(resp.empty ? [] : resp.medicos.map(mapearMedico)) })
+      .catch((err) => { if (!cancelado) setErro(err.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
+  }, [periodo])
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
   const base = useMemo(() => (
-    MEDICOS
-      .filter((m) => (status === 'Todos' ? true : m.status !== 'desligado'))
+    medicosApi
+      .filter((m) => (status === 'Todos' ? true : m.status === 'ativo'))
       .filter((m) => especialidades.length === 0 || especialidades.includes(m.especialidade))
-      .map((m) => escalarMedico(m, periodo))
-  ), [status, especialidades, periodo])
+  ), [medicosApi, status, especialidades])
 
   const visiveis = useMemo(
     () => (volumeMinimoAtivo ? base.filter((m) => m.atendimentos >= VOLUME_MINIMO_PADRAO) : base),
@@ -42,7 +84,7 @@ export function Medicos() {
   const ocultos = base.length - visiveis.length
 
   const linhasOrdenadas = useMemo(() => {
-    const chaves = { nome: 'nome', atend: 'atendimentos', liq: 'receitaLiquida', noshow: 'noShow', atraso: 'atrasoMedio', retorno: 'retorno' }
+    const chaves = { nome: 'nome', atend: 'atendimentos', liq: 'receitaBruta', noshow: 'noShow', atraso: 'atrasoMedioMin', retorno: 'retorno' }
     return [...visiveis].sort((a, b) => {
       let va, vb
       if (ordem === 'ocup') {
@@ -59,26 +101,26 @@ export function Medicos() {
 
   const linhas = useMemo(() => linhasOrdenadas.map((m) => {
     const ocupPct = m.horariosAbertos ? Math.round((m.horariosUsados / m.horariosAbertos) * 100) : 0
-    const statusRotulo = { ativo: 'ativo', ferias: 'férias', afastado: 'afastado', desligado: 'desligado' }[m.status]
+    const temRepasse = m.repassePercentual != null
     return {
       id: m.id,
       nome: m.nome,
-      iniciais: m.iniciais,
+      iniciais: iniciaisDe(m.nome),
       especialidade: m.especialidade,
       status: m.status,
-      statusRotulo,
+      statusRotulo: STATUS_ROTULO[m.status],
       inativo: m.status !== 'ativo',
       crm: m.crm,
       atendTxt: m.atendimentos ? String(m.atendimentos) : '—',
       divisaoTxt: m.atendimentos ? `${m.novos} nov · ${m.retornos} ret` : 'sem atendimentos',
-      liqTxt: m.receitaLiquida ? brl(m.receitaLiquida) : '—',
-      brutoNotaTxt: m.receitaLiquida ? `bruto ${brl(m.receitaBruta)} · ${m.repasse}%` : '—',
+      liqTxt: m.receitaBruta ? brl(m.receitaBruta) : '—',
+      brutoNotaTxt: temRepasse ? `líquida ${brl(m.receitaLiquida)} · repasse ${m.repassePercentual}%` : null,
       ocupTxt: ocupPct ? `${ocupPct}%` : '—',
       ocupBarraPct: `${ocupPct}%`,
       noShowTxt: m.atendimentos ? pct(m.noShow) : '—',
       noShowAlerta: m.atendimentos > 0 && m.noShow > 20,
-      atrasoTxt: m.atendimentos ? `${Math.round(m.atrasoMedio)} min` : '—',
-      atrasoAlerta: m.atendimentos > 0 && m.atrasoMedio > 15,
+      atrasoTxt: m.consultasComInicio ? `${Math.round(m.atrasoMedioMin)} min` : '—',
+      atrasoAlerta: m.consultasComInicio > 0 && m.atrasoMedioMin > 15,
       retornoTxt: m.atendimentos ? pct(m.retorno) : '—',
       proximoTxt: m.proximoHorario ?? '—',
       proximoVazio: !m.proximoHorario,
@@ -96,39 +138,43 @@ export function Medicos() {
     const capTotal = soma((m) => m.horariosAbertos)
     const usadosTotal = soma((m) => m.horariosUsados)
     const ocupacaoGeral = capTotal ? (usadosTotal / capTotal) * 100 : 0
-    const horasTotal = Math.round(soma((m) => m.horasPerdidas) * 10) / 10
-    const pontualidadeGeral = media((m) => m.pontualidade)
-    const atrasoGeral = media((m) => m.atrasoMedio)
     const noShowGeral = media((m) => m.noShow)
-    const retornoGeral = media((m) => m.retorno)
+
+    const pacientesTotal = soma((m) => m.pacientesTotal)
+    const pacientesRetorno = soma((m) => m.pacientesRetorno)
+    const retornoGeral = pacientesTotal ? (pacientesRetorno / pacientesTotal) * 100 : 0
+
+    const comInicioTotal = soma((m) => m.consultasComInicio)
+    const pontuaisTotal = soma((m) => m.consultasPontuais)
+    const pontualidadeGeral = comInicioTotal ? (pontuaisTotal / comInicioTotal) * 100 : 0
+    const atrasoMinTotal = soma((m) => m.atrasoMedioMin * m.consultasComInicio)
+    const atrasoMedioGeral = comInicioTotal ? atrasoMinTotal / comInicioTotal : 0
     const pontualidadeCor = pontualidadeGeral < 70 ? 'danger' : pontualidadeGeral < 85 ? 'warning' : 'success'
 
+    const horasPerdidasTotal = soma((m) => m.horasPerdidas)
+
     const totalBruto = soma((m) => m.receitaBruta)
-    const totalLiq = soma((m) => m.receitaLiquida)
 
     return {
       kpis: {
         ocupacaoPct: pct(ocupacaoGeral),
         ocupacaoBarraPct: `${Math.round(ocupacaoGeral)}%`,
         ocupacaoApoio: `${usadosTotal.toLocaleString('pt-BR')} de ${capTotal.toLocaleString('pt-BR')} horários preenchidos`,
+        pontualidadeAmostra: comInicioTotal,
         pontualidadePct: pct(pontualidadeGeral),
         pontualidadeCor,
-        atrasoMedioMin: Math.round(atrasoGeral),
-        horasPerdidasTxt: horasFmt(horasTotal),
-        horasPerdidasCusto: brl(horasTotal * TICKET_MEDIO),
-        horasPerdidasNota: `equivale a ${Math.round(horasTotal * 3)} consultas não realizadas`,
+        atrasoMedioMin: Math.round(atrasoMedioGeral),
+        horasPerdidasTxt: horasFmt(horasPerdidasTotal),
         retornoPct: pct(retornoGeral),
-        retornoAnteriorPct: pct(Math.max(0, retornoGeral - 2)),
       },
       rodape: {
         titulo: 'Total · média',
         totalAtend: soma((m) => m.atendimentos).toLocaleString('pt-BR'),
         totalDivisao: `${soma((m) => m.novos)} nov · ${soma((m) => m.retornos)} ret`,
-        totalLiq: brl(totalLiq),
-        totalBrutoNota: `bruto ${brl(totalBruto)} · ${totalBruto ? Math.round((1 - totalLiq / totalBruto) * 100) : 0}%`,
+        totalLiq: brl(totalBruto),
         mediaOcup: pct(ocupacaoGeral),
         mediaNoShow: pct(noShowGeral),
-        mediaAtraso: `${Math.round(atrasoGeral)} min`,
+        mediaAtraso: comInicioTotal ? `${Math.round(atrasoMedioGeral)} min` : '—',
         mediaRetorno: pct(retornoGeral),
       },
     }
@@ -163,7 +209,15 @@ export function Medicos() {
         periodo={periodo} onPeriodoChange={setPeriodo}
         status={status} onStatusChange={setStatus}
         especialidades={especialidades} onEspecialidadesChange={setEspecialidades}
+        listaEspecialidades={listaEspecialidades} medicos={medicosApi}
       />
+
+      {erro && (
+        <div className="medicos-erro">
+          Não foi possível carregar o painel ({erro}). Confirme se a API está rodando em{' '}
+          {import.meta.env.VITE_API_URL || 'http://localhost:8080'}.
+        </div>
+      )}
 
       <MedicosKpis
         carregando={carregando} vazio={!carregando && listaVazia} dados={agregados.kpis}

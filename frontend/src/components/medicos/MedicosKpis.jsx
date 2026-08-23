@@ -1,12 +1,5 @@
 import { CalendarCheck2, Clock, Hourglass, RotateCcw } from 'lucide-react'
 
-// Deltas vs. período anterior: mock estático até o backend expor a
-// comparação real período-a-período (ver README do handoff de design).
-const DELTA_OCUPACAO = '4 p.p.'
-const DELTA_PONTUALIDADE = '3 p.p.'
-const DELTA_HORAS = '3h'
-const DELTA_RETORNO = '2 p.p.'
-
 function KpiHeader({ Icon, label, dicaKey, dicaAberta, onAbrir, onFechar, texto, align = 'left' }) {
   return (
     <div className="medicos-kpi-head" onMouseEnter={() => onAbrir(dicaKey)} onMouseLeave={onFechar}>
@@ -30,16 +23,18 @@ function Skeleton({ valorW, apoioLinhas }) {
   )
 }
 
-function Vazio() {
+function Vazio({ texto = 'Sem dados no período selecionado' }) {
   return (
     <>
       <div className="medicos-kpi-vazio-valor">—</div>
-      <div className="medicos-kpi-vazio-texto">Sem dados no período selecionado</div>
+      <div className="medicos-kpi-vazio-texto">{texto}</div>
     </>
   )
 }
 
 export default function MedicosKpis({ carregando, vazio, dados, dica, onAbrirDica, onFecharDica }) {
+  const semAmostraPontualidade = !carregando && !vazio && dados.pontualidadeAmostra === 0
+
   return (
     <div className="medicos-kpis">
       <div className="medicos-kpi-card">
@@ -52,7 +47,6 @@ export default function MedicosKpis({ carregando, vazio, dados, dica, onAbrirDic
           <>
             <div className="medicos-kpi-valor-row">
               <span className="medicos-kpi-valor">{dados.ocupacaoPct}</span>
-              <span className="medicos-kpi-delta success">▲ {DELTA_OCUPACAO}</span>
             </div>
             <div className="medicos-kpi-barra">
               <div className="medicos-kpi-barra-fill" style={{ width: dados.ocupacaoBarraPct }} />
@@ -68,36 +62,32 @@ export default function MedicosKpis({ carregando, vazio, dados, dica, onAbrirDic
           onAbrir={onAbrirDica} onFechar={onFecharDica}
           texto="Consultas iniciadas com até 15 minutos de atraso sobre o horário marcado."
         />
-        {carregando ? <Skeleton valorW="96px" apoioLinhas={['150px', '126px']} /> : vazio ? <Vazio /> : (
-          <>
-            <div className="medicos-kpi-valor-row">
-              <span className={`medicos-kpi-valor ${dados.pontualidadeCor}`}>{dados.pontualidadePct}</span>
-              <span className="medicos-kpi-delta danger">▼ {DELTA_PONTUALIDADE}</span>
-            </div>
-            <div className={`medicos-kpi-pill ${dados.pontualidadeCor}`}>
-              <span className="medicos-kpi-pill-dot" />atraso médio {dados.atrasoMedioMin} min
-            </div>
-            <div className="medicos-kpi-apoio-texto">meta 85% · tolerância 15 min</div>
-          </>
-        )}
+        {carregando ? <Skeleton valorW="96px" apoioLinhas={['150px', '126px']} /> : vazio ? <Vazio />
+          : semAmostraPontualidade ? <Vazio texto="Ainda sem consultas com horário de início registrado neste período" /> : (
+            <>
+              <div className="medicos-kpi-valor-row">
+                <span className={`medicos-kpi-valor ${dados.pontualidadeCor}`}>{dados.pontualidadePct}</span>
+              </div>
+              <div className={`medicos-kpi-pill ${dados.pontualidadeCor}`}>
+                <span className="medicos-kpi-pill-dot" />atraso médio {dados.atrasoMedioMin} min
+              </div>
+              <div className="medicos-kpi-apoio-texto">meta 85% · tolerância 15 min</div>
+            </>
+          )}
       </div>
 
       <div className="medicos-kpi-card">
         <KpiHeader
           Icon={Hourglass} label="Horas perdidas" dicaKey="horas" dicaAberta={dica}
           onAbrir={onAbrirDica} onFechar={onFecharDica}
-          texto="Horas de agenda perdidas por cancelamento ou bloqueio do médico com menos de 24h de antecedência. Custo = horas × ticket médio (R$ 300)."
+          texto="Horas de agenda perdidas por cancelamento do médico com menos de 24h de antecedência do horário marcado."
         />
         {carregando ? <Skeleton valorW="84px" apoioLinhas={['180px', '164px']} /> : vazio ? <Vazio /> : (
           <>
             <div className="medicos-kpi-valor-row">
-              <span className="medicos-kpi-valor danger">{dados.horasPerdidasTxt}</span>
-              <span className="medicos-kpi-delta danger">▲ {DELTA_HORAS}</span>
+              <span className="medicos-kpi-valor">{dados.horasPerdidasTxt}</span>
             </div>
-            <div className="medicos-kpi-pill danger">
-              <span className="medicos-kpi-pill-dot" />bloqueios &lt;24h · {dados.horasPerdidasCusto}
-            </div>
-            <div className="medicos-kpi-apoio-texto">{dados.horasPerdidasNota}</div>
+            <div className="medicos-kpi-apoio-texto">cancelamentos com menos de 24h de antecedência</div>
           </>
         )}
       </div>
@@ -106,19 +96,14 @@ export default function MedicosKpis({ carregando, vazio, dados, dica, onAbrirDic
         <KpiHeader
           Icon={RotateCcw} label="Taxa de retorno" dicaKey="retorno" dicaAberta={dica}
           onAbrir={onAbrirDica} onFechar={onFecharDica} align="right"
-          texto="Pacientes que voltaram a se consultar com o mesmo médico em até 12 meses."
+          texto="Pacientes com mais de uma consulta com o mesmo médico, sobre o total de pacientes atendidos por ele."
         />
         {carregando ? <Skeleton valorW="96px" apoioLinhas={['186px', '140px']} /> : vazio ? <Vazio /> : (
           <>
             <div className="medicos-kpi-valor-row">
               <span className="medicos-kpi-valor">{dados.retornoPct}</span>
-              <span className="medicos-kpi-delta success">▲ {DELTA_RETORNO}</span>
             </div>
-            <div className="medicos-kpi-linha-info">
-              <span className="medicos-kpi-tracinho" />
-              período anterior <span className="medicos-kpi-mono">{dados.retornoAnteriorPct}</span>
-            </div>
-            <div className="medicos-kpi-apoio-texto">mesmo médico, em até 12 meses</div>
+            <div className="medicos-kpi-apoio-texto">mesmo médico, considerando todo o histórico</div>
           </>
         )}
       </div>

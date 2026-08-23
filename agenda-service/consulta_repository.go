@@ -7,7 +7,8 @@ import (
 
 const consultaSelect = `
 	SELECT c.id_consulta, c.id_paciente, p.nome, c.id_agenda, a.id_medico,
-	       a.data_slot::text, a.hora_slot::text, c.status_consulta, c.tipo, c.duracao_minutos
+	       a.data_slot::text, a.hora_slot::text, c.status_consulta, c.tipo, c.duracao_minutos,
+	       c.iniciado_em::text, c.cancelado_em::text
 	FROM consulta c
 	JOIN agenda a ON a.id_agenda = c.id_agenda
 	JOIN paciente p ON p.id_paciente = c.id_paciente
@@ -16,7 +17,8 @@ const consultaSelect = `
 func scanConsulta(row interface{ Scan(...any) error }) (*Consulta, error) {
 	var c Consulta
 	err := row.Scan(&c.ID, &c.IDPaciente, &c.PacienteNome, &c.IDAgenda, &c.IDMedico,
-		&c.DataSlot, &c.HoraSlot, &c.Status, &c.Tipo, &c.DuracaoMinutos)
+		&c.DataSlot, &c.HoraSlot, &c.Status, &c.Tipo, &c.DuracaoMinutos,
+		&c.IniciadoEm, &c.CanceladoEm)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,17 @@ func applyConsultaUpdate(db *sql.DB, id int, in updateConsultaInput) (*Consulta,
 		}
 	}
 	if in.Status != nil {
-		if _, err := tx.Exec(`UPDATE consulta SET status_consulta = $1 WHERE id_consulta = $2`, *in.Status, id); err != nil {
+		// Grava o horário real da transição pra 'Em Atendimento'/'Cancelada' —
+		// alimenta pontualidade e horas perdidas em /medicos (issue #17 do
+		// backend Java). As demais transições só trocam o status mesmo.
+		query := `UPDATE consulta SET status_consulta = $1 WHERE id_consulta = $2`
+		switch *in.Status {
+		case StatusEmAtendimento:
+			query = `UPDATE consulta SET status_consulta = $1, iniciado_em = now() WHERE id_consulta = $2`
+		case StatusCancelada:
+			query = `UPDATE consulta SET status_consulta = $1, cancelado_em = now() WHERE id_consulta = $2`
+		}
+		if _, err := tx.Exec(query, *in.Status, id); err != nil {
 			return nil, err
 		}
 	}

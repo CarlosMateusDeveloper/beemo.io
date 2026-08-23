@@ -4,7 +4,7 @@ const COLUNAS = [
   { id: 'nome', label: 'Médico', width: 236, align: 'left', sortable: true },
   { id: 'crm', label: 'CRM', width: 84, align: 'left', sortable: false },
   { id: 'atend', label: 'Atend.', width: 118, align: 'right', sortable: true },
-  { id: 'liq', label: 'Receita líquida', width: 156, align: 'right', sortable: true },
+  { id: 'liq', label: 'Receita bruta', width: 156, align: 'right', sortable: true },
   { id: 'ocup', label: 'Ocupação', width: 132, align: 'left', sortable: true },
   { id: 'noshow', label: 'No-show', width: 80, align: 'right', sortable: true },
   { id: 'atraso', label: 'Atraso', width: 94, align: 'right', sortable: true },
@@ -114,7 +114,7 @@ export default function MedicosTabela({
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div className="medicos-mono">{r.liqTxt}</div>
-                      <div className="medicos-row-sub2">{r.brutoNotaTxt}</div>
+                      {r.brutoNotaTxt && <div className="medicos-row-sub2">{r.brutoNotaTxt}</div>}
                     </td>
                     <td>
                       <div className="medicos-row-ocup">
@@ -152,7 +152,6 @@ export default function MedicosTabela({
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div className="medicos-mono">{rodape.totalLiq}</div>
-                    <div className="medicos-row-sub2">{rodape.totalBrutoNota}</div>
                   </td>
                   <td className="medicos-mono medicos-rodape-valor">{rodape.mediaOcup}</td>
                   <td className="medicos-mono medicos-rodape-valor" style={{ textAlign: 'right' }}>{rodape.mediaNoShow}</td>

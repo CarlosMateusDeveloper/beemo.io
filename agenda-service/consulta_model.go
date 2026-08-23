@@ -53,6 +53,11 @@ type Consulta struct {
 	Status         StatusConsulta `json:"status"`
 	Tipo           TipoConsulta   `json:"tipo"`
 	DuracaoMinutos int            `json:"duracaoMinutos"`
+	// Horário real de início e momento do cancelamento — gravados por esta
+	// API nas transições pra 'Em Atendimento'/'Cancelada'. Alimentam
+	// pontualidade e horas perdidas em /medicos (issue #17 do backend Java).
+	IniciadoEm  *string `json:"iniciadoEm"`
+	CanceladoEm *string `json:"canceladoEm"`
 }
 
 // createConsultaInput é o corpo de POST /consultas. Cria (ou reaproveita) o

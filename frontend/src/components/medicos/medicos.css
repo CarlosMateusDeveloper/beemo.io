@@ -14,6 +14,8 @@
   clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
+.medicos-erro { margin-bottom: 16px; padding: 11px 14px; border-radius: 9px; background: var(--danger-bg); color: var(--danger); font-size: 13px; }
+
 /* Barra de filtros */
 .medicos-filtros { display: flex; align-items: flex-start; gap: 24px 28px; flex-wrap: wrap; }
 
