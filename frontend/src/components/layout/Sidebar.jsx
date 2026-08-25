@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, CalendarDays, Users, MessageCircle, Stethoscope, Wallet, HeartHandshake, ChevronLeft, ChevronRight,
+  LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet, HeartHandshake, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
 import ThemeToggle from '../../theme/ThemeToggle'
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/pacientes', label: 'Pacientes', icon: Users },
+  { to: '/prontuario', label: 'Prontuários', icon: FileText },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope },
   { to: '/caixa', label: 'Caixa', icon: Wallet },

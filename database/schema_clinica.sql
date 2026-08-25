@@ -168,15 +168,19 @@ CREATE TABLE prontuario (
     -- Subjetivo
     queixa_principal TEXT NULL,
     historia_doenca_atual TEXT NULL,
-    descricao TEXT NOT NULL,
+    -- NULL enquanto o atendimento é rascunho (/prontuario, issue schema
+    -- pendente) — assinado_em NULL é o sinal de "Pendente"; finalizar exige
+    -- descricao/diagnostico/prescricao preenchidos, mas isso é regra de
+    -- aplicação, não mais constraint de banco.
+    descricao TEXT NULL,
     -- Objetivo
     exame_fisico TEXT NULL,
     -- Avaliação
     hipotese_diagnostica TEXT NULL,
-    diagnostico TEXT NOT NULL,
+    diagnostico TEXT NULL,
     tipo_diagnostico tipo_diagnostico NOT NULL DEFAULT 'DEFINITIVO',
     -- Plano
-    prescricao TEXT NOT NULL,
+    prescricao TEXT NULL,
     plano_terapeutico TEXT NULL,
     conduta TEXT NULL,
     -- Assinatura e auditoria (Resolução CFM 2.299/2021)

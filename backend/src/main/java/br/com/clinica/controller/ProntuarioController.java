@@ -1,12 +1,18 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.model.Prontuario;
-import br.com.clinica.repository.ProntuarioRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.dto.ProntuarioAtendimentoDto;
+import br.com.clinica.dto.ProntuarioDetalheCompletoDto;
+import br.com.clinica.dto.ProntuarioDocumentoDto;
+import br.com.clinica.dto.ProntuarioListagemItemDto;
+import br.com.clinica.dto.ProntuarioPacienteDetalheDto;
+import br.com.clinica.dto.ProntuarioSalvarRequest;
+import br.com.clinica.dto.ProntuarioSalvoDto;
+import br.com.clinica.service.ProntuarioDetalheService;
+import br.com.clinica.service.ProntuarioEscritaService;
+import br.com.clinica.service.ProntuarioListagemService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -14,54 +20,46 @@ import java.util.List;
 @RequestMapping("/api/prontuarios")
 public class ProntuarioController {
 
-    private final ProntuarioRepository repository;
+    private final ProntuarioListagemService listagemService;
+    private final ProntuarioDetalheService detalheService;
+    private final ProntuarioEscritaService escritaService;
 
-    public ProntuarioController(ProntuarioRepository repository) {
-        this.repository = repository;
+    public ProntuarioController(
+            ProntuarioListagemService listagemService, ProntuarioDetalheService detalheService,
+            ProntuarioEscritaService escritaService
+    ) {
+        this.listagemService = listagemService;
+        this.detalheService = detalheService;
+        this.escritaService = escritaService;
     }
 
-    @GetMapping
-    public List<Prontuario> listar() {
-        return repository.findAll();
+    @GetMapping("/listagem")
+    public List<ProntuarioListagemItemDto> listagem() {
+        return listagemService.listar();
     }
 
-    @GetMapping("/{id}")
-    public Prontuario buscar(@PathVariable Integer id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    @GetMapping("/pacientes/{idPaciente}")
+    public ProntuarioPacienteDetalheDto detalharPaciente(@PathVariable Integer idPaciente) {
+        return detalheService.detalharPaciente(idPaciente);
+    }
+
+    @GetMapping("/pacientes/{idPaciente}/documentos")
+    public List<ProntuarioDocumentoDto> documentos(@PathVariable Integer idPaciente) {
+        return detalheService.documentos(idPaciente);
+    }
+
+    @GetMapping("/{id}/detalhe")
+    public ProntuarioDetalheCompletoDto detalhe(@PathVariable Integer id) {
+        return detalheService.detalharProntuario(id);
     }
 
     @PostMapping
-    public ResponseEntity<Prontuario> criar(@Valid @RequestBody Prontuario prontuario) {
-        Prontuario salvo = repository.save(prontuario);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+    public ResponseEntity<ProntuarioSalvoDto> criar(@RequestBody ProntuarioSalvarRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public Prontuario atualizar(@PathVariable Integer id, @Valid @RequestBody Prontuario dados) {
-        Prontuario existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setQueixaPrincipal(dados.getQueixaPrincipal());
-        existente.setHistoriaDoencaAtual(dados.getHistoriaDoencaAtual());
-        existente.setDescricao(dados.getDescricao());
-        existente.setExameFisico(dados.getExameFisico());
-        existente.setHipoteseDiagnostica(dados.getHipoteseDiagnostica());
-        existente.setDiagnostico(dados.getDiagnostico());
-        existente.setTipoDiagnostico(dados.getTipoDiagnostico());
-        existente.setPrescricao(dados.getPrescricao());
-        existente.setPlanoTerapeutico(dados.getPlanoTerapeutico());
-        existente.setConduta(dados.getConduta());
-        existente.setMedicoResponsavel(dados.getMedicoResponsavel());
-        existente.setAssinadoEm(dados.getAssinadoEm());
-        return repository.save(existente);
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> remover(@PathVariable Integer id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        }
-        repository.deleteById(id);
-        return ResponseEntity.noContent().build();
+    public ProntuarioSalvoDto atualizar(@PathVariable Integer id, @RequestBody ProntuarioSalvarRequest request) {
+        return escritaService.atualizar(id, request);
     }
 }

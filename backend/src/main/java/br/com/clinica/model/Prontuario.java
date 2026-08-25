@@ -1,7 +1,6 @@
 package br.com.clinica.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,7 +32,8 @@ public class Prontuario {
     @Column(name = "historia_doenca_atual", columnDefinition = "TEXT")
     private String historiaDoencaAtual;
 
-    @NotBlank
+    // NULL enquanto o atendimento é rascunho (assinadoEm == null); finalizar
+    // exige preenchido — validado em ProntuarioDetalheService, não aqui.
     @Column(columnDefinition = "TEXT")
     private String descricao;
 
@@ -45,7 +45,6 @@ public class Prontuario {
     @Column(name = "hipotese_diagnostica", columnDefinition = "TEXT")
     private String hipoteseDiagnostica;
 
-    @NotBlank
     @Column(columnDefinition = "TEXT")
     private String diagnostico;
 
@@ -54,7 +53,6 @@ public class Prontuario {
     private TipoDiagnostico tipoDiagnostico = TipoDiagnostico.DEFINITIVO;
 
     // Plano
-    @NotBlank
     @Column(columnDefinition = "TEXT")
     private String prescricao;
 
