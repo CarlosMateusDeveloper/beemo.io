@@ -639,3 +639,55 @@ INSERT INTO regra_atendimento_bot (id_clinica, regras) VALUES (1, '{
     },
     "limiteMensagensPorPacientePorDia": 3
 }'::jsonb);
+
+-- =====================================================================
+-- FASE 11 — Caixa
+-- =====================================================================
+
+-- 'dinheiro' nao existia no enum original (Fase 6 so previa liquidacao
+-- eletronica) — a tela /caixa precisa registrar recebimento em espécie.
+-- ADD VALUE roda fora de bloco de transacao explicito, por isso e um
+-- statement isolado aqui.
+ALTER TYPE metodo_pagamento ADD VALUE IF NOT EXISTS 'dinheiro';
+
+-- Turno de caixa: abertura/fechamento, contagem de dinheiro na gaveta e
+-- diferenca. id_clinica pronta pra multi-tenant, mesmo padrao da Fase 10
+-- (reaproveita a tabela `clinica` criada la). Sem FK pra usuario: ainda
+-- nao existe sessao/login real (Fase 0 do roadmap).
+CREATE TABLE turno_caixa (
+    id_turno_caixa INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_clinica INT NOT NULL REFERENCES clinica(id_clinica),
+    aberto_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fechado_em TIMESTAMPTZ NULL,
+    operador_nome VARCHAR(100) NOT NULL,
+    dinheiro_contado NUMERIC(10, 2) NULL,
+    diferenca NUMERIC(10, 2) NULL,
+    observacao TEXT NULL
+);
+
+CREATE INDEX idx_turno_caixa_clinica_aberto ON turno_caixa(id_clinica, fechado_em);
+
+-- Campos que o registro de recebimento em /caixa precisa e `pagamento`
+-- (Fase 6) ainda nao tinha: parcelamento, desconto com motivo obrigatorio,
+-- e o turno em que o recebimento foi lançado (pra "movimento do dia" e
+-- pro fechamento saber quanto dinheiro era esperado na gaveta).
+ALTER TABLE pagamento ADD COLUMN parcelas SMALLINT NULL;
+ALTER TABLE pagamento ADD COLUMN desconto NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE pagamento ADD COLUMN motivo_desconto TEXT NULL;
+ALTER TABLE pagamento ADD COLUMN id_turno_caixa INT NULL REFERENCES turno_caixa(id_turno_caixa);
+
+-- =====================================================================
+-- FASE 12 — Dados cadastrais completos do paciente
+-- =====================================================================
+
+-- `paciente` (Nucleo) so tinha nome/cpf/nascimento/telefone/convenio. A
+-- ficha do paciente (/pacientes/:id, aba Resumo) precisa de contato e
+-- endereco completos, que ainda nao existiam em lugar nenhum do schema.
+ALTER TABLE paciente ADD COLUMN email VARCHAR(150) NULL;
+ALTER TABLE paciente ADD COLUMN cep CHAR(8) NULL;
+ALTER TABLE paciente ADD COLUMN logradouro VARCHAR(150) NULL;
+ALTER TABLE paciente ADD COLUMN numero_endereco VARCHAR(10) NULL;
+ALTER TABLE paciente ADD COLUMN complemento VARCHAR(100) NULL;
+ALTER TABLE paciente ADD COLUMN bairro VARCHAR(100) NULL;
+ALTER TABLE paciente ADD COLUMN cidade VARCHAR(100) NULL;
+ALTER TABLE paciente ADD COLUMN uf CHAR(2) NULL;
