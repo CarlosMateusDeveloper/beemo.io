@@ -1,34 +1,34 @@
 import { Banknote, CreditCard, QrCode } from 'lucide-react'
-import { brl, TURNO } from './caixaData'
+import { brl } from './caixaData'
 
-export default function CaixaStatusTurno({ onFecharCaixa }) {
+export default function CaixaStatusTurno({ turno, onFecharCaixa }) {
   return (
     <section className="caixa-status">
       <div className="caixa-status-left">
         <div className="caixa-status-live">
           <span className="caixa-status-dot" />
-          <span>Caixa aberto{TURNO.horaAbertura ? ` desde ${TURNO.horaAbertura}` : ''} · {TURNO.operador.split(' ')[0]}</span>
+          <span>Caixa aberto{turno.horaAbertura ? ` desde ${turno.horaAbertura}` : ''} · {turno.operador.split(' ')[0]}</span>
         </div>
-        <div className="caixa-status-total">{brl(TURNO.totalHoje)}</div>
-        <div className="caixa-status-sub">{TURNO.recebimentosHoje} recebimentos hoje</div>
+        <div className="caixa-status-total">{brl(turno.totalHoje)}</div>
+        <div className="caixa-status-sub">{turno.recebimentosHoje} recebimentos hoje</div>
       </div>
 
       <div className="caixa-formas">
         <div className="caixa-forma-dinheiro">
           <div className="caixa-forma-lab"><Banknote size={15} strokeWidth={1.6} /><span>Dinheiro</span></div>
-          <div className="caixa-forma-val">{brl(TURNO.dinheiro)}</div>
+          <div className="caixa-forma-val">{brl(turno.dinheiro)}</div>
           <div className="caixa-forma-sub">contado na gaveta</div>
         </div>
 
         <div className="caixa-formas-outras">
           <div className="caixa-forma-simples">
             <div className="caixa-forma-lab"><CreditCard size={15} strokeWidth={1.6} /><span>Cartão</span></div>
-            <div className="caixa-forma-val">{brl(TURNO.cartao)}</div>
+            <div className="caixa-forma-val">{brl(turno.cartao)}</div>
             <div className="caixa-forma-sub">liquidação automática</div>
           </div>
           <div className="caixa-forma-simples">
             <div className="caixa-forma-lab"><QrCode size={15} strokeWidth={1.6} /><span>Pix</span></div>
-            <div className="caixa-forma-val">{brl(TURNO.pix)}</div>
+            <div className="caixa-forma-val">{brl(turno.pix)}</div>
             <div className="caixa-forma-sub">liquidação automática</div>
           </div>
         </div>

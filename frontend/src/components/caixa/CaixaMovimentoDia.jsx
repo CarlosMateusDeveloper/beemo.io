@@ -1,9 +1,9 @@
 import { Banknote, CreditCard, QrCode, SearchX } from 'lucide-react'
-import { brl, MOVIMENTO } from './caixaData'
+import { brl } from './caixaData'
 
 const ICONE_METODO = { dinheiro: Banknote, debito: CreditCard, credito: CreditCard, pix: QrCode }
 
-export default function CaixaMovimentoDia() {
+export default function CaixaMovimentoDia({ linhas }) {
   return (
     <section className="caixa-painel">
       <div className="caixa-painel-head">
@@ -11,10 +11,10 @@ export default function CaixaMovimentoDia() {
           <h2>Movimento do dia</h2>
           <span className="caixa-painel-sub">entradas e saídas</span>
         </div>
-        <span className="caixa-painel-meta">{MOVIMENTO.length} lançamentos</span>
+        <span className="caixa-painel-meta">{linhas.length} lançamentos</span>
       </div>
 
-      {MOVIMENTO.length === 0 ? (
+      {linhas.length === 0 ? (
         <div className="caixa-vazio">
           <span className="caixa-vazio-tile"><SearchX size={20} strokeWidth={1.6} /></span>
           <div className="caixa-vazio-titulo">Nenhum lançamento hoje</div>
@@ -22,7 +22,7 @@ export default function CaixaMovimentoDia() {
         </div>
       ) : (
       <div>
-        {MOVIMENTO.map((m) => {
+        {linhas.map((m) => {
           const Icone = ICONE_METODO[m.metodo]
           return (
             <div key={m.id} className="caixa-row">
