@@ -53,4 +53,31 @@ public class Paciente {
 
     @Column(name = "historia_social", columnDefinition = "TEXT")
     private String historiaSocial;
+
+    @Size(max = 150)
+    private String email;
+
+    @Size(min = 8, max = 8)
+    @Column(length = 8)
+    private String cep;
+
+    @Size(max = 150)
+    private String logradouro;
+
+    @Size(max = 10)
+    @Column(name = "numero_endereco")
+    private String numeroEndereco;
+
+    @Size(max = 100)
+    private String complemento;
+
+    @Size(max = 100)
+    private String bairro;
+
+    @Size(max = 100)
+    private String cidade;
+
+    @Size(min = 2, max = 2)
+    @Column(length = 2)
+    private String uf;
 }

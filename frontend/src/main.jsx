@@ -27,6 +27,7 @@ const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       { path: "agenda", element: <Agenda /> },
       { path: "pacientes", element: <Pacientes /> },
+      { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
       { path: "prontuario", element: <Prontuario /> },
       { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
       { path: "whatsapp", element: <Whatsapp /> },

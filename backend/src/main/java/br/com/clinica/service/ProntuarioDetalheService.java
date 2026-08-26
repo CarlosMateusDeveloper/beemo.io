@@ -41,7 +41,11 @@ public class ProntuarioDetalheService {
     @SuppressWarnings("unchecked")
     public ProntuarioPacienteDetalheDto detalharPaciente(Integer idPaciente) {
         Query base = entityManager.createNativeQuery(
-                "SELECT nome, cpf, ddd, numero, data_nascimento FROM paciente WHERE id_paciente = :id"
+                "SELECT p.nome, p.cpf, p.ddd, p.numero, p.data_nascimento, p.email, cv.nome, " +
+                        "  p.cep, p.logradouro, p.numero_endereco, p.complemento, p.bairro, p.cidade, p.uf " +
+                        "FROM paciente p " +
+                        "LEFT JOIN convenio cv ON cv.id_convenio = p.id_convenio " +
+                        "WHERE p.id_paciente = :id"
         );
         base.setParameter("id", idPaciente);
         Object[] linha;
@@ -56,9 +60,22 @@ public class ProntuarioDetalheService {
         String numero = (String) linha[3];
         LocalDate nascimento = paraLocalDate(linha[4]);
         int idade = Period.between(nascimento, LocalDate.now()).getYears();
+        String email = (String) linha[5];
+        String convenioNome = (String) linha[6];
+        String cep = (String) linha[7];
+        String logradouro = (String) linha[8];
+        String numeroEndereco = (String) linha[9];
+        String complemento = (String) linha[10];
+        String bairro = (String) linha[11];
+        String cidade = (String) linha[12];
+        String uf = (String) linha[13];
+
+        boolean temEndereco = logradouro != null || cep != null || cidade != null;
+        ProntuarioPacienteDetalheDto.EnderecoDto endereco = !temEndereco ? null
+                : new ProntuarioPacienteDetalheDto.EnderecoDto(cep, logradouro, numeroEndereco, complemento, bairro, cidade, uf);
 
         return new ProntuarioPacienteDetalheDto(
-                idPaciente, nome, idade, cpf, formatarTelefone(ddd, numero),
+                idPaciente, nome, idade, cpf, formatarTelefone(ddd, numero), email, convenioNome, endereco,
                 alergias(idPaciente), comorbidades(idPaciente), medicamentos(idPaciente),
                 atendimentos(idPaciente)
         );

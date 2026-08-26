@@ -64,7 +64,13 @@ public class PacienteController {
     @PostMapping
     public ResponseEntity<Paciente> criar(@Valid @RequestBody Paciente paciente) {
         Paciente salvo = repository.save(paciente);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+        // Re-busca via findById (JOIN FETCH convenio) em vez de devolver o
+        // retorno cru do save(): quando o convenio chega so com {id}, o
+        // Hibernate reassocia como proxy lazy no ciclo de merge, e devolver
+        // esse objeto quebraria a serializacao (open-in-view: false).
+        Paciente recarregado = repository.findById(salvo.getId())
+                .orElseThrow(() -> new IllegalStateException("Paciente recem-criado não encontrado"));
+        return ResponseEntity.status(HttpStatus.CREATED).body(recarregado);
     }
 
     @PutMapping("/{id}")
@@ -79,7 +85,19 @@ public class PacienteController {
         existente.setConvenio(dados.getConvenio());
         existente.setHistoriaFamiliar(dados.getHistoriaFamiliar());
         existente.setHistoriaSocial(dados.getHistoriaSocial());
-        return repository.save(existente);
+        existente.setEmail(dados.getEmail());
+        existente.setCep(dados.getCep());
+        existente.setLogradouro(dados.getLogradouro());
+        existente.setNumeroEndereco(dados.getNumeroEndereco());
+        existente.setComplemento(dados.getComplemento());
+        existente.setBairro(dados.getBairro());
+        existente.setCidade(dados.getCidade());
+        existente.setUf(dados.getUf());
+        repository.save(existente);
+        // Mesmo motivo do POST: re-busca com JOIN FETCH em vez de devolver o
+        // retorno cru do save().
+        return repository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("Paciente não encontrado após salvar"));
     }
 
     @DeleteMapping("/{id}")

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PacientesFiltros from './PacientesFiltros'
 import PacientesKpis from './PacientesKpis'
 import PacientesTabela from './PacientesTabela'
@@ -11,6 +12,7 @@ import {
 import './pacientes.css'
 
 export function Pacientes() {
+  const navigate = useNavigate()
   const [busca, setBusca] = useState('')
   const [periodo, setPeriodo] = useState('Mês')
   const [convenios, setConvenios] = useState([])
@@ -38,25 +40,29 @@ export function Pacientes() {
   const [opcoesConvenio, setOpcoesConvenio] = useState([])
 
   useEffect(() => {
-    let cancelado = false
-    setCarregandoKpis(true)
-    setErroKpis(null)
-    fetchPacientesKpis()
-      .then((dados) => { if (!cancelado) setKpisApi(dados) })
-      .catch((err) => { if (!cancelado) setErroKpis(err.message) })
-      .finally(() => { if (!cancelado) setCarregandoKpis(false) })
-    return () => { cancelado = true }
+    recarregarKpis()
   }, [])
 
-  useEffect(() => {
-    let cancelado = false
+  function recarregarPacientes() {
     setCarregandoTabela(true)
     setErroTabela(null)
-    fetchPacientesListagem()
-      .then((dados) => { if (!cancelado) setPacientesApi(dados) })
-      .catch((err) => { if (!cancelado) setErroTabela(err.message) })
-      .finally(() => { if (!cancelado) setCarregandoTabela(false) })
-    return () => { cancelado = true }
+    return fetchPacientesListagem()
+      .then((dados) => setPacientesApi(dados))
+      .catch((err) => setErroTabela(err.message))
+      .finally(() => setCarregandoTabela(false))
+  }
+
+  function recarregarKpis() {
+    setCarregandoKpis(true)
+    setErroKpis(null)
+    return fetchPacientesKpis()
+      .then((dados) => setKpisApi(dados))
+      .catch((err) => setErroKpis(err.message))
+      .finally(() => setCarregandoKpis(false))
+  }
+
+  useEffect(() => {
+    recarregarPacientes()
   }, [])
 
   useEffect(() => {
@@ -173,9 +179,9 @@ export function Pacientes() {
     setSelecionados(new Set())
   }
 
-  function abrirPaciente(nome) {
-    // Sem ficha /pacientes/{id} ainda: mostra um toast, como no protótipo.
-    mostrarToast(`Abrindo a ficha de ${nome}…`)
+  function abrirPaciente(idPaciente) {
+    if (idPaciente == null) return
+    navigate(`/pacientes/${idPaciente}`)
   }
 
   function moverCard(origemId, destinoId, index) {
@@ -259,6 +265,8 @@ export function Pacientes() {
           onCriado={(paciente) => {
             setModalAberto(false)
             mostrarToast(`${paciente.nome} cadastrado com sucesso.`)
+            recarregarPacientes()
+            recarregarKpis()
           }}
         />
       )}

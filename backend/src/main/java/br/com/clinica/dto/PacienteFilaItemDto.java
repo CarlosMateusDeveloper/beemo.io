@@ -5,6 +5,7 @@ package br.com.clinica.dto;
 // aparece aqui — o frontend já cai de volta pro badge de convênio quando
 // não há pendência.
 public record PacienteFilaItemDto(
+        Integer idPaciente,
         String coluna,
         String nome,
         String hora,

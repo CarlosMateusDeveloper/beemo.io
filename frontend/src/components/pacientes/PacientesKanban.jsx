@@ -20,7 +20,7 @@ function Card({ card, colId, index, onDragStart, onAbrirPaciente }) {
     <div
       className="pacientes-card" draggable
       onDragStart={(e) => onDragStart(e, colId, index)}
-      onClick={() => onAbrirPaciente(card.nome)}
+      onClick={() => onAbrirPaciente(card.idPaciente)}
     >
       <div className="pacientes-card-nome">{card.nome}</div>
       <div className="pacientes-card-meta"><span className="pacientes-mono">{card.hora}</span>·<span>{card.especialidade}</span></div>

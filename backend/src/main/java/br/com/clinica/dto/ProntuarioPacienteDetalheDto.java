@@ -11,11 +11,21 @@ public record ProntuarioPacienteDetalheDto(
         int idade,
         String cpf,
         String telefone,
+        String email,
+        String convenio,
+        EnderecoDto endereco,
         List<AlergiaResumoDto> alergias,
         List<ComorbidadeResumoDto> comorbidades,
         List<MedicamentoResumoDto> medicamentos,
         List<ProntuarioAtendimentoDto> atendimentos
 ) {
+
+    // null quando nenhum campo de endereco foi preenchido ainda — o frontend
+    // mostra "nao cadastrado" nesse caso, em vez de campos vazios.
+    public record EnderecoDto(
+            String cep, String logradouro, String numero, String complemento, String bairro, String cidade, String uf
+    ) {
+    }
 
     public record AlergiaResumoDto(String substancia, String tipo, String gravidade) {
     }

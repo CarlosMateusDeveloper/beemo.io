@@ -41,7 +41,7 @@ public class PacienteFilaService {
         LocalDate hoje = LocalDate.now();
 
         Query query = entityManager.createNativeQuery(
-                "SELECT c.status_consulta::text, p.nome, a.hora_slot, e.nome, cv.nome, fa.checkin_em " +
+                "SELECT c.status_consulta::text, p.nome, a.hora_slot, e.nome, cv.nome, fa.checkin_em, p.id_paciente " +
                         "FROM consulta c " +
                         "JOIN agenda a ON a.id_agenda = c.id_agenda " +
                         "JOIN paciente p ON p.id_paciente = c.id_paciente " +
@@ -67,6 +67,7 @@ public class PacienteFilaService {
             String especialidade = (String) l[3];
             String convenio = (String) l[4];
             Object checkinRaw = l[5];
+            Integer idPaciente = ((Number) l[6]).intValue();
 
             Integer esperaMin = null;
             if ("recepcao".equals(coluna) && checkinRaw != null) {
@@ -74,7 +75,7 @@ public class PacienteFilaService {
                 esperaMin = (int) Duration.between(checkin, agora).toMinutes();
             }
 
-            resultado.add(new PacienteFilaItemDto(coluna, nome, hora, especialidade, esperaMin, convenio));
+            resultado.add(new PacienteFilaItemDto(idPaciente, coluna, nome, hora, especialidade, esperaMin, convenio));
         }
 
         // Recepção ordena por maior espera primeiro; as demais colunas já vieram por horário.

@@ -99,7 +99,7 @@ export default function PacientesTabela({
                         onChange={() => onToggleSelecionado(p.id)}
                       />
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)}>
+                    <td onClick={() => onAbrirPaciente(p.id)}>
                       <div className="pacientes-quem">
                         <span className="pacientes-avatar">{p.iniciais}</span>
                         <span>
@@ -108,25 +108,25 @@ export default function PacientesTabela({
                         </span>
                       </div>
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)} className="pacientes-mono">
+                    <td onClick={() => onAbrirPaciente(p.id)} className="pacientes-mono">
                       {p.whatsapp ? (
                         <span className="pacientes-wa">
                           <MessageCircle size={13} strokeWidth={2} />{p.telefone}
                         </span>
                       ) : p.telefone}
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)}>
+                    <td onClick={() => onAbrirPaciente(p.id)}>
                       {p.convenio === 'Particular'
                         ? <span className="pacientes-badge pacientes-badge-part">Particular</span>
                         : p.convenio}
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)}>
+                    <td onClick={() => onAbrirPaciente(p.id)}>
                       {p.ultimaTxt}<br /><span className="pacientes-sub">{p.ultimaEspecialidade}</span>
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)} className={p.proximaTxt === '—' ? 'pacientes-dim' : ''}>
+                    <td onClick={() => onAbrirPaciente(p.id)} className={p.proximaTxt === '—' ? 'pacientes-dim' : ''}>
                       {p.proximaTxt}
                     </td>
-                    <td onClick={() => onAbrirPaciente(p.nome)}>
+                    <td onClick={() => onAbrirPaciente(p.id)}>
                       <span className={`pacientes-badge pacientes-badge-${p.status}`}>
                         <span className="pacientes-dot" />{p.statusTxt}
                       </span>

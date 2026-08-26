@@ -48,6 +48,18 @@ export function fetchMedicos() {
   return request(API_BASE, '/api/medicos')
 }
 
+export function fetchPaciente(idPaciente) {
+  return request(API_BASE, `/api/pacientes/${idPaciente}`)
+}
+
+export function atualizarPaciente(idPaciente, dados) {
+  return request(API_BASE, `/api/pacientes/${idPaciente}`, { method: 'PUT', body: JSON.stringify(dados) })
+}
+
+export function fetchConvenios() {
+  return request(API_BASE, '/api/convenios')
+}
+
 // Cria o slot de agenda + consulta no agenda-service (Go) — prontuario só
 // pode existir depois que a consulta existe (FK id_consulta NOT NULL UNIQUE).
 export function criarConsultaAgenda(payload) {

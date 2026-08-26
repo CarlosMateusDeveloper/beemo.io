@@ -6,6 +6,7 @@ import ProntuarioResumo from './ProntuarioResumo'
 import ProntuarioDocumentos from './ProntuarioDocumentos'
 import VerAtendimentoModal from './VerAtendimentoModal'
 import NovoAtendimentoModal from './NovoAtendimentoModal'
+import EditarCadastroModal from './EditarCadastroModal'
 import { fetchProntuarioDocumentos, fetchProntuarioPaciente } from './api'
 import { iniciaisDe } from './prontuarioData'
 import './prontuario.css'
@@ -31,6 +32,7 @@ export function ProntuarioDetalhe() {
   const [verProntuarioId, setVerProntuarioId] = useState(null)
   const [continuarProntuarioId, setContinuarProntuarioId] = useState(null)
   const [modalNovo, setModalNovo] = useState(false)
+  const [modalEditarCadastro, setModalEditarCadastro] = useState(false)
   const [recarregarEm, setRecarregarEm] = useState(0)
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function ProntuarioDetalhe() {
   if (erro) {
     return (
       <div className="prontuario-page">
-        <button type="button" className="prontuario-detalhe-voltar" onClick={() => navigate('/prontuario')}>
+        <button type="button" className="prontuario-detalhe-voltar" onClick={() => navigate(-1)}>
           <ArrowLeft size={14} strokeWidth={2} />Voltar
         </button>
         <div className="prontuario-erro">Não foi possível carregar o prontuário ({erro}).</div>
@@ -112,7 +114,11 @@ export function ProntuarioDetalhe() {
         />
       )}
       {tab === 'resumo' && (
-        <ProntuarioResumo alergias={dados.alergias} comorbidades={dados.comorbidades} medicamentos={dados.medicamentos} />
+        <ProntuarioResumo
+          cadastro={{ telefone: dados.telefone, email: dados.email, convenio: dados.convenio, endereco: dados.endereco }}
+          alergias={dados.alergias} comorbidades={dados.comorbidades} medicamentos={dados.medicamentos}
+          onEditarCadastro={() => setModalEditarCadastro(true)}
+        />
       )}
       {tab === 'documentos' && (
         <ProntuarioDocumentos carregando={carregandoDocumentos} documentos={documentos} />
@@ -135,6 +141,14 @@ export function ProntuarioDetalhe() {
           pacienteId={Number(pacienteId)} pacienteNome={dados.nome}
           onClose={() => setModalNovo(false)}
           onSalvo={() => { setModalNovo(false); setRecarregarEm((v) => v + 1) }}
+        />
+      )}
+
+      {modalEditarCadastro && (
+        <EditarCadastroModal
+          pacienteId={Number(pacienteId)}
+          onClose={() => setModalEditarCadastro(false)}
+          onSalvo={() => { setModalEditarCadastro(false); setRecarregarEm((v) => v + 1) }}
         />
       )}
     </div>
