@@ -21,6 +21,12 @@ class TipoMensagem(str, enum.Enum):
     localizacao = "localizacao"
 
 
+class RemetenteMensagem(str, enum.Enum):
+    paciente = "paciente"
+    bot = "bot"
+    agente = "agente"
+
+
 class Mensagem(Base):
     """Mapeia a tabela `mensagem`, ja existente no schema do sistema
     (database/schema_clinica.sql). create_type=False porque os tipos ENUM
@@ -35,3 +41,7 @@ class Mensagem(Base):
     tipo = Column(ENUM(TipoMensagem, name="tipo_mensagem", create_type=False), nullable=False, server_default="texto")
     conteudo = Column(String, nullable=False)
     criado_em = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # Fase 10 (painel /whatsapp): quem mandou uma mensagem de saida. Nullable
+    # porque e aditivo — mensagens antigas nao tem essa informacao.
+    remetente = Column(ENUM(RemetenteMensagem, name="remetente_mensagem", create_type=False), nullable=True)
+    id_usuario_remetente = Column(Integer, ForeignKey("usuario.id"), nullable=True)

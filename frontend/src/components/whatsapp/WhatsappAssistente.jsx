@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import {
-  CAPACIDADES, MENSAGENS_POR_CAPACIDADE, VARIAVEIS, SAMPLE_VARS, REGRAS_PADRAO, preencherVariaveis, NOME_CLINICA,
-} from './whatsappData'
+import { VARIAVEIS, preencherVariaveis } from './whatsappData'
+import { fetchAssistente, alternarCapacidade, salvarMensagensCapacidade, salvarRegras } from './api'
 
 const CAMPOS = [
   { chave: 'saudacao', label: 'saudação' },
@@ -14,6 +13,12 @@ const CAMPOS = [
 // Turnos genéricos do paciente na prévia — a prévia é uma simulação dos
 // textos atuais, não uma conversa real registrada.
 const RESPOSTAS_EXEMPLO = ['1', 'sim']
+const SAMPLE_VARS = { nome: 'Renata', clinica: 'a clínica', data: '27/08', hora: '14:20', medico: 'Dr. Ivan Portela', especialidade: 'cardiologia' }
+const AUTOSAVE_MS = 700
+
+function Skeleton() {
+  return <div className="dashboard-card-skel" />
+}
 
 function Capacidades({ capacidades, selecionadaId, onSelecionar, onToggle }) {
   const ativas = capacidades.filter((c) => c.ativo).length
@@ -58,7 +63,6 @@ function Mensagens({ capacidadeNome, textos, refs, onChange, onFocus, saveState,
           <span className="whatsapp-save-dot" />
           {saveState === 'saving' ? 'salvando…' : 'salvo automaticamente'}
         </span>
-        <a href="#" className="whatsapp-link">histórico de versões</a>
       </div>
 
       <div className="whatsapp-campos-grid">
@@ -198,9 +202,9 @@ function Regras({ regras, onChange }) {
 }
 
 function Preview({ capacidadeNome, textos }) {
-  const saudacao = preencherVariaveis(textos.saudacao || '')
-  const opcoes = preencherVariaveis(textos.opcoes || '')
-  const confirmacao = preencherVariaveis(textos.confirmacao || '')
+  const saudacao = preencherVariaveis(textos.saudacao || '', SAMPLE_VARS)
+  const opcoes = preencherVariaveis(textos.opcoes || '', SAMPLE_VARS)
+  const confirmacao = preencherVariaveis(textos.confirmacao || '', SAMPLE_VARS)
 
   const turnos = [
     { de: 'bot', texto: saudacao },
@@ -221,13 +225,6 @@ function Preview({ capacidadeNome, textos }) {
       <div className="whatsapp-preview-fone-wrap">
         <div className="whatsapp-preview-fone">
           <div className="whatsapp-preview-tela">
-            <div className="whatsapp-preview-tela-head">
-              <span className="whatsapp-preview-avatar">{NOME_CLINICA[0]}</span>
-              <span className="whatsapp-preview-tela-nome">
-                <span>{NOME_CLINICA}</span>
-                <span className="whatsapp-preview-tela-status">responde na hora</span>
-              </span>
-            </div>
             <div className="whatsapp-preview-msgs">
               {turnos.map((t, i) => (
                 <div key={i} className={`whatsapp-preview-bubble ${t.de}`}>
@@ -244,10 +241,12 @@ function Preview({ capacidadeNome, textos }) {
 }
 
 export default function WhatsappAssistente() {
-  const [capacidades, setCapacidades] = useState(CAPACIDADES)
-  const [selecionadaId, setSelecionadaId] = useState('marcar_consulta')
-  const [mensagens, setMensagens] = useState(MENSAGENS_POR_CAPACIDADE)
-  const [regras, setRegras] = useState(REGRAS_PADRAO)
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState(null)
+  const [capacidades, setCapacidades] = useState([])
+  const [selecionadaId, setSelecionadaId] = useState(null)
+  const [mensagens, setMensagens] = useState({})
+  const [regras, setRegras] = useState(null)
   const [campoFocado, setCampoFocado] = useState('saudacao')
   const [saveState, setSaveState] = useState('saved')
   const saveTimer = useRef(null)
@@ -258,24 +257,51 @@ export default function WhatsappAssistente() {
   const naoEntendiRef = useRef(null)
   const refs = { saudacao: saudacaoRef, opcoes: opcoesRef, confirmacao: confirmacaoRef, naoEntendi: naoEntendiRef }
 
-  function marcarSalvando() {
-    setSaveState('saving')
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => setSaveState('saved'), 600)
-  }
+  useEffect(() => {
+    let cancelado = false
+    fetchAssistente()
+      .then((d) => {
+        if (cancelado) return
+        setCapacidades(d.capacidades)
+        setMensagens(d.mensagens)
+        setRegras(d.regras)
+        setSelecionadaId(d.capacidades[0]?.id ?? null)
+      })
+      .catch((err) => { if (!cancelado) setErro(err.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
+  }, [])
 
   function alterarTexto(campo, valor) {
     setMensagens((prev) => ({ ...prev, [selecionadaId]: { ...prev[selecionadaId], [campo]: valor } }))
-    marcarSalvando()
+    setSaveState('saving')
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      salvarMensagensCapacidade(selecionadaId, { [campo]: valor })
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('saved'))
+    }, AUTOSAVE_MS)
   }
 
   function alterarRegras(novasRegras) {
     setRegras(novasRegras)
-    marcarSalvando()
+    setSaveState('saving')
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      salvarRegras(novasRegras)
+        .then(() => setSaveState('saved'))
+        .catch(() => setSaveState('saved'))
+    }, AUTOSAVE_MS)
   }
 
-  function alternarCapacidade(id) {
-    setCapacidades((prev) => prev.map((c) => (c.id === id ? { ...c, ativo: !c.ativo } : c)))
+  function alternarCapacidadeLocal(id) {
+    const atual = capacidades.find((c) => c.id === id)
+    if (!atual) return
+    const novoAtivo = !atual.ativo
+    setCapacidades((prev) => prev.map((c) => (c.id === id ? { ...c, ativo: novoAtivo } : c)))
+    alternarCapacidade(id, novoAtivo).catch(() => {
+      setCapacidades((prev) => prev.map((c) => (c.id === id ? { ...c, ativo: atual.ativo } : c)))
+    })
   }
 
   function inserirVariavel(nomeVar) {
@@ -297,13 +323,29 @@ export default function WhatsappAssistente() {
     })
   }
 
+  if (erro) {
+    return <div className="dashboard-erro">Não foi possível carregar o assistente ({erro}).</div>
+  }
+
+  if (carregando || !regras) {
+    return (
+      <div className="whatsapp-assistente">
+        <div className="whatsapp-assistente-col-esq">
+          <div className="whatsapp-card"><Skeleton /></div>
+          <div className="whatsapp-card"><Skeleton /></div>
+        </div>
+        <div className="whatsapp-assistente-col-dir"><div className="whatsapp-card"><Skeleton /></div></div>
+      </div>
+    )
+  }
+
   const capacidadeSelecionada = capacidades.find((c) => c.id === selecionadaId)
   const textosSelecionados = mensagens[selecionadaId] || {}
 
   return (
     <div className="whatsapp-assistente">
       <div className="whatsapp-assistente-col-esq">
-        <Capacidades capacidades={capacidades} selecionadaId={selecionadaId} onSelecionar={setSelecionadaId} onToggle={alternarCapacidade} />
+        <Capacidades capacidades={capacidades} selecionadaId={selecionadaId} onSelecionar={setSelecionadaId} onToggle={alternarCapacidadeLocal} />
         <Mensagens
           capacidadeNome={capacidadeSelecionada?.nome || ''} textos={textosSelecionados} refs={refs}
           onChange={alterarTexto} onFocus={setCampoFocado} saveState={saveState} onInserirVariavel={inserirVariavel}

@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, AlertTriangle, UserPlus } from 'lucide-react'
-import {
-  CONVERSAS, MENSAGENS_POR_CONVERSA, CONTEXTO_POR_CONVERSA, ordenarConversas,
-} from './whatsappData'
+import { ordenarConversas } from './whatsappData'
+import { fetchConversas, fetchMensagens, fetchContexto, assumirConversa, devolverConversa, enviarMensagem } from './api'
 
 // Placeholder até a autenticação real existir — deveria vir do usuário
 // logado (ver mesmo placeholder em components/layout/UserMenu.jsx).
@@ -13,10 +12,6 @@ const FILTROS = [
   { id: 'bot', label: 'Bot resolveu' },
   { id: 'todas', label: 'Todas' },
 ]
-
-function horaAtual() {
-  return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-}
 
 function iniciaisDe(nome) {
   return nome.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -38,6 +33,16 @@ function Badge({ conversa }) {
     return <span className="whatsapp-badge info">com {conversa.agente}</span>
   }
   return <span className="whatsapp-badge neutro">bot</span>
+}
+
+function SkeletonLista() {
+  return (
+    <div className="whatsapp-lista">
+      <div className="whatsapp-lista-scroll">
+        {[0, 1, 2].map((i) => <div key={i} className="dashboard-card-skel" style={{ height: 64, margin: '8px 12px' }} />)}
+      </div>
+    </div>
+  )
 }
 
 function ListaConversas({ conversas, filtro, onFiltro, busca, onBusca, selecionadoId, onSelecionar, contadorAguardando }) {
@@ -171,10 +176,10 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
   )
 }
 
-function PainelContexto({ conversa, contexto, onCadastrar }) {
+function PainelContexto({ conversa, contexto, contextoCarregado }) {
   if (!conversa) return <div className="whatsapp-contexto" />
 
-  if (!contexto) {
+  if (contextoCarregado && !contexto) {
     return (
       <div className="whatsapp-contexto">
         <div className="whatsapp-contexto-card">
@@ -182,12 +187,13 @@ function PainelContexto({ conversa, contexto, onCadastrar }) {
           <div className="whatsapp-contexto-vazio">
             <UserPlus size={20} strokeWidth={1.6} />
             <span>Telefone não cadastrado</span>
-            <button type="button" onClick={onCadastrar}>Cadastrar paciente</button>
           </div>
         </div>
       </div>
     )
   }
+
+  if (!contexto) return <div className="whatsapp-contexto" />
 
   const { paciente, proximaConsulta, ultimasVisitas, pendencias, assistente } = contexto
 
@@ -196,8 +202,10 @@ function PainelContexto({ conversa, contexto, onCadastrar }) {
       <div className="whatsapp-contexto-card">
         <span className="whatsapp-contexto-titulo">paciente</span>
         <span className="whatsapp-contexto-nome">{paciente.nome}</span>
-        <span className="whatsapp-contexto-meta">{paciente.idade} anos · {paciente.convenio} · desde {paciente.clienteDesde}</span>
-        <a href="#" className="whatsapp-contexto-link">Abrir ficha do paciente →</a>
+        <span className="whatsapp-contexto-meta">
+          {paciente.idade} anos · {paciente.convenio}
+          {paciente.clienteDesde && ` · desde ${paciente.clienteDesde}`}
+        </span>
       </div>
 
       <div className="whatsapp-contexto-card">
@@ -246,7 +254,7 @@ function PainelContexto({ conversa, contexto, onCadastrar }) {
             {assistente.totalPassos > 1 && <span className="whatsapp-contexto-passo">passo {assistente.passoAtual} de {assistente.totalPassos}</span>}
           </span>
           <span className="whatsapp-contexto-meta">Parou em <b>{assistente.parouEm}</b></span>
-          {assistente.perguntas.length > 0 && (
+          {assistente.perguntas?.length > 0 && (
             <>
               <span className="whatsapp-contexto-divisor" />
               <span className="whatsapp-contexto-titulo">já perguntado</span>
@@ -264,18 +272,52 @@ function PainelContexto({ conversa, contexto, onCadastrar }) {
   )
 }
 
-export default function WhatsappConversas() {
-  const [conversas, setConversas] = useState(CONVERSAS)
-  const [mensagens, setMensagens] = useState(MENSAGENS_POR_CONVERSA)
+export default function WhatsappConversas({ onConversasAtualizadas }) {
+  const [conversas, setConversas] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState(null)
+  const [mensagens, setMensagens] = useState([])
+  const [contexto, setContexto] = useState(null)
+  const [contextoCarregado, setContextoCarregado] = useState(false)
   const [filtro, setFiltro] = useState('aguardando')
   const [busca, setBusca] = useState('')
-  const [selecionadoId, setSelecionadoId] = useState(ordenarConversas(CONVERSAS)[0]?.id ?? null)
+  const [selecionadoId, setSelecionadoId] = useState(null)
   const [resposta, setResposta] = useState('')
-  const [toast, setToast] = useState(null)
+
+  function recarregarConversas() {
+    return fetchConversas().then((lista) => {
+      setConversas(lista)
+      onConversasAtualizadas?.(lista)
+      if (selecionadoId == null && lista.length > 0) {
+        setSelecionadoId(ordenarConversas(lista)[0].id)
+      }
+      return lista
+    })
+  }
+
+  useEffect(() => {
+    let cancelado = false
+    setCarregando(true)
+    setErro(null)
+    recarregarConversas()
+      .catch((err) => { if (!cancelado) setErro(err.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (selecionadoId == null) { setMensagens([]); setContexto(null); setContextoCarregado(false); return }
+    let cancelado = false
+    setContextoCarregado(false)
+    fetchMensagens(selecionadoId).then((lista) => { if (!cancelado) setMensagens(lista) }).catch(() => {})
+    fetchContexto(selecionadoId)
+      .then((c) => { if (!cancelado) { setContexto(c); setContextoCarregado(true) } })
+      .catch(() => { if (!cancelado) setContextoCarregado(true) })
+    return () => { cancelado = true }
+  }, [selecionadoId])
 
   const conversa = conversas.find((c) => c.id === selecionadoId) || null
-  const thread = selecionadoId ? (mensagens[selecionadoId] || []) : []
-  const contexto = selecionadoId ? (CONTEXTO_POR_CONVERSA[selecionadoId] || null) : null
   const contadorAguardando = conversas.filter((c) => c.estado === 'aguardando').length
 
   function selecionar(id) {
@@ -284,45 +326,43 @@ export default function WhatsappConversas() {
   }
 
   function assumir() {
-    setConversas((prev) => prev.map((c) => (c.id === selecionadoId ? { ...c, estado: 'com_agente', agente: ATENDENTE_ATUAL, nota: null } : c)))
+    if (!selecionadoId) return
+    assumirConversa(selecionadoId, ATENDENTE_ATUAL).then(recarregarConversas)
   }
 
   function devolver() {
-    setConversas((prev) => prev.map((c) => (c.id === selecionadoId ? { ...c, estado: 'bot', agente: null, nota: 'devolvido ao assistente' } : c)))
+    if (!selecionadoId) return
+    devolverConversa(selecionadoId).then(recarregarConversas)
   }
 
   function enviar() {
     const texto = resposta.trim()
     if (!texto || !selecionadoId) return
-    const nova = { id: Date.now(), tipo: 'mensagem', remetente: 'agente', agente: ATENDENTE_ATUAL, texto, horario: horaAtual() }
-    setMensagens((prev) => ({ ...prev, [selecionadoId]: [...(prev[selecionadoId] || []), nova] }))
-    setConversas((prev) => prev.map((c) => (c.id === selecionadoId ? { ...c, ultimaMensagem: texto, horario: nova.horario } : c)))
-    setResposta('')
+    enviarMensagem(selecionadoId, texto).then((nova) => {
+      setMensagens((prev) => [...prev, nova])
+      setResposta('')
+      recarregarConversas()
+    })
   }
 
-  function cadastrarPaciente() {
-    setToast(`Abrindo cadastro para ${conversa?.telefone}…`)
-    setTimeout(() => setToast(null), 2200)
-  }
+  const vazio = !carregando && conversas.length === 0
 
   return (
     <div className="whatsapp-conversas">
-      <ListaConversas
-        conversas={conversas} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca}
-        selecionadoId={selecionadoId} onSelecionar={selecionar} contadorAguardando={contadorAguardando}
-      />
-      <ConversaThread
-        conversa={conversa} mensagens={thread} resposta={resposta} onRespostaChange={setResposta}
-        onEnviar={enviar} onAssumir={assumir} onDevolver={devolver}
-      />
-      <PainelContexto conversa={conversa} contexto={contexto} onCadastrar={cadastrarPaciente} />
-
-      {toast && (
-        <div className="whatsapp-toast">
-          <span className="whatsapp-toast-dot" />
-          {toast}
-        </div>
+      {erro && <div className="dashboard-erro">Não foi possível carregar as conversas ({erro}).</div>}
+      {carregando ? <SkeletonLista /> : (
+        <ListaConversas
+          conversas={conversas} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca}
+          selecionadoId={selecionadoId} onSelecionar={selecionar} contadorAguardando={contadorAguardando}
+        />
       )}
+      {!carregando && (
+        <ConversaThread
+          conversa={conversa} mensagens={mensagens} resposta={resposta} onRespostaChange={setResposta}
+          onEnviar={enviar} onAssumir={assumir} onDevolver={devolver}
+        />
+      )}
+      {!carregando && !vazio && <PainelContexto conversa={conversa} contexto={contexto} contextoCarregado={contextoCarregado} />}
     </div>
   )
 }

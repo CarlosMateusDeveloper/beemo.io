@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { calcularDesempenho, fInt, pct, fDelta, PERIODOS_DESEMPENHO } from './whatsappData'
+import { useEffect, useState } from 'react'
+import { fInt, pct, fDelta, PERIODOS_DESEMPENHO } from './whatsappData'
+import { fetchDesempenho } from './api'
 
 function segAtendente(seg) {
   const min = Math.floor(seg / 60)
@@ -58,7 +59,7 @@ function EvolucaoChart({ byMonth }) {
         <span className="whatsapp-card-titulo">Resolvidas sem atendente · evolução mensal</span>
         <span className="whatsapp-flex" />
         <span className={`whatsapp-delta-nota ${deltaPontos >= 0 ? 'success' : 'danger'}`}>
-          {deltaPontos >= 0 ? '+' : ''}{deltaPontos} pontos em {n} meses
+          {deltaPontos >= 0 ? '+' : ''}{deltaPontos.toFixed(1)} pontos em {n} meses
         </span>
       </div>
 
@@ -71,7 +72,7 @@ function EvolucaoChart({ byMonth }) {
       </svg>
       <div className="whatsapp-evolucao-labels">
         {byMonth.map((m, i) => (
-          <span key={m.mes} className="whatsapp-evolucao-item">
+          <span key={`${m.mes}-${i}`} className="whatsapp-evolucao-item">
             <span className="whatsapp-evolucao-mes">{m.mes}</span>
             <span className={i === byMonth.length - 1 ? 'strong' : ''}>{pct(m.pct, 0)}</span>
           </span>
@@ -84,20 +85,21 @@ function EvolucaoChart({ byMonth }) {
 export default function WhatsappDesempenho() {
   const [periodo, setPeriodo] = useState('Últimos 30 dias')
   const [carregando, setCarregando] = useState(true)
-  const [toast, setToast] = useState(null)
+  const [erro, setErro] = useState(null)
+  const [d, setD] = useState(null)
 
   useEffect(() => {
+    let cancelado = false
     setCarregando(true)
-    const t = setTimeout(() => setCarregando(false), 380)
-    return () => clearTimeout(t)
+    setErro(null)
+    fetchDesempenho(periodo)
+      .then((resp) => { if (!cancelado) setD(resp) })
+      .catch((err) => { if (!cancelado) setErro(err.message) })
+      .finally(() => { if (!cancelado) setCarregando(false) })
+    return () => { cancelado = true }
   }, [periodo])
 
-  const d = useMemo(() => calcularDesempenho(periodo), [periodo])
-
-  function exportar() {
-    setToast(`Exportando CSV de "${periodo}"…`)
-    setTimeout(() => setToast(null), 2200)
-  }
+  const pronto = !carregando && d
 
   return (
     <div className="whatsapp-desempenho">
@@ -110,12 +112,13 @@ export default function WhatsappDesempenho() {
             </label>
           ))}
         </div>
-        <button type="button" className="whatsapp-link-btn" onClick={exportar}>Exportar</button>
       </div>
+
+      {erro && <div className="dashboard-erro">Não foi possível carregar o desempenho ({erro}).</div>}
 
       <div className="whatsapp-desemp-row hero">
         <div className="whatsapp-card whatsapp-hero-card">
-          {carregando ? <div className="whatsapp-card-skel" /> : (
+          {!pronto ? <div className="whatsapp-card-skel" /> : (
             <>
               <span className="whatsapp-hero-num">{fInt(d.resolvidasSemAtendente)}</span>
               <span className="whatsapp-hero-txt">
@@ -139,7 +142,7 @@ export default function WhatsappDesempenho() {
         </div>
 
         <div className="whatsapp-card whatsapp-agora-card">
-          {carregando ? <div className="whatsapp-card-skel" /> : (
+          {!pronto ? <div className="whatsapp-card-skel" /> : (
             <>
               <span className="whatsapp-card-nota upper">agora</span>
               <span className="whatsapp-agora-num-row">
@@ -147,8 +150,6 @@ export default function WhatsappDesempenho() {
                 <span>conversas aguardando atendente</span>
               </span>
               <span className="whatsapp-card-nota">espera média hoje · {d.esperaMediaHojeMin} min</span>
-              <span className="whatsapp-flex" />
-              <a href="#" className="whatsapp-link">Abrir Conversas →</a>
             </>
           )}
         </div>
@@ -156,12 +157,14 @@ export default function WhatsappDesempenho() {
 
       <div className="whatsapp-desemp-row tres">
         <div className="whatsapp-card">
-          {carregando ? <div className="whatsapp-card-skel" /> : (
+          {!pronto ? <div className="whatsapp-card-skel" /> : (
             <>
               <span className="whatsapp-card-nota upper">foram para atendente</span>
               <span className="whatsapp-agora-num-row"><span className="whatsapp-metric-num">{fInt(d.escalonamento.total)}</span><span className="whatsapp-card-nota">{pct(100 - d.sharePct, 0)} do total</span></span>
               <div className="whatsapp-breakdown">
-                {d.escalonamento.motivos.map((m) => (
+                {d.escalonamento.motivos.length === 0 ? (
+                  <span className="whatsapp-campo-nota">Sem detalhamento por motivo ainda</span>
+                ) : d.escalonamento.motivos.map((m) => (
                   <div key={m.motivo} className="whatsapp-breakdown-linha">
                     <span className="whatsapp-breakdown-label">{m.motivo}</span>
                     <span className="whatsapp-breakdown-barra"><span style={{ width: `${(m.qtd / (d.escalonamento.total || 1)) * 100}%` }} /></span>
@@ -174,7 +177,7 @@ export default function WhatsappDesempenho() {
         </div>
 
         <div className="whatsapp-card">
-          {carregando ? <div className="whatsapp-card-skel" /> : (
+          {!pronto ? <div className="whatsapp-card-skel" /> : (
             <>
               <span className="whatsapp-card-nota upper">tempo até primeira resposta</span>
               <span className="whatsapp-agora-num-row"><span className="whatsapp-metric-num">{d.tempoPrimeiraRespostaSeg}</span><span>segundos</span></span>
@@ -189,7 +192,7 @@ export default function WhatsappDesempenho() {
         </div>
 
         <div className="whatsapp-card">
-          {carregando ? <div className="whatsapp-card-skel" /> : (
+          {!pronto ? <div className="whatsapp-card-skel" /> : (
             <>
               <span className="whatsapp-card-nota upper">ações concluídas</span>
               <span className="whatsapp-agora-num-row"><span className="whatsapp-metric-num">{fInt(d.acoes.total)}</span><span className="whatsapp-card-nota">pelo assistente, sem recepção</span></span>
@@ -203,18 +206,11 @@ export default function WhatsappDesempenho() {
         </div>
       </div>
 
-      {carregando ? <div className="whatsapp-card whatsapp-chart-card"><div className="whatsapp-card-skel" /></div>
+      {!pronto ? <div className="whatsapp-card whatsapp-chart-card"><div className="whatsapp-card-skel" /></div>
         : <VolumeChart byHour={d.byHour} peakLabel={d.peakLabel} peakPct={d.peakPct} />}
 
-      {carregando ? <div className="whatsapp-card whatsapp-chart-card small"><div className="whatsapp-card-skel" /></div>
+      {!pronto ? <div className="whatsapp-card whatsapp-chart-card small"><div className="whatsapp-card-skel" /></div>
         : <EvolucaoChart byMonth={d.byMonth} />}
-
-      {toast && (
-        <div className="whatsapp-toast">
-          <span className="whatsapp-toast-dot" />
-          {toast}
-        </div>
-      )}
     </div>
   )
 }
