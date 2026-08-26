@@ -1,0 +1,15 @@
+{
+  "name": "clinica",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,agenda,chatbot,frontend -c blue,green,yellow,magenta \"npm:dev:backend\" \"npm:dev:agenda\" \"npm:dev:chatbot\" \"npm:dev:frontend\"",
+    "dev:backend": "bash -c \"cd backend && ./mvnw.cmd spring-boot:run\"",
+    "dev:agenda": "cd agenda-service && go run .",
+    "dev:chatbot": "cross-env DATABASE_URL=postgresql+psycopg://clinica:clinica@localhost:5432/clinica CORS_ALLOWED_ORIGINS=http://localhost:5173 chatbot/.venv/Scripts/uvicorn.exe chatbot.main:app --host 0.0.0.0 --port 8082",
+    "dev:frontend": "cd frontend && npm run dev -- --host 0.0.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3"
+  }
+}
