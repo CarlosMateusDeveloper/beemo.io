@@ -4,7 +4,6 @@ import {
   LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet, HeartHandshake, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
-import ThemeToggle from '../../theme/ThemeToggle'
 import './Sidebar.css'
 
 const NAV_ITEMS = [
@@ -45,7 +44,6 @@ export default function Sidebar() {
 
       <div className="sidebar-header">
         <div className="sidebar-brand">ClinicOS</div>
-        <ThemeToggle />
       </div>
       <ul className="sidebar-nav">
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Settings, HelpCircle, LogOut, ChevronsUpDown } from 'lucide-react'
+import { User, Settings, HelpCircle, LogOut, ChevronsUpDown, Sun, Moon } from 'lucide-react'
+import { useTheme } from '../../theme/ThemeContext'
 import './UserMenu.css'
 
 // Placeholder até a autenticação real existir (issue Backend: Autenticação) —
@@ -21,6 +22,8 @@ export default function UserMenu() {
   const [open, setOpen] = useState(false)
   const containerRef = useRef(null)
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -45,6 +48,10 @@ export default function UserMenu() {
               <span>{label}</span>
             </button>
           ))}
+          <button className="user-menu-item" onClick={toggleTheme}>
+            {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+            <span>{isDark ? 'Modo claro' : 'Modo escuro'}</span>
+          </button>
           <div className="user-menu-divider" />
           <button className="user-menu-item danger" onClick={() => handleSelect('sair')}>
             <LogOut size={16} strokeWidth={2} />
