@@ -2,13 +2,18 @@ package br.com.clinica.controller;
 
 import br.com.clinica.dto.PacienteFilaItemDto;
 import br.com.clinica.dto.PacienteListagemItemDto;
+import br.com.clinica.dto.PacienteResumoDto;
 import br.com.clinica.dto.PacientesKpisResponse;
 import br.com.clinica.model.Paciente;
 import br.com.clinica.repository.PacienteRepository;
+import br.com.clinica.service.PacienteBuscaService;
 import br.com.clinica.service.PacienteFilaService;
 import br.com.clinica.service.PacienteKpiService;
 import br.com.clinica.service.PacienteListagemService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,20 +29,29 @@ public class PacienteController {
     private final PacienteKpiService kpiService;
     private final PacienteListagemService listagemService;
     private final PacienteFilaService filaService;
+    private final PacienteBuscaService buscaService;
 
     public PacienteController(
             PacienteRepository repository, PacienteKpiService kpiService,
-            PacienteListagemService listagemService, PacienteFilaService filaService
+            PacienteListagemService listagemService, PacienteFilaService filaService,
+            PacienteBuscaService buscaService
     ) {
         this.repository = repository;
         this.kpiService = kpiService;
         this.listagemService = listagemService;
         this.filaService = filaService;
+        this.buscaService = buscaService;
     }
 
+    // Issue #11: "listar (paginado, com busca por nome/CPF/telefone)" — cpf
+    // mascarado na resposta (ver PacienteBuscaService). GET /{id} continua
+    // devolvendo o cadastro completo, necessário pra abrir/editar a ficha.
     @GetMapping
-    public List<Paciente> listar() {
-        return repository.findAll();
+    public Page<PacienteResumoDto> listar(
+            @RequestParam(required = false) String busca,
+            @PageableDefault(size = 20, sort = "nome") Pageable pageable
+    ) {
+        return buscaService.buscar(busca, pageable);
     }
 
     @GetMapping("/kpis")
