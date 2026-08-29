@@ -691,3 +691,21 @@ ALTER TABLE paciente ADD COLUMN complemento VARCHAR(100) NULL;
 ALTER TABLE paciente ADD COLUMN bairro VARCHAR(100) NULL;
 ALTER TABLE paciente ADD COLUMN cidade VARCHAR(100) NULL;
 ALTER TABLE paciente ADD COLUMN uf CHAR(2) NULL;
+
+-- =====================================================================
+-- FASE 13 — Índices de listagem (issues #14 e #15)
+-- =====================================================================
+
+-- GET /api/faturas e GET /api/autorizacoes-convenio filtram por status
+-- (e fatura tambem por periodo de vencimento) numa listagem paginada.
+CREATE INDEX idx_fatura_status ON fatura(status);
+CREATE INDEX idx_fatura_vencimento ON fatura(vencimento);
+CREATE INDEX idx_autorizacao_convenio_status ON autorizacao_convenio(status);
+
+-- GET /api/exames filtra por paciente/status numa listagem paginada (issue #13).
+CREATE INDEX idx_exame_paciente ON exame(id_paciente);
+CREATE INDEX idx_exame_status ON exame(status);
+
+-- GET /api/pacientes busca por nome/CPF/telefone numa listagem paginada
+-- (issue #11) — mesmo padrao de idx_mensagem_telefone (Fase 1).
+CREATE INDEX idx_paciente_ddd_numero ON paciente(ddd, numero);
