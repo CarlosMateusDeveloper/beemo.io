@@ -30,6 +30,9 @@ public class Usuario {
     @Column(unique = true)
     private String email;
 
+    // Hash BCrypt — nunca o texto puro. Ver PasswordEncoder em SecurityConfig.
+    // @JsonIgnore garante que isso nunca vaza numa resposta, mesmo se algum
+    // endpoint futuro devolver a entidade Usuario direto por engano.
     @NotBlank
     @Size(max = 255)
     @JsonIgnore

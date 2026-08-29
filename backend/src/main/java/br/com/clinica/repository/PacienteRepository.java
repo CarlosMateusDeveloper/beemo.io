@@ -4,6 +4,7 @@ import br.com.clinica.model.Paciente;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PacienteRepository extends JpaRepository<Paciente, Integer> {
@@ -17,4 +18,10 @@ public interface PacienteRepository extends JpaRepository<Paciente, Integer> {
     @Query("SELECT p FROM Paciente p LEFT JOIN FETCH p.convenio WHERE p.id = :id")
     @Override
     Optional<Paciente> findById(Integer id);
+
+    // Mesmo motivo do findById acima — GET /api/pacientes (listar()) usa
+    // findAll() puro e quebrava do mesmo jeito.
+    @Query("SELECT p FROM Paciente p LEFT JOIN FETCH p.convenio")
+    @Override
+    List<Paciente> findAll();
 }

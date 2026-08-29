@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import ThemeToggle from '../../theme/ThemeToggle'
+import { useAuth } from '../../auth/AuthContext'
 import './login.css'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -30,6 +31,7 @@ function MicrosoftIcon() {
 
 export default function Login() {
   const navigate = useNavigate()
+  const auth = useAuth()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -52,8 +54,10 @@ export default function Login() {
     }
     setErro(null)
     setCarregando(true)
-    // Sem endpoint de autenticação ainda — simula a latência e segue para o app.
-    setTimeout(() => navigate('/'), 600)
+    auth.login(email.trim(), senha)
+      .then(() => navigate('/'))
+      .catch((err) => setErro(err.message))
+      .finally(() => setCarregando(false))
   }
 
   return (

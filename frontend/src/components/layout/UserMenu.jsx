@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { User, Settings, HelpCircle, LogOut, ChevronsUpDown, Sun, Moon } from 'lucide-react'
 import { useTheme } from '../../theme/ThemeContext'
+import { useAuth } from '../../auth/AuthContext'
 import './UserMenu.css'
 
-// Placeholder até a autenticação real existir (issue Backend: Autenticação) —
-// hoje não há sessão/usuário logado de verdade para ler aqui.
-const CURRENT_USER = { name: 'Ana Souza', role: 'Administradora' }
+const PERFIL_LABEL = { medico: 'Médico(a)', administrador: 'Administrador(a)' }
 
 function getInitials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -24,6 +23,7 @@ export default function UserMenu() {
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
+  const { usuario, logout } = useAuth()
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -35,8 +35,13 @@ export default function UserMenu() {
 
   function handleSelect(key) {
     setOpen(false)
-    if (key === 'sair') navigate('/login')
+    if (key === 'sair') {
+      logout()
+      navigate('/login')
+    }
   }
+
+  if (!usuario) return null
 
   return (
     <div className="user-menu" ref={containerRef}>
@@ -61,10 +66,10 @@ export default function UserMenu() {
       )}
 
       <button className="user-menu-trigger" onClick={() => setOpen((v) => !v)}>
-        <div className="user-menu-avatar">{getInitials(CURRENT_USER.name)}</div>
+        <div className="user-menu-avatar">{getInitials(usuario.nome)}</div>
         <div className="user-menu-info">
-          <div className="user-menu-name">{CURRENT_USER.name}</div>
-          <div className="user-menu-role">{CURRENT_USER.role}</div>
+          <div className="user-menu-name">{usuario.nome}</div>
+          <div className="user-menu-role">{PERFIL_LABEL[usuario.perfil] ?? usuario.perfil}</div>
         </div>
         <ChevronsUpDown size={14} strokeWidth={2} className="user-menu-chevron" />
       </button>

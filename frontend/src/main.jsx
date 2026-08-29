@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import './index.css'
 import { ThemeProvider } from './theme/ThemeContext'
+import { AuthProvider } from './auth/AuthContext'
+import RotaProtegida from './auth/RotaProtegida'
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
@@ -18,22 +20,29 @@ import { Caixa } from './components/caixa/caixa'
 import { Convenios } from './components/convenios/convenios'
 
 // Configurando o roteador com os caminhos e seus respectivos componentes.
-// Login fica fora do Layout (sem sidebar); as demais telas navegam pela sidebar.
+// Login fica fora da RotaProtegida (sem sidebar, sem exigir sessão); as
+// demais telas exigem usuário autenticado (RotaProtegida) e navegam pela
+// sidebar (Layout).
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Layout />,
+    element: <RotaProtegida />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: "agenda", element: <Agenda /> },
-      { path: "pacientes", element: <Pacientes /> },
-      { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
-      { path: "prontuario", element: <Prontuario /> },
-      { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
-      { path: "whatsapp", element: <Whatsapp /> },
-      { path: "medicos", element: <Medicos /> },
-      { path: "caixa", element: <Caixa /> },
-      { path: "convenios", element: <Convenios /> },
+      {
+        element: <Layout />,
+        children: [
+          { index: true, element: <Dashboard /> },
+          { path: "agenda", element: <Agenda /> },
+          { path: "pacientes", element: <Pacientes /> },
+          { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
+          { path: "prontuario", element: <Prontuario /> },
+          { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
+          { path: "whatsapp", element: <Whatsapp /> },
+          { path: "medicos", element: <Medicos /> },
+          { path: "caixa", element: <Caixa /> },
+          { path: "convenios", element: <Convenios /> },
+        ],
+      },
     ],
   },
   {
@@ -44,9 +53,11 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ThemeProvider>
-      {/* Passamos o 'router' que configuramos acima como propriedade */}
-      <RouterProvider router={router} />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        {/* Passamos o 'router' que configuramos acima como propriedade */}
+        <RouterProvider router={router} />
+      </ThemeProvider>
+    </AuthProvider>
   </React.StrictMode>,
 )

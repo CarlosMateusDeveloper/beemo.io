@@ -1,19 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-
-async function request(path, options) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.erro || `Erro ${res.status} em ${path}`)
-  }
-  return res.json()
-}
+import { apiRequest } from '../../lib/apiClient'
 
 export function fetchDashboard({ periodo, profissionalId }) {
-  return request('/api/dashboard', {
+  return apiRequest('/api/dashboard', {
     method: 'POST',
     body: JSON.stringify({
       periodo,
@@ -23,5 +11,5 @@ export function fetchDashboard({ periodo, profissionalId }) {
 }
 
 export function fetchMedicos() {
-  return request('/api/medicos')
+  return apiRequest('/api/medicos')
 }
