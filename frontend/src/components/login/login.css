@@ -14,6 +14,25 @@
 
 .login-brand { margin: 0 0 26px; font-size: 18px; font-weight: 700; color: var(--acc); letter-spacing: -0.01em; }
 
+.login-titulo { margin: 0 0 6px; font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.login-subtitulo { margin: 0 0 22px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+.login-subtitulo strong { color: var(--text-primary); font-weight: 600; }
+
+.login-voltar {
+  display: flex; align-items: center; gap: 6px; border: none; background: transparent; color: var(--text-tertiary);
+  font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 0; margin-bottom: 18px; font-family: inherit;
+}
+.login-voltar:hover { color: var(--text-primary); }
+
+.login-codigo-row { display: flex; gap: 8px; justify-content: space-between; }
+.login-codigo-input {
+  width: 44px; height: 52px; text-align: center; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface-sunken); color: var(--text-primary); font-size: 20px; font-weight: 600; font-family: inherit;
+}
+.login-codigo-input:focus { outline: 2px solid var(--acc-line); outline-offset: 1px; border-color: var(--acc); }
+
+.login-reenviar { display: block; margin: 18px auto 0; text-align: center; }
+
 .login-sso { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .login-sso-btn {
   height: 42px; display: flex; align-items: center; justify-content: center; gap: 10px;

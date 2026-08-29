@@ -4,7 +4,9 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import './index.css'
 import { ThemeProvider } from './theme/ThemeContext'
 import { AuthProvider } from './auth/AuthContext'
-import RotaProtegida from './auth/RotaProtegida'
+// RotaProtegida desligada a pedido explícito — ver SecurityConfig.java pro
+// mesmo motivo no backend. Pra reativar: importa de volta e envolve o
+// Layout com <RotaProtegida /> como antes.
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
@@ -20,29 +22,24 @@ import { Caixa } from './components/caixa/caixa'
 import { Convenios } from './components/convenios/convenios'
 
 // Configurando o roteador com os caminhos e seus respectivos componentes.
-// Login fica fora da RotaProtegida (sem sidebar, sem exigir sessão); as
-// demais telas exigem usuário autenticado (RotaProtegida) e navegam pela
-// sidebar (Layout).
+// Login fica fora do Layout (sem sidebar); as demais telas navegam pela
+// sidebar. Sem RotaProtegida por ora — nenhuma rota exige sessão (ver nota
+// acima sobre autenticação desligada).
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <RotaProtegida />,
+    element: <Layout />,
     children: [
-      {
-        element: <Layout />,
-        children: [
-          { index: true, element: <Dashboard /> },
-          { path: "agenda", element: <Agenda /> },
-          { path: "pacientes", element: <Pacientes /> },
-          { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
-          { path: "prontuario", element: <Prontuario /> },
-          { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
-          { path: "whatsapp", element: <Whatsapp /> },
-          { path: "medicos", element: <Medicos /> },
-          { path: "caixa", element: <Caixa /> },
-          { path: "convenios", element: <Convenios /> },
-        ],
-      },
+      { index: true, element: <Dashboard /> },
+      { path: "agenda", element: <Agenda /> },
+      { path: "pacientes", element: <Pacientes /> },
+      { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
+      { path: "prontuario", element: <Prontuario /> },
+      { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
+      { path: "whatsapp", element: <Whatsapp /> },
+      { path: "medicos", element: <Medicos /> },
+      { path: "caixa", element: <Caixa /> },
+      { path: "convenios", element: <Convenios /> },
     ],
   },
   {

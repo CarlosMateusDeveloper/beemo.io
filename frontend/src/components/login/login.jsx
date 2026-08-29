@@ -1,11 +1,10 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { ArrowLeft, Mail } from 'lucide-react'
 import ThemeToggle from '../../theme/ThemeToggle'
-import { useAuth } from '../../auth/AuthContext'
 import './login.css'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const TAMANHO_CODIGO = 6
 
 function GoogleIcon() {
   return (
@@ -29,36 +28,81 @@ function MicrosoftIcon() {
   )
 }
 
+// Sem senha: SSO ou código de 6 dígitos por e-mail (estilo "magic code").
+// Nenhum dos dois envia/valida de verdade ainda — não há provedor OAuth nem
+// serviço de e-mail configurado no backend. O login por senha continua
+// funcionando via POST /api/auth/login (ver AuthContext), só não tem mais
+// campo nesta tela.
 export default function Login() {
-  const navigate = useNavigate()
-  const auth = useAuth()
+  const [etapa, setEtapa] = useState('email') // 'email' | 'codigo'
   const [email, setEmail] = useState('')
-  const [senha, setSenha] = useState('')
-  const [mostrarSenha, setMostrarSenha] = useState(false)
+  const [codigo, setCodigo] = useState(Array(TAMANHO_CODIGO).fill(''))
   const [erro, setErro] = useState(null)
   const [carregando, setCarregando] = useState(false)
+  const inputsRef = useRef([])
 
   function entrarComSso(provedor) {
     setErro(`Login com ${provedor} ainda não implementado.`)
   }
 
-  function handleSubmit(e) {
+  function handleEmailSubmit(e) {
     e.preventDefault()
     if (!email.trim() || !EMAIL_RE.test(email.trim())) {
       setErro('Informe um e-mail válido.')
       return
     }
-    if (!senha) {
-      setErro('Informe sua senha.')
-      return
-    }
     setErro(null)
     setCarregando(true)
-    auth.login(email.trim(), senha)
-      .then(() => navigate('/'))
-      .catch((err) => setErro(err.message))
-      .finally(() => setCarregando(false))
+    // Sem serviço de e-mail configurado ainda — a troca de tela é só visual,
+    // nenhum código é enviado de fato.
+    setTimeout(() => {
+      setCarregando(false)
+      setEtapa('codigo')
+      requestAnimationFrame(() => inputsRef.current[0]?.focus())
+    }, 500)
   }
+
+  function voltarParaEmail() {
+    setEtapa('email')
+    setErro(null)
+    setCodigo(Array(TAMANHO_CODIGO).fill(''))
+  }
+
+  function handleCodigoChange(indice, valor) {
+    const digito = valor.replace(/\D/g, '').slice(-1)
+    setCodigo((prev) => {
+      const proximo = [...prev]
+      proximo[indice] = digito
+      return proximo
+    })
+    if (digito && indice < TAMANHO_CODIGO - 1) inputsRef.current[indice + 1]?.focus()
+  }
+
+  function handleCodigoKeyDown(indice, e) {
+    if (e.key === 'Backspace' && !codigo[indice] && indice > 0) {
+      inputsRef.current[indice - 1]?.focus()
+    }
+  }
+
+  function handleCodigoPaste(e) {
+    const digitos = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, TAMANHO_CODIGO)
+    if (!digitos) return
+    e.preventDefault()
+    const proximo = digitos.split('').concat(Array(TAMANHO_CODIGO).fill('')).slice(0, TAMANHO_CODIGO)
+    setCodigo(proximo)
+    inputsRef.current[Math.min(digitos.length, TAMANHO_CODIGO - 1)]?.focus()
+  }
+
+  function handleVerificar(e) {
+    e.preventDefault()
+    setErro('Verificação por e-mail ainda não implementada — não há serviço de e-mail configurado.')
+  }
+
+  function reenviarCodigo() {
+    setErro('Reenvio ainda não implementado — não há serviço de e-mail configurado.')
+  }
+
+  const codigoCompleto = codigo.every((d) => d !== '')
 
   return (
     <div className="login-page">
@@ -67,57 +111,76 @@ export default function Login() {
       <div className="login-card">
         <div className="login-brand">ClinicOS</div>
 
-        <div className="login-sso">
-          <button type="button" className="login-sso-btn" onClick={() => entrarComSso('Google')}>
-            <GoogleIcon />Continuar com Google
-          </button>
-          <button type="button" className="login-sso-btn" onClick={() => entrarComSso('Microsoft')}>
-            <MicrosoftIcon />Continuar com Microsoft
-          </button>
-        </div>
+        {etapa === 'email' ? (
+          <>
+            <h1 className="login-titulo">Entrar</h1>
+            <p className="login-subtitulo">Use o e-mail da sua conta na clínica.</p>
 
-        <div className="login-divisor"><span>ou entre com e-mail</span></div>
+            <form className="login-form" onSubmit={handleEmailSubmit} noValidate>
+              <div className="login-campo">
+                <div className="login-input-wrap">
+                  <Mail size={16} strokeWidth={1.8} className="login-input-icon" />
+                  <input
+                    type="email" className="login-input" placeholder="voce@clinica.com.br"
+                    value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus
+                  />
+                </div>
+              </div>
 
-        <form className="login-form" onSubmit={handleSubmit} noValidate>
-          <div className="login-campo">
-            <label className="login-label" htmlFor="login-email">E-mail</label>
-            <div className="login-input-wrap">
-              <Mail size={16} strokeWidth={1.8} className="login-input-icon" />
-              <input
-                id="login-email" type="email" className="login-input" placeholder="voce@clinica.com.br"
-                value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus
-              />
-            </div>
-          </div>
+              {erro && <div className="login-erro">{erro}</div>}
 
-          <div className="login-campo">
-            <div className="login-label-row">
-              <label className="login-label" htmlFor="login-senha">Senha</label>
-              <button type="button" className="login-link" onClick={() => setErro('Recuperação de senha ainda não implementada.')}>
-                Esqueci minha senha
+              <button type="submit" className="login-btn" disabled={carregando}>
+                {carregando ? 'Enviando…' : 'Continuar com e-mail'}
+              </button>
+            </form>
+
+            <div className="login-divisor"><span>ou</span></div>
+
+            <div className="login-sso">
+              <button type="button" className="login-sso-btn" onClick={() => entrarComSso('Google')}>
+                <GoogleIcon />Continuar com Google
+              </button>
+              <button type="button" className="login-sso-btn" onClick={() => entrarComSso('Microsoft')}>
+                <MicrosoftIcon />Continuar com Microsoft
               </button>
             </div>
-            <div className="login-input-wrap">
-              <Lock size={16} strokeWidth={1.8} className="login-input-icon" />
-              <input
-                id="login-senha" type={mostrarSenha ? 'text' : 'password'} className="login-input"
-                placeholder="Sua senha" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password"
-              />
-              <button
-                type="button" className="login-olho" onClick={() => setMostrarSenha((v) => !v)}
-                aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-              >
-                {mostrarSenha ? <EyeOff size={16} strokeWidth={1.8} /> : <Eye size={16} strokeWidth={1.8} />}
+          </>
+        ) : (
+          <>
+            <button type="button" className="login-voltar" onClick={voltarParaEmail}>
+              <ArrowLeft size={14} strokeWidth={2.2} />
+              Usar outro e-mail
+            </button>
+
+            <h1 className="login-titulo">Verifique seu e-mail</h1>
+            <p className="login-subtitulo">Enviamos um código de {TAMANHO_CODIGO} dígitos para <strong>{email}</strong></p>
+
+            <form className="login-form" onSubmit={handleVerificar} noValidate>
+              <div className="login-codigo-row" onPaste={handleCodigoPaste}>
+                {codigo.map((digito, i) => (
+                  <input
+                    key={i} ref={(el) => { inputsRef.current[i] = el }}
+                    type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1}
+                    className="login-codigo-input" aria-label={`Dígito ${i + 1} do código`}
+                    value={digito}
+                    onChange={(e) => handleCodigoChange(i, e.target.value)}
+                    onKeyDown={(e) => handleCodigoKeyDown(i, e)}
+                  />
+                ))}
+              </div>
+
+              {erro && <div className="login-erro">{erro}</div>}
+
+              <button type="submit" className="login-btn" disabled={!codigoCompleto}>
+                Verificar código
               </button>
-            </div>
-          </div>
+            </form>
 
-          {erro && <div className="login-erro">{erro}</div>}
-
-          <button type="submit" className="login-btn" disabled={carregando}>
-            {carregando ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
+            <button type="button" className="login-link login-reenviar" onClick={reenviarCodigo}>
+              Reenviar código
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

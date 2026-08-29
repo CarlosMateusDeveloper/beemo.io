@@ -19,17 +19,17 @@ public class SecurityConfig {
         this.jwtAuthFilter = jwtAuthFilter;
     }
 
-    // Stateless (sem sessão de servidor — cada request se autentica sozinha
-    // via JWT, JwtAuthFilter é quem le o header). /api/auth/login fica aberto
-    // porque é justamente onde o token ainda não existe; o resto exige token.
+    // Autenticação desligada a pedido explícito (não é o padrão recomendado:
+    // /api/** fica sem proteção nenhuma, incluindo dado clínico sensível em
+    // /api/pacientes). JwtAuthFilter continua registrado e /api/auth/login
+    // continua emitindo token normalmente — só não é mais exigido em nenhuma
+    // rota. Reverter é trocar permitAll() de volta por authenticated().
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

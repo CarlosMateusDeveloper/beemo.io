@@ -7,6 +7,10 @@ import './UserMenu.css'
 
 const PERFIL_LABEL = { medico: 'Médico(a)', administrador: 'Administrador(a)' }
 
+// Autenticação desligada (ver SecurityConfig.java) — sem usuario real pra
+// mostrar aqui, então cai nesse placeholder em vez de sumir o menu inteiro.
+const USUARIO_PLACEHOLDER = { nome: 'Ana Souza', perfil: 'administrador' }
+
 function getInitials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
@@ -41,7 +45,7 @@ export default function UserMenu() {
     }
   }
 
-  if (!usuario) return null
+  const usuarioExibido = usuario ?? USUARIO_PLACEHOLDER
 
   return (
     <div className="user-menu" ref={containerRef}>
@@ -66,10 +70,10 @@ export default function UserMenu() {
       )}
 
       <button className="user-menu-trigger" onClick={() => setOpen((v) => !v)}>
-        <div className="user-menu-avatar">{getInitials(usuario.nome)}</div>
+        <div className="user-menu-avatar">{getInitials(usuarioExibido.nome)}</div>
         <div className="user-menu-info">
-          <div className="user-menu-name">{usuario.nome}</div>
-          <div className="user-menu-role">{PERFIL_LABEL[usuario.perfil] ?? usuario.perfil}</div>
+          <div className="user-menu-name">{usuarioExibido.nome}</div>
+          <div className="user-menu-role">{PERFIL_LABEL[usuarioExibido.perfil] ?? usuarioExibido.perfil}</div>
         </div>
         <ChevronsUpDown size={14} strokeWidth={2} className="user-menu-chevron" />
       </button>
