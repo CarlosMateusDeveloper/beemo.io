@@ -15,6 +15,21 @@
   color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
 }
 .convenios-sel:hover { color: var(--text-primary); }
+.convenios-sel:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.convenios-btn-primario {
+  height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 0 15px; border: none; border-radius: 9px;
+  background: var(--acc); color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.convenios-btn-primario:hover { background: var(--acc-deep); }
+.convenios-btn-primario:disabled { opacity: 0.5; cursor: not-allowed; }
+.convenios-btn-primario:disabled:hover { background: var(--acc); }
+.convenios-btn-ghost {
+  height: 35px; display: inline-flex; align-items: center; gap: 6px; padding: 0 15px; border: 1px solid var(--border);
+  border-radius: 9px; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.convenios-btn-ghost:hover { background: var(--surface-hover); }
+.convenios-btn-ghost.sm { height: 29px; padding: 0 11px; font-size: 12.5px; }
 
 .convenios-conv { position: relative; }
 .convenios-conv-trigger {
@@ -77,6 +92,10 @@
 
 /* Painel / tabela */
 .convenios-painel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.convenios-painel-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+.convenios-painel-titulo { font-size: 14px; font-weight: 500; }
+.convenios-painel-titulo span { color: var(--text-tertiary); font-weight: 400; }
+.convenios-tabela-lista tbody tr { cursor: pointer; }
 
 .convenios-bulk { display: flex; align-items: center; gap: 16px; padding: 11px 18px; background: var(--info-bg); border-bottom: 1px solid var(--border); }
 .convenios-bulk-txt { font-size: 13px; color: var(--info); font-weight: 500; }
@@ -145,3 +164,50 @@ td.num { text-align: right; }
 .convenios-vazio-tile { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: var(--surface-muted); border: 1px solid var(--border); color: var(--text-tertiary); }
 .convenios-vazio-titulo { font-size: 16px; font-weight: 600; }
 .convenios-vazio-texto { font-size: 13px; color: var(--text-tertiary); max-width: 46ch; }
+
+/* Modal — novo convênio */
+.convenios-overlay {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.convenios-modal {
+  width: 440px; max-width: calc(100vw - 32px); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; box-shadow: var(--shadow-modal); max-height: calc(100vh - 48px); overflow-y: auto;
+}
+.convenios-modal-title { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+.convenios-modal-subtitle { font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 16px; }
+.convenios-modal-erro { font-size: 12.5px; color: var(--danger); background: var(--danger-bg); border-radius: 8px; padding: 8px 11px; margin-bottom: 14px; }
+.convenios-modal-campo { margin-bottom: 13px; }
+.convenios-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.convenios-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+.convenios-input, .convenios-textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--app-bg);
+  color: var(--text-primary); font-size: 13.5px; padding: 0 10px; box-sizing: border-box;
+}
+.convenios-input { height: 35px; cursor: text; }
+select.convenios-input { cursor: pointer; }
+.convenios-textarea { padding: 8px 10px; resize: vertical; font-family: inherit; }
+.convenios-input:focus, .convenios-textarea:focus { outline: 2px solid var(--acc-line); outline-offset: 1px; }
+.convenios-form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.convenios-form-check input { width: 14px; height: 14px; accent-color: var(--acc); margin: 0; }
+
+/* Sub-recursos (Planos, Procedimentos, Regras, Documentos) */
+.convenios-sub { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px 18px; margin-top: 14px; }
+.convenios-sub-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.convenios-sub-head h3 { font-size: 14.5px; font-weight: 600; }
+.convenios-sub-vazio { display: flex; flex-direction: column; gap: 3px; padding: 18px 4px; }
+.convenios-sub-vazio strong { font-size: 13.5px; font-weight: 600; }
+.convenios-sub-vazio span { font-size: 12.5px; color: var(--text-tertiary); }
+.convenios-tabela-sub { min-width: 0; width: 100%; }
+.convenios-tabela-sub th { position: static; }
+.convenios-sub-editicon { color: var(--text-tertiary); }
+.convenios-sub-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-faint); }
+.convenios-sub-form-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
+.convenios-sub-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; margin-bottom: 4px; }
+
+/* Detalhe do convênio */
+.convenios-detalhe { padding-bottom: 20px; }
+.convenios-voltar { display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 4px 0; margin-bottom: 14px; }
+.convenios-voltar:hover { color: var(--text-primary); }
+.convenios-detalhe-titulo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.convenios-detalhe-titulo h2 { font-size: 19px; font-weight: 600; }

@@ -1,129 +1,101 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import ConveniosFiltros from './ConveniosFiltros'
 import ConveniosKpis from './ConveniosKpis'
-import ConveniosLotes from './ConveniosLotes'
-import ConveniosResumo from './ConveniosResumo'
-import ConveniosTabela from './ConveniosTabela'
-import { GLOSAS, LOTES } from './conveniosData'
+import ConveniosLista from './ConveniosLista'
+import ConvenioDetalhe from './ConvenioDetalhe'
+import ConveniosPlaceholder from './ConveniosPlaceholder'
+import { fetchKpis } from './api'
 import './convenios.css'
 
+const ABAS = [
+  { id: 'glosas', label: 'Glosas' },
+  { id: 'auditoria', label: 'Auditoria' },
+  { id: 'convenios', label: 'Convênios' },
+  { id: 'lotes', label: 'Lotes' },
+]
+
 export function Convenios() {
-  const [aba, setAba] = useState('glosas')
+  const [aba, setAba] = useState('convenios')
   const [periodo, setPeriodo] = useState('Últimos 30 dias')
+  const [convenioId, setConvenioId] = useState('')
   const [convenios, setConvenios] = useState([])
-  const [status, setStatus] = useState('')
-  const [responsavel, setResponsavel] = useState('')
-  const [filtroPrazo, setFiltroPrazo] = useState(false)
-  const [selecionados, setSelecionados] = useState(new Set())
-  const [toast, setToast] = useState(null)
-  const toastTimer = useRef(null)
+  const [kpis, setKpis] = useState(null)
+  const [carregandoKpis, setCarregandoKpis] = useState(true)
+  const [convenioAbertoId, setConvenioAbertoId] = useState(null)
+  const [recarregarSinal, setRecarregarSinal] = useState(0)
 
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
+  useEffect(() => {
+    let cancelado = false
+    setCarregandoKpis(true)
+    fetchKpis(periodo, convenioId || undefined)
+      .then((dados) => { if (!cancelado) setKpis(dados) })
+      .catch(() => {})
+      .finally(() => { if (!cancelado) setCarregandoKpis(false) })
+    return () => { cancelado = true }
+  }, [periodo, convenioId, recarregarSinal])
 
-  function mostrarToast(texto) {
-    setToast(texto)
-    clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(null), 2600)
+  function abrirConvenio(id) {
+    setConvenioAbertoId(id)
   }
 
-  const linhas = useMemo(() => {
-    const filtradas = GLOSAS.filter((g) => {
-      if (convenios.length > 0 && !convenios.includes(g.convenio)) return false
-      if (status && g.status !== status) return false
-      if (responsavel && g.responsavel !== responsavel) return false
-      if (filtroPrazo && (g.prazoDias == null || g.prazoDias > 5)) return false
-      return true
-    })
-    return [...filtradas].sort((a, b) => {
-      const da = a.prazoDias ?? Infinity
-      const db = b.prazoDias ?? Infinity
-      return da - db
-    })
-  }, [convenios, status, responsavel, filtroPrazo])
-
-  function toggleFiltroPrazo() {
-    setFiltroPrazo((v) => !v)
-    setSelecionados(new Set())
-  }
-
-  function toggleSelecionado(id) {
-    setSelecionados((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
-
-  function toggleTodos() {
-    setSelecionados((prev) => (prev.size === linhas.length ? new Set() : new Set(linhas.map((l) => l.id))))
-  }
-
-  function acaoLote(tipo) {
-    const n = selecionados.size
-    mostrarToast(tipo === 'recurso'
-      ? `Montando recurso em lote para ${n} ${n === 1 ? 'glosa' : 'glosas'}…`
-      : `Atribuindo responsável para ${n} ${n === 1 ? 'glosa' : 'glosas'}…`)
-  }
-
-  function abrirGlosa(glosa) {
-    // Sem /convenios/glosas/{id} ainda: mostra um toast, como nas outras telas.
-    mostrarToast(`Abrindo a glosa de ${glosa.paciente}…`)
-  }
-
-  function abrirConvenio(convenio) {
-    // Sem /convenios/{id} ainda: mostra um toast, como nas outras telas.
-    mostrarToast(`Abrindo o convênio ${convenio.convenio}…`)
-  }
-
-  function abrirLote(lote) {
-    mostrarToast(`Abrindo o lote ${lote.id}…`)
+  function fecharConvenio() {
+    setConvenioAbertoId(null)
+    setRecarregarSinal((n) => n + 1)
   }
 
   return (
     <div className="convenios-page">
       <ConveniosFiltros
         periodo={periodo} onPeriodoChange={setPeriodo}
-        convenios={convenios} onConveniosChange={setConvenios}
-        status={status} onStatusChange={setStatus}
-        responsavel={responsavel} onResponsavelChange={setResponsavel}
+        convenioId={convenioId} onConvenioIdChange={setConvenioId}
+        convenios={convenios}
       />
 
-      <ConveniosKpis filtroPrazo={filtroPrazo} onToggleFiltroPrazo={toggleFiltroPrazo} />
+      <ConveniosKpis kpis={kpis} carregando={carregandoKpis} />
 
       <div className="convenios-tabs">
-        <button type="button" className={`convenios-tab ${aba === 'glosas' ? 'active' : ''}`} onClick={() => setAba('glosas')}>
-          Glosas<span className="convenios-tab-count">{GLOSAS.length}</span>
-        </button>
-        <button type="button" className={`convenios-tab ${aba === 'convenios' ? 'active' : ''}`} onClick={() => setAba('convenios')}>
-          Convênios<span className="convenios-tab-count">4</span>
-        </button>
-        <button type="button" className={`convenios-tab ${aba === 'lotes' ? 'active' : ''}`} onClick={() => setAba('lotes')}>
-          Lotes<span className="convenios-tab-count">{LOTES.length}</span>
-        </button>
+        {ABAS.map((t) => (
+          <button
+            key={t.id} type="button"
+            className={`convenios-tab ${aba === t.id ? 'active' : ''}`}
+            onClick={() => setAba(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {aba === 'glosas' && (
-        <ConveniosTabela
-          linhas={linhas}
-          total={GLOSAS.length}
-          selecionados={selecionados}
-          onToggle={toggleSelecionado}
-          onToggleTodos={toggleTodos}
-          onLimparSelecao={() => setSelecionados(new Set())}
-          onAcaoLote={acaoLote}
-          onAbrirGlosa={abrirGlosa}
+        <ConveniosPlaceholder
+          titulo="Glosas — em construção"
+          texto="A fila de glosas, com prazos de recurso e ações em lote, entra numa próxima etapa."
         />
       )}
 
-      {aba === 'convenios' && <ConveniosResumo onAbrirConvenio={abrirConvenio} />}
+      {aba === 'auditoria' && (
+        <ConveniosPlaceholder
+          titulo="Auditoria — em construção"
+          texto="O motor de regras já roda na configuração de cada convênio (aba Convênios); a esteira que aplica essas regras aos atendimentos antes do faturamento entra numa próxima etapa."
+        />
+      )}
 
-      {aba === 'lotes' && <ConveniosLotes onAbrirLote={abrirLote} />}
+      {aba === 'convenios' && (
+        convenioAbertoId ? (
+          <ConvenioDetalhe id={convenioAbertoId} onVoltar={fecharConvenio} onAtualizado={() => setRecarregarSinal((n) => n + 1)} />
+        ) : (
+          <ConveniosLista
+            onAbrirConvenio={abrirConvenio}
+            recarregarSinal={recarregarSinal}
+            onListaAtualizada={(lista) => setConvenios(lista.map((c) => ({ id: c.id, nome: c.nome })))}
+          />
+        )
+      )}
 
-      {toast && (
-        <div className="convenios-toast">
-          <span className="convenios-toast-dot" />
-          {toast}
-        </div>
+      {aba === 'lotes' && (
+        <ConveniosPlaceholder
+          titulo="Lotes — em construção"
+          texto="Agrupamento de atendimentos aprovados na auditoria em remessas de faturamento entra numa próxima etapa."
+        />
       )}
     </div>
   )

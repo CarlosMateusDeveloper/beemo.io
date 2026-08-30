@@ -1,60 +1,38 @@
-// Dataset mock da tela /convenios. Sem endpoint de backend ainda — a fila de
-// glosas e os KPIs devem futuramente consumir GET /convenios/glosas?periodo=&
-// convenios=&status=&responsavel=, com os agregados calculados no servidor.
+// Constantes e helpers compartilhados da tela /convenios.
 
-export const PERIODOS = ['Últimos 30 dias', '7 dias', 'Mês', 'Personalizado']
-export const CONVENIOS = ['Unimed', 'Bradesco Saúde', 'SulAmérica', 'Amil']
-export const RESPONSAVEIS = ['Camila F.', 'Diego M.', 'Priscila N.']
-
-export const KPI_BASE = {
-  aReceber: 0,
-  aReceberLotes: 0,
-  aReceberMediaDias: 0,
-  glosadoMes: 0,
-  glosadoPct: 0,
-  prazoVencendoValor: 0,
-  prazoVencendoQtd: 0,
-  prazoVencendoDias: 0,
-  recuperado: 0,
-  recuperadoTaxaPct: 0,
-}
-
-const STATUS_META = {
-  analisar: { label: 'A analisar', cls: 'st-neutro' },
-  recurso: { label: 'Em recurso', cls: 'st-info' },
-  recorrida: { label: 'Recorrida', cls: 'st-info-tracejado' },
-  revertida: { label: 'Revertida', cls: 'st-ok' },
-  perdida: { label: 'Perdida', cls: 'st-perdida' },
-}
-
-export function statusMeta(status) {
-  return STATUS_META[status]
-}
-
-// prazoDias null = prazo já expirado (linha some da fila ativa, mas ainda
-// aparece esmaecida — é o registro de uma glosa perdida por decurso de prazo).
-// Sem glosas registradas ainda — GET /convenios/glosas deve popular esta fila.
-export const GLOSAS = []
+// Alinhado ao que ConveniosKpiService.resolverInicio aceita no backend.
+export const PERIODOS = [
+  { valor: 'Últimos 30 dias', rotulo: 'Últimos 30 dias' },
+  { valor: 'Hoje', rotulo: 'Hoje' },
+  { valor: '7 dias', rotulo: 'Últimos 7 dias' },
+  { valor: '90 dias', rotulo: 'Últimos 90 dias' },
+]
 
 export function brl(valor) {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return Number(valor ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-// Aba "Convênios" — uma linha por convênio, para comparação (não cadastro).
-// Sem apuração ainda — GET /convenios/resumo deve popular esta lista.
-export const CONVENIOS_RESUMO = []
+// Segue os 9 tipos de regra_auditoria.tipo do schema (Fase 14) — usado nos
+// selects do CRUD de regras e, futuramente, na aba Auditoria real.
+export const TIPOS_REGRA = [
+  { valor: 'autorizacao_obrigatoria', rotulo: 'Autorização obrigatória' },
+  { valor: 'documento_obrigatorio', rotulo: 'Documento obrigatório' },
+  { valor: 'codigo_incompativel', rotulo: 'Código incompatível' },
+  { valor: 'procedimento_nao_coberto', rotulo: 'Procedimento não coberto' },
+  { valor: 'paciente_inelegivel', rotulo: 'Paciente inelegível' },
+  { valor: 'quantidade_acima_permitido', rotulo: 'Quantidade acima do permitido' },
+  { valor: 'prazo_faturamento_excedido', rotulo: 'Prazo de faturamento excedido' },
+  { valor: 'profissional_nao_habilitado', rotulo: 'Profissional não habilitado' },
+  { valor: 'divergencia_atendimento_faturamento', rotulo: 'Divergência atendimento x faturamento' },
+]
 
-const STATUS_LOTE_META = {
-  enviado: { label: 'Enviado', cls: 'st-neutro' },
-  processado: { label: 'Processado', cls: 'st-info' },
-  pago: { label: 'Pago', cls: 'st-ok' },
-  parcial: { label: 'Pago parcialmente', cls: 'st-warn' },
+export const SEVERIDADES = [
+  { valor: 'critica', rotulo: 'Crítica', cls: 'st-perdida' },
+  { valor: 'alta', rotulo: 'Alta', cls: 'st-warn' },
+  { valor: 'media', rotulo: 'Média', cls: 'st-info' },
+  { valor: 'baixa', rotulo: 'Baixa', cls: 'st-neutro' },
+]
+
+export function severidadeMeta(valor) {
+  return SEVERIDADES.find((s) => s.valor === valor) ?? SEVERIDADES[SEVERIDADES.length - 1]
 }
-
-export function statusLoteMeta(status) {
-  return STATUS_LOTE_META[status]
-}
-
-// Aba "Lotes" — remessas enviadas e a conciliação entre valor enviado x pago.
-// Sem lotes enviados ainda — GET /convenios/lotes deve popular esta lista.
-export const LOTES = []

@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.OffsetDateTime;
+
 @Entity
 @Table(name = "convenio")
 @Getter
@@ -29,4 +31,13 @@ public class Convenio {
     private String registroAns;
 
     private Boolean ativo = true;
+
+    @Size(max = 150)
+    private String contato;
+
+    @Column(columnDefinition = "TEXT")
+    private String observacoes;
+
+    @Column(name = "atualizado_em")
+    private OffsetDateTime atualizadoEm;
 }

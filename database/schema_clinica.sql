@@ -709,3 +709,229 @@ CREATE INDEX idx_exame_status ON exame(status);
 -- GET /api/pacientes busca por nome/CPF/telefone numa listagem paginada
 -- (issue #11) — mesmo padrao de idx_mensagem_telefone (Fase 1).
 CREATE INDEX idx_paciente_ddd_numero ON paciente(ddd, numero);
+
+-- =====================================================================
+-- FASE 14 — Convênios: auditoria, lotes e glosas
+-- =====================================================================
+
+-- --- Convênios (config) — implementado nesta fase ---
+
+ALTER TABLE convenio ADD COLUMN contato VARCHAR(150) NULL;
+ALTER TABLE convenio ADD COLUMN observacoes TEXT NULL;
+-- Tocado pelo service sempre que o convenio OU qualquer plano/procedimento/
+-- regra/documento obrigatorio dele muda — alimenta a coluna "Última
+-- atualização" da listagem da aba Convênios.
+ALTER TABLE convenio ADD COLUMN atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now();
+
+CREATE TABLE convenio_plano (
+    id_plano INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    nome VARCHAR(100) NOT NULL,
+    codigo VARCHAR(50) NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE convenio_procedimento (
+    id_convenio_procedimento INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    -- NULL = vale pra todos os planos do convenio; preenchido = preco/regra
+    -- especifica de um plano.
+    id_plano INT NULL REFERENCES convenio_plano(id_plano),
+    codigo VARCHAR(30) NOT NULL,
+    descricao VARCHAR(200) NOT NULL,
+    valor_negociado NUMERIC(10, 2) NULL,
+    cobertura BOOLEAN NOT NULL DEFAULT TRUE,
+    exige_autorizacao BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TYPE tipo_regra_auditoria AS ENUM (
+    'autorizacao_obrigatoria', 'documento_obrigatorio', 'codigo_incompativel',
+    'procedimento_nao_coberto', 'paciente_inelegivel', 'quantidade_acima_permitido',
+    'prazo_faturamento_excedido', 'profissional_nao_habilitado', 'divergencia_atendimento_faturamento'
+);
+CREATE TYPE severidade_regra AS ENUM ('critica', 'alta', 'media', 'baixa');
+
+-- parametros guarda config especifica de cada regra (ex: {"quantidadeMaxima": 3})
+-- pra permitir novas variacoes sem alterar o schema, como a spec pede
+-- ("permitir adicionar novas regras posteriormente sem alterar a estrutura
+-- principal do modulo").
+CREATE TABLE regra_auditoria (
+    id_regra INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    -- NULL = regra geral do convenio; preenchido = so vale pra esse procedimento.
+    id_convenio_procedimento INT NULL REFERENCES convenio_procedimento(id_convenio_procedimento),
+    tipo tipo_regra_auditoria NOT NULL,
+    severidade severidade_regra NOT NULL,
+    descricao VARCHAR(255) NOT NULL,
+    parametros JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE documento_obrigatorio_convenio (
+    id_documento_obrigatorio INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    id_convenio_procedimento INT NULL REFERENCES convenio_procedimento(id_convenio_procedimento),
+    nome_documento VARCHAR(150) NOT NULL,
+    obrigatorio BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- --- Auditoria, Lotes, Glosas — schema pronto agora (pra nao remodelar
+-- depois), motor de regras e telas entram numa fase futura ---
+
+CREATE TYPE status_auditoria_atendimento AS ENUM ('bloqueado', 'atencao', 'aprovado');
+
+CREATE TABLE auditoria_atendimento (
+    id_auditoria_atendimento INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_consulta INT NOT NULL UNIQUE REFERENCES consulta(id_consulta),
+    status status_auditoria_atendimento NOT NULL,
+    valor_em_risco NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    avaliado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TYPE status_auditoria_item AS ENUM ('ok', 'falha');
+
+CREATE TABLE auditoria_item (
+    id_auditoria_item INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_auditoria_atendimento INT NOT NULL REFERENCES auditoria_atendimento(id_auditoria_atendimento),
+    id_regra INT NULL REFERENCES regra_auditoria(id_regra),
+    status status_auditoria_item NOT NULL,
+    descricao VARCHAR(255) NOT NULL,
+    severidade severidade_regra NULL,
+    acao_recomendada VARCHAR(255) NULL
+);
+
+CREATE TYPE status_lote_faturamento AS ENUM (
+    'rascunho', 'pronto_envio', 'enviado', 'processando', 'pago_parcial', 'pago', 'com_glosas'
+);
+
+CREATE TABLE lote_faturamento (
+    id_lote INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    codigo VARCHAR(30) NOT NULL UNIQUE,
+    status status_lote_faturamento NOT NULL DEFAULT 'rascunho',
+    data_envio DATE NULL,
+    valor_total NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Liga ao `fatura` ja existente em vez de duplicar valor/status.
+CREATE TABLE lote_item (
+    id_lote_item INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_lote INT NOT NULL REFERENCES lote_faturamento(id_lote),
+    id_fatura INT NOT NULL UNIQUE REFERENCES fatura(id_fatura)
+);
+
+CREATE TYPE status_glosa AS ENUM (
+    'nova', 'em_analise', 'recurso_preparacao', 'recurso_enviado', 'recuperada', 'confirmada'
+);
+
+CREATE TABLE glosa (
+    id_glosa INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_fatura INT NOT NULL REFERENCES fatura(id_fatura),
+    id_convenio INT NOT NULL REFERENCES convenio(id_convenio),
+    motivo VARCHAR(255) NOT NULL,
+    valor NUMERIC(10, 2) NOT NULL,
+    prazo_recurso DATE NULL,
+    status status_glosa NOT NULL DEFAULT 'nova',
+    id_usuario_responsavel INT NULL REFERENCES usuario(id),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE glosa_historico (
+    id_glosa_historico INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_glosa INT NOT NULL REFERENCES glosa(id_glosa),
+    evento VARCHAR(255) NOT NULL,
+    id_usuario INT NULL REFERENCES usuario(id),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Documentos de glosa reaproveitam `documento_anexo` (ja existe, generico
+-- por id_consulta) — nao criamos tabela nova so pra isso.
+
+CREATE INDEX idx_convenio_procedimento_convenio ON convenio_procedimento(id_convenio);
+CREATE INDEX idx_regra_auditoria_convenio ON regra_auditoria(id_convenio);
+CREATE INDEX idx_glosa_status ON glosa(status);
+CREATE INDEX idx_glosa_prazo_recurso ON glosa(prazo_recurso);
+CREATE INDEX idx_lote_faturamento_status ON lote_faturamento(status);
+
+-- =====================================================================
+-- FASE 15 — Recuperação de glosas (docs/specs/recuperacao-glosas.md)
+-- =====================================================================
+
+-- Aditivo sobre o schema da Fase 14 (glosa/glosa_historico) — não remodela
+-- nada que já existia, só completa o que a spec de recuperação pede além
+-- do registro básico da glosa. "negada" e "recuperada_parcialmente" fecham
+-- os desfechos que status_glosa ainda não cobria.
+ALTER TYPE status_glosa ADD VALUE IF NOT EXISTS 'negada';
+ALTER TYPE status_glosa ADD VALUE IF NOT EXISTS 'recuperada_parcialmente';
+
+-- valor da glosa (Fase 14) já existe como `glosa.valor`; aqui só o que
+-- faltava pra seção 3-5 da spec. "Lote de origem" não vira coluna: dá pra
+-- achar via lote_item.id_fatura = glosa.id_fatura. "Plano" fica de fora —
+-- paciente/fatura não guardam id_plano em lugar nenhum do schema ainda.
+-- Distinta de criado_em: origem='importada' pode registrar uma glosa que o
+-- convênio emitiu antes de alguém lançar no sistema.
+ALTER TABLE glosa ADD COLUMN data_glosa DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE glosa ADD COLUMN valor_faturado NUMERIC(10, 2) NULL;
+ALTER TABLE glosa ADD COLUMN codigo_motivo VARCHAR(50) NULL;
+ALTER TABLE glosa ADD COLUMN origem VARCHAR(10) NOT NULL DEFAULT 'manual'
+    CHECK (origem IN ('importada', 'manual'));
+ALTER TABLE glosa ADD COLUMN recorribilidade VARCHAR(20) NULL
+    CHECK (recorribilidade IN ('recorrivel', 'nao_recorrivel', 'necessita_analise'));
+ALTER TABLE glosa ADD COLUMN categoria_motivo VARCHAR(20) NULL
+    CHECK (categoria_motivo IN (
+        'autorizacao', 'documentacao', 'codigo_procedimento', 'elegibilidade',
+        'cobertura', 'cobranca', 'prazo', 'duplicidade', 'outros'
+    ));
+
+-- O recurso é uma entidade própria (não cabe em glosa.status, que só
+-- rastreia o estágio macro) — seção 6-12 da spec: justificativa, envio,
+-- prazo e resultado (valor recuperado x não recuperado) por tentativa de
+-- recurso. glosa.status continua espelhando o desfecho pra listagem/KPI.
+CREATE TYPE status_recurso_glosa AS ENUM (
+    'rascunho', 'em_preparacao', 'enviado', 'aguardando_retorno', 'em_analise_convenio',
+    'recuperado', 'recuperado_parcialmente', 'negado', 'prazo_expirado'
+);
+CREATE TYPE canal_envio_recurso AS ENUM ('manual', 'portal_convenio', 'email');
+
+CREATE TABLE recurso_glosa (
+    id_recurso INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_glosa INT NOT NULL REFERENCES glosa(id_glosa),
+    status status_recurso_glosa NOT NULL DEFAULT 'rascunho',
+    justificativa TEXT NULL,
+    prazo_limite DATE NULL,
+    id_usuario_responsavel INT NULL REFERENCES usuario(id),
+    canal_envio canal_envio_recurso NULL,
+    protocolo VARCHAR(100) NULL,
+    enviado_em TIMESTAMPTZ NULL,
+    id_usuario_envio INT NULL REFERENCES usuario(id),
+    respondido_em TIMESTAMPTZ NULL,
+    valor_recuperado NUMERIC(10, 2) NULL,
+    valor_nao_recuperado NUMERIC(10, 2) NULL,
+    motivo_negativa TEXT NULL,
+    documento_resposta_url TEXT NULL,
+    -- Checklist (seção 8) trata "documentação anexada" e "evidências
+    -- conferidas" como itens distintos — anexar é automático (documento
+    -- vinculado), conferir é uma confirmação manual de quem prepara o recurso.
+    evidencias_conferidas BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Evidências do recurso (seção 6) — "documentos existentes no ClinicOS
+-- devem poder ser selecionados sem precisar fazer novo upload": quando a
+-- evidência é um arquivo real, liga em documento_anexo; quando é só a
+-- existência de um registro (prontuário/guia/autorização), fica NULL e o
+-- tipo já basta.
+CREATE TABLE recurso_glosa_documento (
+    id_recurso_glosa_documento INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_recurso INT NOT NULL REFERENCES recurso_glosa(id_recurso),
+    tipo VARCHAR(30) NOT NULL
+        CHECK (tipo IN ('prontuario', 'guia', 'solicitacao_medica', 'autorizacao', 'laudo', 'comprovante', 'outro')),
+    id_documento_anexo INT NULL REFERENCES documento_anexo(id_documento),
+    descricao VARCHAR(255) NULL
+);
+
+CREATE INDEX idx_recurso_glosa_glosa ON recurso_glosa(id_glosa);
+CREATE INDEX idx_recurso_glosa_status ON recurso_glosa(status);
+CREATE INDEX idx_recurso_glosa_prazo ON recurso_glosa(prazo_limite);
+CREATE INDEX idx_recurso_glosa_documento_recurso ON recurso_glosa_documento(id_recurso);
