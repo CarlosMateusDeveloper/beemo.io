@@ -2,10 +2,10 @@ package br.com.clinica.controller;
 
 import br.com.clinica.model.Usuario;
 import br.com.clinica.repository.UsuarioRepository;
+import br.com.clinica.service.UsuarioEscritaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,11 +16,11 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioRepository repository;
-    private final PasswordEncoder passwordEncoder;
+    private final UsuarioEscritaService escritaService;
 
-    public UsuarioController(UsuarioRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuarioController(UsuarioRepository repository, UsuarioEscritaService escritaService) {
         this.repository = repository;
-        this.passwordEncoder = passwordEncoder;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -36,9 +36,7 @@ public class UsuarioController {
 
     @PostMapping
     public ResponseEntity<Usuario> criar(@Valid @RequestBody Usuario usuario) {
-        usuario.setSenha(passwordEncoder.encode(usuario.getSenha()));
-        Usuario salvo = repository.save(usuario);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(usuario));
     }
 
     @DeleteMapping("/{id}")

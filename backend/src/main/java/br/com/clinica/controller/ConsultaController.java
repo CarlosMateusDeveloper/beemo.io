@@ -1,8 +1,10 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.ConsultaDto;
+import br.com.clinica.dto.ConsultaRequest;
 import br.com.clinica.model.Consulta;
 import br.com.clinica.repository.ConsultaRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.service.ConsultaEscritaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class ConsultaController {
 
     private final ConsultaRepository repository;
+    private final ConsultaEscritaService escritaService;
 
-    public ConsultaController(ConsultaRepository repository) {
+    public ConsultaController(ConsultaRepository repository, ConsultaEscritaService escritaService) {
         this.repository = repository;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -35,19 +39,13 @@ public class ConsultaController {
     }
 
     @PostMapping
-    public ResponseEntity<Consulta> criar(@Valid @RequestBody Consulta consulta) {
-        Consulta salva = repository.save(consulta);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salva);
+    public ResponseEntity<ConsultaDto> criar(@RequestBody ConsultaRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public Consulta atualizar(@PathVariable Integer id, @Valid @RequestBody Consulta dados) {
-        Consulta existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setPaciente(dados.getPaciente());
-        existente.setIdAgenda(dados.getIdAgenda());
-        existente.setStatusConsulta(dados.getStatusConsulta());
-        return repository.save(existente);
+    public ConsultaDto atualizar(@PathVariable Integer id, @RequestBody ConsultaRequest request) {
+        return escritaService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")

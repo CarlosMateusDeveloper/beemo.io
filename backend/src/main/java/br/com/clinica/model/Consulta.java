@@ -28,7 +28,13 @@ public class Consulta {
     @Column(name = "id_agenda", nullable = false, unique = true)
     private Integer idAgenda;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status_consulta")
-    private StatusConsulta statusConsulta = StatusConsulta.Agendada;
+    // insertable/updatable = false: status_consulta é enum nativo do Postgres;
+    // repository.save() bindaria o valor como varchar e quebraria ("operator
+    // does not exist") sem stringtype=unspecified na URL JDBC. Escrita fica
+    // em ConsultaEscritaService via SQL nativo com CAST; sem valor informado,
+    // a coluna usa o DEFAULT do banco ('Agendada'). Convert (não @Enumerated)
+    // por causa do espaço em "Em Espera"/"Em Atendimento" — ver StatusConsultaConverter.
+    @Convert(converter = StatusConsultaConverter.class)
+    @Column(name = "status_consulta", insertable = false, updatable = false)
+    private StatusConsulta statusConsulta;
 }

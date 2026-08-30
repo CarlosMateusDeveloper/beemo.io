@@ -1,8 +1,10 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.EncaminhamentoDto;
+import br.com.clinica.dto.EncaminhamentoRequest;
 import br.com.clinica.model.Encaminhamento;
 import br.com.clinica.repository.EncaminhamentoRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.service.EncaminhamentoEscritaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class EncaminhamentoController {
 
     private final EncaminhamentoRepository repository;
+    private final EncaminhamentoEscritaService escritaService;
 
-    public EncaminhamentoController(EncaminhamentoRepository repository) {
+    public EncaminhamentoController(EncaminhamentoRepository repository, EncaminhamentoEscritaService escritaService) {
         this.repository = repository;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -35,20 +39,13 @@ public class EncaminhamentoController {
     }
 
     @PostMapping
-    public ResponseEntity<Encaminhamento> criar(@Valid @RequestBody Encaminhamento encaminhamento) {
-        Encaminhamento salvo = repository.save(encaminhamento);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+    public ResponseEntity<EncaminhamentoDto> criar(@RequestBody EncaminhamentoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public Encaminhamento atualizar(@PathVariable Integer id, @Valid @RequestBody Encaminhamento dados) {
-        Encaminhamento existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setProntuario(dados.getProntuario());
-        existente.setEspecialidadeDestino(dados.getEspecialidadeDestino());
-        existente.setMotivo(dados.getMotivo());
-        existente.setPrioridade(dados.getPrioridade());
-        return repository.save(existente);
+    public EncaminhamentoDto atualizar(@PathVariable Integer id, @RequestBody EncaminhamentoRequest request) {
+        return escritaService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")

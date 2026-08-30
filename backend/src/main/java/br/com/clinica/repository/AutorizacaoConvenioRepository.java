@@ -14,7 +14,9 @@ public interface AutorizacaoConvenioRepository extends JpaRepository<Autorizacao
     Optional<AutorizacaoConvenio> findByIdConsulta(Integer idConsulta);
 
     // status é opcional — filtro só entra quando informado (issue #15:
-    // "listagem paginada e filtrável por status").
-    @Query("SELECT a FROM AutorizacaoConvenio a WHERE (:status IS NULL OR a.status = :status)")
+    // "listagem paginada e filtrável por status"). CAST(a.status AS string):
+    // a.status é enum nativo do Postgres (status_autorizacao); comparar
+    // direto quebra sem stringtype=unspecified na URL JDBC.
+    @Query("SELECT a FROM AutorizacaoConvenio a WHERE (:status IS NULL OR CAST(a.status AS string) = :status)")
     Page<AutorizacaoConvenio> buscar(@Param("status") String status, Pageable pageable);
 }

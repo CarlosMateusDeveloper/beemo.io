@@ -16,8 +16,11 @@ public interface FaturaRepository extends JpaRepository<Fatura, Integer> {
 
     // status/inicio/fim são opcionais — filtro só entra quando o parâmetro
     // não é nulo (issue #14: "listagem paginada e filtrável por status/período").
+    // CAST(f.status AS string): f.status é enum nativo do Postgres
+    // (status_fatura); comparar direto quebra sem stringtype=unspecified na
+    // URL JDBC — cast pra texto dos dois lados evita o problema.
     @Query("SELECT f FROM Fatura f WHERE " +
-            "(:status IS NULL OR f.status = :status) " +
+            "(:status IS NULL OR CAST(f.status AS string) = :status) " +
             "AND (:inicio IS NULL OR f.vencimento >= :inicio) " +
             "AND (:fim IS NULL OR f.vencimento <= :fim)")
     Page<Fatura> buscar(

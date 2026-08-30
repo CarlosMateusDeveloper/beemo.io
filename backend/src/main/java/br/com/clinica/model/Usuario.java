@@ -38,6 +38,12 @@ public class Usuario {
     @JsonIgnore
     private String senha;
 
+    // insertable/updatable = false: perfil é enum nativo do Postgres
+    // (perfil_usuario); repository.save() bindaria o valor como varchar e
+    // quebraria ("operator does not exist") sem stringtype=unspecified na
+    // URL JDBC. Escrita fica em UsuarioEscritaService via SQL nativo com
+    // CAST; sem valor informado, a coluna usa o DEFAULT do banco ('administrador').
     @Enumerated(EnumType.STRING)
-    private PerfilUsuario perfil = PerfilUsuario.administrador;
+    @Column(insertable = false, updatable = false)
+    private PerfilUsuario perfil;
 }

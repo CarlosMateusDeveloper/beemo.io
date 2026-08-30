@@ -1,8 +1,10 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.AlergiaDto;
+import br.com.clinica.dto.AlergiaRequest;
 import br.com.clinica.model.Alergia;
 import br.com.clinica.repository.AlergiaRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.service.AlergiaEscritaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class AlergiaController {
 
     private final AlergiaRepository repository;
+    private final AlergiaEscritaService escritaService;
 
-    public AlergiaController(AlergiaRepository repository) {
+    public AlergiaController(AlergiaRepository repository, AlergiaEscritaService escritaService) {
         this.repository = repository;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -35,21 +39,13 @@ public class AlergiaController {
     }
 
     @PostMapping
-    public ResponseEntity<Alergia> criar(@Valid @RequestBody Alergia alergia) {
-        Alergia salva = repository.save(alergia);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salva);
+    public ResponseEntity<AlergiaDto> criar(@RequestBody AlergiaRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public Alergia atualizar(@PathVariable Integer id, @Valid @RequestBody Alergia dados) {
-        Alergia existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setPaciente(dados.getPaciente());
-        existente.setTipo(dados.getTipo());
-        existente.setSubstancia(dados.getSubstancia());
-        existente.setGravidade(dados.getGravidade());
-        existente.setObservacao(dados.getObservacao());
-        return repository.save(existente);
+    public AlergiaDto atualizar(@PathVariable Integer id, @RequestBody AlergiaRequest request) {
+        return escritaService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")

@@ -1,8 +1,10 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.DocumentoClinicoDto;
+import br.com.clinica.dto.DocumentoClinicoRequest;
 import br.com.clinica.model.DocumentoClinico;
 import br.com.clinica.repository.DocumentoClinicoRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.service.DocumentoClinicoEscritaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class DocumentoClinicoController {
 
     private final DocumentoClinicoRepository repository;
+    private final DocumentoClinicoEscritaService escritaService;
 
-    public DocumentoClinicoController(DocumentoClinicoRepository repository) {
+    public DocumentoClinicoController(DocumentoClinicoRepository repository, DocumentoClinicoEscritaService escritaService) {
         this.repository = repository;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -35,21 +39,13 @@ public class DocumentoClinicoController {
     }
 
     @PostMapping
-    public ResponseEntity<DocumentoClinico> criar(@Valid @RequestBody DocumentoClinico documento) {
-        DocumentoClinico salvo = repository.save(documento);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+    public ResponseEntity<DocumentoClinicoDto> criar(@RequestBody DocumentoClinicoRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public DocumentoClinico atualizar(@PathVariable Integer id, @Valid @RequestBody DocumentoClinico dados) {
-        DocumentoClinico existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setProntuario(dados.getProntuario());
-        existente.setTipo(dados.getTipo());
-        existente.setDiasAfastamento(dados.getDiasAfastamento());
-        existente.setCodigoCidRelacionado(dados.getCodigoCidRelacionado());
-        existente.setTexto(dados.getTexto());
-        return repository.save(existente);
+    public DocumentoClinicoDto atualizar(@PathVariable Integer id, @RequestBody DocumentoClinicoRequest request) {
+        return escritaService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")

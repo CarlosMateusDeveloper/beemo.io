@@ -48,9 +48,15 @@ public class Prontuario {
     @Column(columnDefinition = "TEXT")
     private String diagnostico;
 
+    // insertable/updatable = false: tipo_diagnostico é enum nativo do
+    // Postgres — repository.save() bindaria o valor como varchar e quebraria
+    // ("operator does not exist") sem stringtype=unspecified na URL JDBC.
+    // Escrita fica só em ProntuarioEscritaService via SQL nativo com CAST;
+    // esse campo aqui é só pra leitura. Sem valor padrão em Java de propósito
+    // — quem garante o default agora é a coluna no banco (DEFAULT 'DEFINITIVO').
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_diagnostico")
-    private TipoDiagnostico tipoDiagnostico = TipoDiagnostico.DEFINITIVO;
+    @Column(name = "tipo_diagnostico", insertable = false, updatable = false)
+    private TipoDiagnostico tipoDiagnostico;
 
     // Plano
     @Column(columnDefinition = "TEXT")

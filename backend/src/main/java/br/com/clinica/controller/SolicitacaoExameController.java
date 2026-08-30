@@ -1,8 +1,10 @@
 package br.com.clinica.controller;
 
+import br.com.clinica.dto.SolicitacaoExameDto;
+import br.com.clinica.dto.SolicitacaoExameRequest;
 import br.com.clinica.model.SolicitacaoExame;
 import br.com.clinica.repository.SolicitacaoExameRepository;
-import jakarta.validation.Valid;
+import br.com.clinica.service.SolicitacaoExameEscritaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +17,11 @@ import java.util.List;
 public class SolicitacaoExameController {
 
     private final SolicitacaoExameRepository repository;
+    private final SolicitacaoExameEscritaService escritaService;
 
-    public SolicitacaoExameController(SolicitacaoExameRepository repository) {
+    public SolicitacaoExameController(SolicitacaoExameRepository repository, SolicitacaoExameEscritaService escritaService) {
         this.repository = repository;
+        this.escritaService = escritaService;
     }
 
     @GetMapping
@@ -35,21 +39,13 @@ public class SolicitacaoExameController {
     }
 
     @PostMapping
-    public ResponseEntity<SolicitacaoExame> criar(@Valid @RequestBody SolicitacaoExame solicitacao) {
-        SolicitacaoExame salva = repository.save(solicitacao);
-        return ResponseEntity.status(HttpStatus.CREATED).body(salva);
+    public ResponseEntity<SolicitacaoExameDto> criar(@RequestBody SolicitacaoExameRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(escritaService.criar(request));
     }
 
     @PutMapping("/{id}")
-    public SolicitacaoExame atualizar(@PathVariable Integer id, @Valid @RequestBody SolicitacaoExame dados) {
-        SolicitacaoExame existente = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        existente.setProntuario(dados.getProntuario());
-        existente.setExame(dados.getExame());
-        existente.setUrgente(dados.getUrgente());
-        existente.setJustificativa(dados.getJustificativa());
-        existente.setStatus(dados.getStatus());
-        return repository.save(existente);
+    public SolicitacaoExameDto atualizar(@PathVariable Integer id, @RequestBody SolicitacaoExameRequest request) {
+        return escritaService.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")

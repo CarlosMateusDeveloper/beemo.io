@@ -40,7 +40,10 @@ public class ProntuarioEscritaService {
         Prontuario prontuario = new Prontuario();
         prontuario.setConsulta(entityManager.getReference(Consulta.class, request.consultaId()));
         aplicar(prontuario, request);
-        return paraDto(repository.save(prontuario));
+        Prontuario salvo = repository.save(prontuario);
+        atualizarTipoDiagnostico(salvo.getId(), request.tipoDiagnostico());
+        entityManager.clear();
+        return paraDto(repository.findById(salvo.getId()).orElseThrow());
     }
 
     @Transactional
@@ -53,7 +56,10 @@ public class ProntuarioEscritaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Atendimento já finalizado não pode ser editado");
         }
         aplicar(existente, request);
-        return paraDto(repository.save(existente));
+        repository.save(existente);
+        atualizarTipoDiagnostico(id, request.tipoDiagnostico());
+        entityManager.clear();
+        return paraDto(repository.findById(id).orElseThrow());
     }
 
     private void aplicar(Prontuario prontuario, ProntuarioSalvarRequest request) {
@@ -63,9 +69,7 @@ public class ProntuarioEscritaService {
         prontuario.setExameFisico(request.exameFisico());
         prontuario.setHipoteseDiagnostica(request.hipoteseDiagnostica());
         prontuario.setDiagnostico(request.diagnostico());
-        if (request.tipoDiagnostico() != null) {
-            prontuario.setTipoDiagnostico(TipoDiagnostico.valueOf(request.tipoDiagnostico()));
-        }
+        // tipoDiagnostico não é setado aqui — ver atualizarTipoDiagnostico.
         prontuario.setPrescricao(request.prescricao());
         prontuario.setPlanoTerapeutico(request.planoTerapeutico());
         prontuario.setConduta(request.conduta());
@@ -80,6 +84,21 @@ public class ProntuarioEscritaService {
             }
             prontuario.setAssinadoEm(OffsetDateTime.now());
         }
+    }
+
+    // tipo_diagnostico é enum nativo do Postgres — coluna insertable/updatable
+    // = false na entidade (ver Prontuario.java), escrita só passa por aqui.
+    // Sem valor informado, a coluna fica com o DEFAULT do banco ('DEFINITIVO').
+    private void atualizarTipoDiagnostico(Integer id, String tipoDiagnostico) {
+        if (tipoDiagnostico == null) return;
+        try {
+            TipoDiagnostico.valueOf(tipoDiagnostico);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tipoDiagnostico inválido: " + tipoDiagnostico);
+        }
+        entityManager.createNativeQuery(
+                "UPDATE prontuario SET tipo_diagnostico = CAST(:tipo AS tipo_diagnostico) WHERE id_prontuario = :id"
+        ).setParameter("tipo", tipoDiagnostico).setParameter("id", id).executeUpdate();
     }
 
     private boolean vazio(String valor) {
