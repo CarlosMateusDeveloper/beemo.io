@@ -1,6 +1,9 @@
 import { PERIODOS } from './dashboardData'
 
-export default function DashboardFiltros({ periodo, onPeriodoChange, profissionalId, onProfissionalChange, profissionais }) {
+export default function DashboardFiltros({
+  periodo, onPeriodoChange, profissionalId, onProfissionalChange, profissionais,
+  dataInicio, onDataInicioChange, dataFim, onDataFimChange,
+}) {
   return (
     <div className="dashboard-filtros">
       <div className="dashboard-seg" role="radiogroup" aria-label="Período">
@@ -14,6 +17,20 @@ export default function DashboardFiltros({ periodo, onPeriodoChange, profissiona
           </label>
         ))}
       </div>
+
+      {periodo === 'Personalizado' && (
+        <div className="dashboard-datas">
+          <input
+            type="date" className="dashboard-data-input" value={dataInicio}
+            onChange={(e) => onDataInicioChange(e.target.value)} aria-label="Data inicial" max={dataFim || undefined}
+          />
+          <span>até</span>
+          <input
+            type="date" className="dashboard-data-input" value={dataFim}
+            onChange={(e) => onDataFimChange(e.target.value)} aria-label="Data final" min={dataInicio || undefined}
+          />
+        </div>
+      )}
 
       <select
         className="dashboard-sel"

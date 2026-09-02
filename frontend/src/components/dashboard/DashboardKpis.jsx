@@ -1,4 +1,4 @@
-import { Wallet, CalendarCheck2, UserX } from 'lucide-react'
+import { Wallet, CalendarCheck2, UserX, CalendarClock, Users } from 'lucide-react'
 
 function Skeleton({ valorW }) {
   return (
@@ -18,9 +18,39 @@ function Vazio() {
   )
 }
 
-export default function DashboardKpis({ carregando, vazio, dados }) {
+export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje, hoje }) {
   return (
     <div className="dashboard-kpis">
+      <div className="dashboard-kpi-card">
+        <div className="dashboard-kpi-lab">
+          <span className="dashboard-kpi-icon acc"><CalendarClock size={16} strokeWidth={1.8} /></span>
+          Consultas hoje
+        </div>
+        {carregandoHoje ? <Skeleton valorW="50px" /> : (
+          <>
+            <div className="dashboard-kpi-valor-row">
+              <span className="dashboard-kpi-valor">{hoje.consultas}</span>
+            </div>
+            <div className="dashboard-kpi-apoio">agendadas para hoje</div>
+          </>
+        )}
+      </div>
+
+      <div className="dashboard-kpi-card">
+        <div className="dashboard-kpi-lab">
+          <span className="dashboard-kpi-icon neutro"><Users size={16} strokeWidth={1.8} /></span>
+          Fila de atendimento
+        </div>
+        {carregandoHoje ? <Skeleton valorW="50px" /> : (
+          <>
+            <div className="dashboard-kpi-valor-row">
+              <span className={`dashboard-kpi-valor ${hoje.filaAguardando > 0 ? 'warning' : ''}`}>{hoje.filaAguardando}</span>
+            </div>
+            <div className="dashboard-kpi-apoio">aguardando na recepção agora</div>
+          </>
+        )}
+      </div>
+
       <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon acc"><Wallet size={16} strokeWidth={1.8} /></span>

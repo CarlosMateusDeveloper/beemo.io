@@ -15,8 +15,18 @@ public record DashboardResponse(
         List<RankingItemDto> ranking,
         PagadorDto pagador,
         List<SerieItemDto> serieTemporal,
-        String serieUnidade
+        String serieUnidade,
+        HojeDto hoje
 ) {
+
+    // Independente do período selecionado no filtro — "cartões do dia" da
+    // issue #2 (consultas de hoje, fila de atendimento em tempo real,
+    // próximas consultas), por isso fica de fora do "empty" do período.
+    public record HojeDto(int consultas, int filaAguardando, List<ProximaConsultaDto> proximas) {
+    }
+
+    public record ProximaConsultaDto(Integer idConsulta, String paciente, String hora, String medico, String status) {
+    }
 
     public record OcupacaoDto(int preenchidos, int totalSlots, double percentual) {
     }

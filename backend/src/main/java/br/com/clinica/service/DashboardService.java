@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,6 +39,9 @@ public class DashboardService {
         LocalDate inicio;
         LocalDate fim;
 
+        Integer medicoId = request.profissionalId();
+        DashboardResponse.HojeDto blocoHoje = calcularHoje(hoje, medicoId);
+
         String periodo = request.periodo() == null ? "" : request.periodo();
         switch (periodo) {
             case "Hoje" -> {
@@ -52,13 +56,17 @@ public class DashboardService {
                 inicio = hoje.withDayOfMonth(1);
                 fim = hoje.withDayOfMonth(hoje.lengthOfMonth());
             }
+            case "Personalizado" -> {
+                if (request.dataInicio() == null || request.dataFim() == null || request.dataInicio().isAfter(request.dataFim())) {
+                    return empty(blocoHoje);
+                }
+                inicio = request.dataInicio();
+                fim = request.dataFim();
+            }
             default -> {
-                // "Personalizado" (sem seletor de datas ainda) ou período desconhecido.
-                return empty();
+                return empty(blocoHoje);
             }
         }
-
-        Integer medicoId = request.profissionalId();
 
         int[] ocupacao = calcularOcupacao(inicio, fim, medicoId);
         List<Object[]> linhas = buscarConsultas(inicio, fim, medicoId);
@@ -139,8 +147,55 @@ public class DashboardService {
                 new DashboardResponse.OcupacaoDto(ocupacao[0], ocupacao[1], ocupacaoPct),
                 new DashboardResponse.NoShowDto(faltas, baseAtendimentos, noShowPct),
                 new DashboardResponse.NovosRetornosDto(novosRetornos[0], novosRetornos[1]),
-                ranking, pagador, serieTemporal, serieUnidade
+                ranking, pagador, serieTemporal, serieUnidade, blocoHoje
         );
+    }
+
+    // Cartões "do dia" (issue #2): consultas de hoje, fila de atendimento
+    // (status_consulta = 'Em Espera', mesma classificação de
+    // PacienteFilaService/coluna "recepcao") e as próximas consultas de hoje
+    // a partir de agora — sempre "hoje", independente do período do filtro.
+    @SuppressWarnings("unchecked")
+    private DashboardResponse.HojeDto calcularHoje(LocalDate hoje, Integer medicoId) {
+        Query query = entityManager.createNativeQuery(
+                "SELECT c.id_consulta, p.nome, a.hora_slot, m.nome, c.status_consulta::text " +
+                        "FROM consulta c " +
+                        "JOIN agenda a ON a.id_agenda = c.id_agenda " +
+                        "JOIN paciente p ON p.id_paciente = c.id_paciente " +
+                        "JOIN medico m ON m.id_medico = a.id_medico " +
+                        "WHERE a.data_slot = :hoje " +
+                        "  AND c.status_consulta::text NOT IN ('Cancelada', 'Faltou') " +
+                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId) " +
+                        "ORDER BY a.hora_slot ASC"
+        );
+        query.setParameter("hoje", hoje);
+        query.setParameter("medicoId", medicoId);
+        List<Object[]> linhas = query.getResultList();
+
+        LocalTime agora = LocalTime.now();
+        int filaAguardando = 0;
+        List<DashboardResponse.ProximaConsultaDto> proximas = new ArrayList<>();
+        for (Object[] linha : linhas) {
+            String status = (String) linha[4];
+            if ("Em Espera".equals(status)) filaAguardando++;
+
+            LocalTime hora = paraLocalTime(linha[2]);
+            if (proximas.size() < 5 && !hora.isBefore(agora)
+                    && ("Agendada".equals(status) || "Confirmada".equals(status) || "Em Espera".equals(status))) {
+                proximas.add(new DashboardResponse.ProximaConsultaDto(
+                        ((Number) linha[0]).intValue(), (String) linha[1], hora.toString().substring(0, 5),
+                        (String) linha[3], status
+                ));
+            }
+        }
+
+        return new DashboardResponse.HojeDto(linhas.size(), filaAguardando, proximas);
+    }
+
+    private LocalTime paraLocalTime(Object valor) {
+        if (valor instanceof LocalTime localTime) return localTime;
+        if (valor instanceof java.sql.Time sqlTime) return sqlTime.toLocalTime();
+        throw new IllegalStateException("Tipo de hora inesperado: " + valor.getClass());
     }
 
     // "Mês" agrupa em semanas do calendário (dias 1-7, 8-14, ...) pra não virar
@@ -245,7 +300,7 @@ public class DashboardService {
         return Math.round(valor * 10.0) / 10.0;
     }
 
-    private DashboardResponse empty() {
+    private DashboardResponse empty(DashboardResponse.HojeDto blocoHoje) {
         return new DashboardResponse(
                 true, 0, BigDecimal.ZERO,
                 new DashboardResponse.OcupacaoDto(0, 0, 0),
@@ -254,7 +309,8 @@ public class DashboardService {
                 List.of(),
                 new DashboardResponse.PagadorDto(BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
                 List.of(),
-                null
+                null,
+                blocoHoje
         );
     }
 

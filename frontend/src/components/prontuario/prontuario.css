@@ -186,6 +186,16 @@
 .prontuario-registro-texto { font-size: 13.5px; color: var(--text-primary); white-space: pre-wrap; line-height: 1.5; }
 .prontuario-registro-texto.vazio { color: var(--text-disabled); }
 
+/* Página de atendimento (tela cheia, não modal) */
+.atendimento-painel { padding: 28px 32px 32px; max-width: 1280px; }
+.atendimento-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 14px; }
+.atendimento-grid .prontuario-modal-campo { margin-bottom: 13px; }
+.atendimento-grid .span2 { grid-column: span 2; }
+@media (max-width: 720px) {
+  .atendimento-grid .span2 { grid-column: span 1; }
+}
+.atendimento-textarea { min-height: 90px; }
+
 /* Toast */
 .prontuario-toast {
   position: fixed; left: 32px; bottom: 24px; z-index: 60; display: flex; align-items: center; gap: 10px;

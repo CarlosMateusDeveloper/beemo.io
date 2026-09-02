@@ -20,7 +20,7 @@ public class DashboardController {
 
     @PostMapping
     public DashboardResponse calcular(@RequestBody(required = false) DashboardRequest request) {
-        DashboardRequest efetivo = request != null ? request : new DashboardRequest("Mês", null);
+        DashboardRequest efetivo = request != null ? request : new DashboardRequest("Mês", null, null, null);
         return service.calcular(efetivo);
     }
 }

@@ -64,6 +64,24 @@ public class PacienteController {
         return listagemService.listar();
     }
 
+    // Issue #4: tabela paginada da tela /pacientes — busca/filtro/ordenação
+    // e paginação de verdade (ver PacienteListagemService.paginar), CPF
+    // mascarado no DTO. Não reaproveita GET /api/pacientes (issue #11)
+    // porque aquele endpoint não tem status/idade/última-próxima consulta
+    // que a tela precisa — ver comentário na service.
+    @GetMapping("/tabela")
+    public Page<PacienteListagemItemDto> tabela(
+            @RequestParam(required = false) String busca,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String filtroKpi,
+            @RequestParam(required = false) List<String> convenio,
+            @RequestParam(defaultValue = "ultima") String ordem,
+            @RequestParam(defaultValue = "desc") String direcao,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return listagemService.paginar(busca, status, filtroKpi, convenio, ordem, direcao, pageable);
+    }
+
     @GetMapping("/fila")
     public List<PacienteFilaItemDto> fila() {
         return filaService.listarHoje();

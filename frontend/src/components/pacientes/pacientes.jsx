@@ -5,14 +5,19 @@ import PacientesKpis from './PacientesKpis'
 import PacientesTabela from './PacientesTabela'
 import PacientesKanban from './PacientesKanban'
 import NovoPacienteModal from './NovoPacienteModal'
-import { fetchConvenios, fetchPacientesFila, fetchPacientesKpis, fetchPacientesListagem } from './api'
+import { fetchConvenios, fetchPacientesFila, fetchPacientesKpis, fetchPacientesTabela } from './api'
 import {
   COLUNAS_KANBAN_DEF, EVENTO_POR_COLUNA, iniciaisDe, statusLabel,
 } from './pacientesData'
 import './pacientes.css'
 
+// Debounce da busca (issue #4: busca agora é server-side — sem isso, cada
+// tecla digitada dispara uma requisição).
+const BUSCA_DEBOUNCE_MS = 350
+
 export function Pacientes() {
   const navigate = useNavigate()
+  const [buscaInput, setBuscaInput] = useState('')
   const [busca, setBusca] = useState('')
   const [periodo, setPeriodo] = useState('Mês')
   const [convenios, setConvenios] = useState([])
@@ -21,9 +26,11 @@ export function Pacientes() {
   const [view, setView] = useState('tabela')
   const [ordem, setOrdem] = useState('ultima')
   const [direcao, setDirecao] = useState('desc')
+  const [pagina, setPagina] = useState(0)
   const [selecionados, setSelecionados] = useState(new Set())
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
+  const buscaTimer = useRef(null)
   const [modalAberto, setModalAberto] = useState(false)
 
   const [kpisApi, setKpisApi] = useState(null)
@@ -31,6 +38,8 @@ export function Pacientes() {
   const [erroKpis, setErroKpis] = useState(null)
 
   const [pacientesApi, setPacientesApi] = useState([])
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [carregandoTabela, setCarregandoTabela] = useState(true)
   const [erroTabela, setErroTabela] = useState(null)
 
@@ -43,11 +52,29 @@ export function Pacientes() {
     recarregarKpis()
   }, [])
 
+  // Debounce: só atualiza `busca` (o que de fato dispara o fetch) 350ms
+  // depois da última tecla.
+  useEffect(() => {
+    clearTimeout(buscaTimer.current)
+    buscaTimer.current = setTimeout(() => setBusca(buscaInput), BUSCA_DEBOUNCE_MS)
+    return () => clearTimeout(buscaTimer.current)
+  }, [buscaInput])
+
+  // Qualquer mudança de filtro/ordenação volta pra primeira página — senão
+  // a página atual pode ficar vazia ou fora do intervalo válido.
+  useEffect(() => {
+    setPagina(0)
+  }, [busca, status, filtroKpi, convenios, ordem, direcao])
+
   function recarregarPacientes() {
     setCarregandoTabela(true)
     setErroTabela(null)
-    return fetchPacientesListagem()
-      .then((dados) => setPacientesApi(dados))
+    return fetchPacientesTabela({ busca, status, filtroKpi, convenios, ordem, direcao, pagina })
+      .then((resp) => {
+        setPacientesApi(resp.content)
+        setTotalElements(resp.totalElements)
+        setTotalPages(resp.totalPages)
+      })
       .catch((err) => setErroTabela(err.message))
       .finally(() => setCarregandoTabela(false))
   }
@@ -63,7 +90,8 @@ export function Pacientes() {
 
   useEffect(() => {
     recarregarPacientes()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busca, status, filtroKpi, convenios, ordem, direcao, pagina])
 
   useEffect(() => {
     let cancelado = false
@@ -100,32 +128,9 @@ export function Pacientes() {
     setView('tabela')
   }
 
-  const linhasFiltradas = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    return pacientesApi.filter((p) => {
-      if (status === 'Ativos' && p.status === 'off') return false
-      if (filtroKpi === 'risk' && p.status !== 'risk') return false
-      if (filtroKpi === 'inc' && p.status !== 'inc') return false
-      if (convenios.length > 0 && !convenios.includes(p.convenio)) return false
-      if (termo && !(p.nome.toLowerCase().includes(termo) || p.telefone.includes(termo))) return false
-      return true
-    })
-  }, [pacientesApi, busca, status, filtroKpi, convenios])
-
-  const linhasOrdenadas = useMemo(() => {
-    const chaves = { nome: 'nome', ultima: 'ultimaData', proxima: 'proximaData', status: 'status' }
-    const chave = chaves[ordem] ?? 'ultimaData'
-    return [...linhasFiltradas].sort((a, b) => {
-      const va = a[chave] ?? ''
-      const vb = b[chave] ?? ''
-      const c = va.localeCompare(vb, 'pt-BR')
-      return direcao === 'asc' ? c : -c
-    })
-  }, [linhasFiltradas, ordem, direcao])
-
-  const linhas = useMemo(() => linhasOrdenadas.map((p) => ({
+  const linhas = useMemo(() => pacientesApi.map((p) => ({
     ...p, statusTxt: statusLabel(p.status), iniciais: iniciaisDe(p.nome),
-  })), [linhasOrdenadas])
+  })), [pacientesApi])
 
   const kpis = useMemo(() => {
     const base = kpisApi ?? {
@@ -195,12 +200,12 @@ export function Pacientes() {
 
   const erro = erroKpis || erroTabela || erroFila
   const filtroTexto = filtroKpi === 'risk' ? 'em risco de abandono' : filtroKpi === 'inc' ? 'cadastros incompletos' : ''
-  const footTexto = `Mostrando ${linhas.length} de ${pacientesApi.length} pacientes carregados`
+  const footTexto = `Mostrando ${linhas.length} de ${totalElements} pacientes`
 
   return (
     <div className="pacientes-page">
       <PacientesFiltros
-        busca={busca} onBuscaChange={setBusca}
+        busca={buscaInput} onBuscaChange={setBuscaInput}
         periodo={periodo} onPeriodoChange={setPeriodo}
         convenios={convenios} onConveniosChange={setConvenios} opcoesConvenio={opcoesConvenio}
         status={status} onStatusChange={setStatus}
@@ -220,7 +225,7 @@ export function Pacientes() {
         <div className="pacientes-painel-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span className="pacientes-painel-titulo">
-              {view === 'tabela' ? 'Todos os pacientes' : 'Fila do dia'} <span>· {view === 'tabela' ? linhas.length : ''}</span>
+              {view === 'tabela' ? 'Todos os pacientes' : 'Fila do dia'} <span>· {view === 'tabela' ? totalElements : ''}</span>
             </span>
             {filtroKpi && (
               <span className="pacientes-chip">
@@ -242,6 +247,7 @@ export function Pacientes() {
             onAbrirPaciente={abrirPaciente}
             selecionados={selecionados} onToggleSelecionado={toggleSelecionado} onToggleTodos={toggleTodos}
             onAcaoLote={acaoLote} footTexto={footTexto}
+            pagina={pagina} totalPages={totalPages} onPaginaChange={setPagina}
           />
         ) : (
           <>

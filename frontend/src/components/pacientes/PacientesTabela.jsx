@@ -1,12 +1,15 @@
-import { Download, MessageCircle, SearchX } from 'lucide-react'
+import { useState } from 'react'
+import { Download, Eye, EyeOff, MessageCircle, SearchX } from 'lucide-react'
+import { fetchPacienteCompleto } from './api'
 
 const COLUNAS = [
-  { id: 'nome', label: 'Paciente', width: 240, sortable: true },
-  { id: 'contato', label: 'Contato', width: 180, sortable: false },
-  { id: 'convenio', label: 'Convênio', width: 140, sortable: false },
-  { id: 'ultima', label: 'Última consulta', width: 160, sortable: true },
-  { id: 'proxima', label: 'Próxima consulta', width: 150, sortable: true },
-  { id: 'status', label: 'Status', width: 170, sortable: true },
+  { id: 'nome', label: 'Paciente', width: 220, sortable: true },
+  { id: 'cpf', label: 'CPF', width: 140, sortable: false },
+  { id: 'contato', label: 'Contato', width: 170, sortable: false },
+  { id: 'convenio', label: 'Convênio', width: 130, sortable: false },
+  { id: 'ultima', label: 'Última consulta', width: 150, sortable: true },
+  { id: 'proxima', label: 'Próxima consulta', width: 145, sortable: true },
+  { id: 'status', label: 'Status', width: 160, sortable: true },
 ]
 
 const ESQUELETOS = [
@@ -14,12 +17,43 @@ const ESQUELETOS = [
   { a: '160px', b: '118px' }, { a: '182px', b: '96px' },
 ]
 
+function CelulaCpf({ paciente }) {
+  const [cpf, setCpf] = useState(null)
+  const [carregando, setCarregando] = useState(false)
+  const revelado = cpf != null
+
+  function alternar(e) {
+    e.stopPropagation()
+    if (revelado) { setCpf(null); return }
+    setCarregando(true)
+    fetchPacienteCompleto(paciente.id)
+      .then((completo) => setCpf(completo.cpf))
+      .catch(() => setCpf('—'))
+      .finally(() => setCarregando(false))
+  }
+
+  return (
+    <span className="pacientes-cpf">
+      <span className="pacientes-mono">{revelado ? cpf : paciente.cpfMascarado}</span>
+      <button
+        type="button" className="pacientes-cpf-toggle" onClick={alternar} disabled={carregando}
+        aria-label={revelado ? 'Ocultar CPF' : 'Revelar CPF'} title={revelado ? 'Ocultar CPF' : 'Revelar CPF'}
+      >
+        {revelado ? <EyeOff size={13} strokeWidth={2} /> : <Eye size={13} strokeWidth={2} />}
+      </button>
+    </span>
+  )
+}
+
 export default function PacientesTabela({
   carregando, linhas, ordem, direcao, onOrdenar, onAbrirPaciente,
   selecionados, onToggleSelecionado, onToggleTodos, onAcaoLote, footTexto,
+  pagina, totalPages, onPaginaChange,
 }) {
   const listaVazia = !carregando && linhas.length === 0
   const todosSelecionados = linhas.length > 0 && selecionados.size === linhas.length
+
+  const numerosPagina = Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i)
 
   return (
     <>
@@ -108,6 +142,7 @@ export default function PacientesTabela({
                         </span>
                       </div>
                     </td>
+                    <td><CelulaCpf paciente={p} /></td>
                     <td onClick={() => onAbrirPaciente(p.id)} className="pacientes-mono">
                       {p.whatsapp ? (
                         <span className="pacientes-wa">
@@ -138,12 +173,20 @@ export default function PacientesTabela({
           </div>
           <div className="pacientes-painel-foot">
             <span>{footTexto}</span>
-            <div className="pacientes-pager">
-              <button type="button" aria-current="page">1</button>
-              <button type="button">2</button>
-              <button type="button">3</button>
-              <button type="button">›</button>
-            </div>
+            {totalPages > 1 && (
+              <div className="pacientes-pager">
+                <button type="button" disabled={pagina === 0} onClick={() => onPaginaChange(pagina - 1)}>‹</button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n} type="button" aria-current={n === pagina ? 'page' : undefined}
+                    onClick={() => onPaginaChange(n)}
+                  >
+                    {n + 1}
+                  </button>
+                ))}
+                <button type="button" disabled={pagina >= totalPages - 1} onClick={() => onPaginaChange(pagina + 1)}>›</button>
+              </div>
+            )}
           </div>
         </>
       )}

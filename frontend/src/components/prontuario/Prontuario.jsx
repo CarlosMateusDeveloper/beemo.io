@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ProntuarioFiltros from './ProntuarioFiltros'
 import ProntuarioTabela from './ProntuarioTabela'
-import NovoAtendimentoModal from './NovoAtendimentoModal'
 import { fetchMedicos, fetchProntuarioListagem } from './api'
 import { dentroDoPeriodo } from './prontuarioData'
 import './prontuario.css'
@@ -19,9 +18,6 @@ export function Prontuario() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState(null)
   const [medicos, setMedicos] = useState([])
-  const [recarregarEm, setRecarregarEm] = useState(0)
-
-  const [modal, setModal] = useState(null) // null | { pacienteId?, prontuarioId? }
 
   useEffect(() => {
     let cancelado = false
@@ -32,7 +28,7 @@ export function Prontuario() {
       .catch((err) => { if (!cancelado) setErro(err.message) })
       .finally(() => { if (!cancelado) setCarregando(false) })
     return () => { cancelado = true }
-  }, [recarregarEm])
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -61,7 +57,7 @@ export function Prontuario() {
   }
 
   function continuarAtendimento(linha) {
-    setModal({ pacienteId: linha.pacienteId, prontuarioId: linha.prontuarioId })
+    navigate(`/prontuario/atendimento?prontuarioId=${linha.prontuarioId}`)
   }
 
   return (
@@ -71,7 +67,7 @@ export function Prontuario() {
         idMedico={idMedico} onIdMedicoChange={setIdMedico} medicos={medicos}
         periodo={periodo} onPeriodoChange={setPeriodo}
         status={status} onStatusChange={setStatus}
-        onNovoAtendimento={() => setModal({})}
+        onNovoAtendimento={() => navigate('/prontuario/atendimento')}
       />
 
       {erro && (
@@ -87,14 +83,6 @@ export function Prontuario() {
           onAbrirPaciente={abrirPaciente} onContinuarAtendimento={continuarAtendimento}
         />
       </div>
-
-      {modal && (
-        <NovoAtendimentoModal
-          pacienteId={modal.pacienteId} prontuarioIdExistente={modal.prontuarioId}
-          onClose={() => setModal(null)}
-          onSalvo={() => { setModal(null); setRecarregarEm((v) => v + 1) }}
-        />
-      )}
     </div>
   )
 }

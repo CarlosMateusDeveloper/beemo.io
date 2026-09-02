@@ -5,7 +5,6 @@ import ProntuarioHistorico from './ProntuarioHistorico'
 import ProntuarioResumo from './ProntuarioResumo'
 import ProntuarioDocumentos from './ProntuarioDocumentos'
 import VerAtendimentoModal from './VerAtendimentoModal'
-import NovoAtendimentoModal from './NovoAtendimentoModal'
 import EditarCadastroModal from './EditarCadastroModal'
 import { fetchProntuarioDocumentos, fetchProntuarioPaciente } from './api'
 import { iniciaisDe } from './prontuarioData'
@@ -30,8 +29,6 @@ export function ProntuarioDetalhe() {
   const [carregandoDocumentos, setCarregandoDocumentos] = useState(true)
 
   const [verProntuarioId, setVerProntuarioId] = useState(null)
-  const [continuarProntuarioId, setContinuarProntuarioId] = useState(null)
-  const [modalNovo, setModalNovo] = useState(false)
   const [modalEditarCadastro, setModalEditarCadastro] = useState(false)
   const [recarregarEm, setRecarregarEm] = useState(0)
 
@@ -90,7 +87,10 @@ export function ProntuarioDetalhe() {
             <div className="prontuario-detalhe-meta">{dados.idade} anos · CPF {dados.cpf} · {dados.telefone}</div>
           </div>
         </div>
-        <button type="button" className="prontuario-btn-primario" onClick={() => setModalNovo(true)}>
+        <button
+          type="button" className="prontuario-btn-primario"
+          onClick={() => navigate(`/prontuario/atendimento?pacienteId=${pacienteId}&nome=${encodeURIComponent(dados.nome)}`)}
+        >
           <Plus size={15} strokeWidth={2.2} />Novo atendimento
         </button>
       </div>
@@ -110,7 +110,7 @@ export function ProntuarioDetalhe() {
         <ProntuarioHistorico
           atendimentos={dados.atendimentos}
           onVerAtendimento={setVerProntuarioId}
-          onContinuarAtendimento={setContinuarProntuarioId}
+          onContinuarAtendimento={(prontuarioId) => navigate(`/prontuario/atendimento?prontuarioId=${prontuarioId}`)}
         />
       )}
       {tab === 'resumo' && (
@@ -126,22 +126,6 @@ export function ProntuarioDetalhe() {
 
       {verProntuarioId && (
         <VerAtendimentoModal prontuarioId={verProntuarioId} onClose={() => setVerProntuarioId(null)} />
-      )}
-
-      {continuarProntuarioId && (
-        <NovoAtendimentoModal
-          pacienteId={Number(pacienteId)} pacienteNome={dados.nome} prontuarioIdExistente={continuarProntuarioId}
-          onClose={() => setContinuarProntuarioId(null)}
-          onSalvo={() => { setContinuarProntuarioId(null); setRecarregarEm((v) => v + 1) }}
-        />
-      )}
-
-      {modalNovo && (
-        <NovoAtendimentoModal
-          pacienteId={Number(pacienteId)} pacienteNome={dados.nome}
-          onClose={() => setModalNovo(false)}
-          onSalvo={() => { setModalNovo(false); setRecarregarEm((v) => v + 1) }}
-        />
       )}
 
       {modalEditarCadastro && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import DashboardFiltros from './DashboardFiltros'
 import DashboardKpis from './DashboardKpis'
+import DashboardProximas from './DashboardProximas'
 import DashboardFaturamento from './DashboardFaturamento'
 import DashboardPagador from './DashboardPagador'
 import DashboardRanking from './DashboardRanking'
@@ -13,9 +14,14 @@ function iniciaisDe(nome) {
   return nome.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 }
 
+const HOJE_VAZIO = { consultas: 0, filaAguardando: 0, proximas: [] }
+
 // Mapeia a resposta de POST /api/dashboard pro formato que os cartões esperam.
 function mapearResposta(resp) {
-  if (!resp || resp.empty) return { empty: true }
+  if (!resp) return { empty: true, hoje: HOJE_VAZIO }
+
+  const hoje = resp.hoje ?? HOJE_VAZIO
+  if (resp.empty) return { empty: true, hoje }
 
   const noShowCor = resp.noShow.percentual > 20 ? 'danger' : resp.noShow.percentual >= 10 ? 'warning' : 'neutral'
   const maxFaturamento = Math.max(1, ...resp.ranking.map((r) => r.faturamento || 0))
@@ -25,6 +31,7 @@ function mapearResposta(resp) {
 
   return {
     empty: false,
+    hoje,
     kpi: {
       faturamento: {
         valorTxt: brl(resp.faturamento),
@@ -70,11 +77,21 @@ function mapearResposta(resp) {
   }
 }
 
+// Não usa toISOString() aqui: ela converte pra UTC antes de fatiar a data, o
+// que erra o "hoje" à noite em fusos atrás de UTC (ex.: Brasil) — a data
+// muda um dia antes da meia-noite local.
+function hojeISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function Dashboard() {
   const [periodo, setPeriodo] = useState('Mês')
   const [profissionalId, setProfissionalId] = useState('todos')
   const [profissionais, setProfissionais] = useState([])
-  const [dados, setDados] = useState({ empty: true })
+  const [dataInicio, setDataInicio] = useState(hojeISO())
+  const [dataFim, setDataFim] = useState(hojeISO())
+  const [dados, setDados] = useState({ empty: true, hoje: HOJE_VAZIO })
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState(null)
 
@@ -87,15 +104,18 @@ export function Dashboard() {
   }, [])
 
   useEffect(() => {
+    // "Personalizado" só dispara quando as duas datas já foram escolhidas.
+    if (periodo === 'Personalizado' && (!dataInicio || !dataFim)) return
+
     let cancelado = false
     setCarregando(true)
     setErro(null)
-    fetchDashboard({ periodo, profissionalId })
+    fetchDashboard({ periodo, profissionalId, dataInicio, dataFim })
       .then((resp) => { if (!cancelado) setDados(mapearResposta(resp)) })
       .catch((err) => { if (!cancelado) setErro(err.message) })
       .finally(() => { if (!cancelado) setCarregando(false) })
     return () => { cancelado = true }
-  }, [periodo, profissionalId])
+  }, [periodo, profissionalId, dataInicio, dataFim])
 
   const vazio = dados.empty
 
@@ -105,6 +125,8 @@ export function Dashboard() {
         periodo={periodo} onPeriodoChange={setPeriodo}
         profissionalId={profissionalId} onProfissionalChange={setProfissionalId}
         profissionais={profissionais}
+        dataInicio={dataInicio} onDataInicioChange={setDataInicio}
+        dataFim={dataFim} onDataFimChange={setDataFim}
       />
 
       {erro && (
@@ -114,7 +136,14 @@ export function Dashboard() {
         </div>
       )}
 
-      <DashboardKpis carregando={carregando} vazio={!carregando && vazio} dados={dados.kpi} />
+      <DashboardKpis
+        carregando={carregando} vazio={!carregando && vazio} dados={dados.kpi}
+        carregandoHoje={carregando} hoje={dados.hoje}
+      />
+
+      <div className="dashboard-row-full">
+        <DashboardProximas carregando={carregando} proximas={dados.hoje.proximas} />
+      </div>
 
       <div className="dashboard-row-mid">
         <DashboardFaturamento

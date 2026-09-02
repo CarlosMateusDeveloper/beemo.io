@@ -8,6 +8,7 @@ package br.com.clinica.dto;
 public record PacienteListagemItemDto(
         Integer id,
         String nome,
+        String cpfMascarado,
         String telefone,
         boolean whatsapp,
         String convenio,

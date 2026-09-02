@@ -16,6 +16,7 @@ import Agenda from './pages/Agenda'
 import { Pacientes } from './components/pacientes/pacientes'
 import { Prontuario } from './components/prontuario/Prontuario'
 import { ProntuarioDetalhe } from './components/prontuario/ProntuarioDetalhe'
+import { PaginaAtendimento } from './components/prontuario/PaginaAtendimento'
 import { Whatsapp } from './components/whatsapp/whatsapp'
 import { Medicos } from './components/medicos/medicos'
 import { Caixa } from './components/caixa/caixa'
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: "pacientes", element: <Pacientes /> },
       { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
       { path: "prontuario", element: <Prontuario /> },
+      { path: "prontuario/atendimento", element: <PaginaAtendimento /> },
       { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
       { path: "whatsapp", element: <Whatsapp /> },
       { path: "medicos", element: <Medicos /> },
