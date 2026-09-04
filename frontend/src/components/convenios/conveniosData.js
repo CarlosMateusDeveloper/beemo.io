@@ -36,3 +36,82 @@ export const SEVERIDADES = [
 export function severidadeMeta(valor) {
   return SEVERIDADES.find((s) => s.valor === valor) ?? SEVERIDADES[SEVERIDADES.length - 1]
 }
+
+// glosa.status (status_glosa) — GlosaEscritaService.STATUS_TERMINAIS = confirmada/
+// recuperada/recuperada_parcialmente/negada.
+export const STATUS_GLOSA = [
+  { valor: 'nova', rotulo: 'Nova', cls: 'st-info' },
+  { valor: 'em_analise', rotulo: 'Em análise', cls: 'st-info' },
+  { valor: 'recurso_preparacao', rotulo: 'Em recurso', cls: 'st-warn' },
+  { valor: 'recurso_enviado', rotulo: 'Recorrida', cls: 'st-info-tracejado' },
+  { valor: 'recuperada', rotulo: 'Revertida', cls: 'st-ok' },
+  { valor: 'recuperada_parcialmente', rotulo: 'Revertida parcial', cls: 'st-ok' },
+  { valor: 'negada', rotulo: 'Perdida', cls: 'st-perdida' },
+  { valor: 'confirmada', rotulo: 'Perdida', cls: 'st-perdida' },
+]
+
+export function statusGlosaMeta(valor) {
+  return STATUS_GLOSA.find((s) => s.valor === valor) ?? { valor, rotulo: valor, cls: 'st-neutro' }
+}
+
+export const STATUS_GLOSA_TERMINAIS = new Set(['confirmada', 'recuperada', 'recuperada_parcialmente', 'negada'])
+
+export const RECORRIBILIDADES = [
+  { valor: 'recorrivel', rotulo: 'Recorrível' },
+  { valor: 'nao_recorrivel', rotulo: 'Não recorrível' },
+  { valor: 'necessita_analise', rotulo: 'Necessita análise' },
+]
+
+export const CATEGORIAS_MOTIVO = [
+  { valor: 'autorizacao', rotulo: 'Autorização' },
+  { valor: 'documentacao', rotulo: 'Documentação' },
+  { valor: 'codigo_procedimento', rotulo: 'Código/procedimento' },
+  { valor: 'elegibilidade', rotulo: 'Elegibilidade' },
+  { valor: 'cobertura', rotulo: 'Cobertura' },
+  { valor: 'cobranca', rotulo: 'Cobrança' },
+  { valor: 'prazo', rotulo: 'Prazo' },
+  { valor: 'duplicidade', rotulo: 'Duplicidade' },
+  { valor: 'outros', rotulo: 'Outros' },
+]
+
+// recurso_glosa.status (status_recurso_glosa).
+export const STATUS_RECURSO = [
+  { valor: 'rascunho', rotulo: 'Rascunho', cls: 'st-neutro' },
+  { valor: 'em_preparacao', rotulo: 'Em preparação', cls: 'st-warn' },
+  { valor: 'enviado', rotulo: 'Enviado', cls: 'st-info' },
+  { valor: 'aguardando_retorno', rotulo: 'Aguardando retorno', cls: 'st-info' },
+  { valor: 'em_analise_convenio', rotulo: 'Em análise pelo convênio', cls: 'st-info' },
+  { valor: 'recuperado', rotulo: 'Recuperado', cls: 'st-ok' },
+  { valor: 'recuperado_parcialmente', rotulo: 'Recuperado parcialmente', cls: 'st-ok' },
+  { valor: 'negado', rotulo: 'Negado', cls: 'st-perdida' },
+]
+
+export function statusRecursoMeta(valor) {
+  return STATUS_RECURSO.find((s) => s.valor === valor) ?? { valor, rotulo: valor, cls: 'st-neutro' }
+}
+
+export const STATUS_RECURSO_EDITAVEIS = new Set(['rascunho', 'em_preparacao'])
+
+export const TIPOS_DOCUMENTO_RECURSO = [
+  { valor: 'prontuario', rotulo: 'Prontuário' },
+  { valor: 'guia', rotulo: 'Guia' },
+  { valor: 'solicitacao_medica', rotulo: 'Solicitação médica' },
+  { valor: 'autorizacao', rotulo: 'Autorização' },
+  { valor: 'laudo', rotulo: 'Laudo' },
+  { valor: 'comprovante', rotulo: 'Comprovante' },
+  { valor: 'outro', rotulo: 'Outro' },
+]
+
+// corPrazo do backend (GlosaListagemItemDto/GlosaDetalheDto/RecursoGlosaDto):
+// verde (>7d) / amarelo (3-7d) / vermelho (<3d) / preto (expirado) / null.
+const CORES_PRAZO = { vermelho: 'p-red', amarelo: 'p-amber', verde: 'p-neutral', preto: 'p-off' }
+
+export function corPrazoClasse(cor) {
+  return CORES_PRAZO[cor] ?? 'p-off'
+}
+
+export const CANAIS_ENVIO = [
+  { valor: 'manual', rotulo: 'Manual' },
+  { valor: 'portal_convenio', rotulo: 'Portal do convênio' },
+  { valor: 'email', rotulo: 'E-mail' },
+]

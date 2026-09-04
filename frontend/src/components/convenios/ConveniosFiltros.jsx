@@ -1,7 +1,9 @@
-import { PERIODOS } from './conveniosData'
+import { PERIODOS, STATUS_GLOSA } from './conveniosData'
 
 export default function ConveniosFiltros({
   periodo, onPeriodoChange, convenioId, onConvenioIdChange, convenios,
+  statusGlosa, onStatusGlosaChange, responsavelId, onResponsavelIdChange,
+  usuarios = [], mostrarFiltrosGlosa = false,
 }) {
   return (
     <div className="convenios-head">
@@ -20,12 +22,22 @@ export default function ConveniosFiltros({
           {convenios.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
 
-        <select className="convenios-sel" disabled title="Disponível quando a aba Glosas entrar em operação" aria-label="Status da glosa">
-          <option>Status: todos</option>
+        <select
+          className="convenios-sel" aria-label="Status da glosa"
+          disabled={!mostrarFiltrosGlosa} title={mostrarFiltrosGlosa ? undefined : 'Disponível na aba Glosas'}
+          value={statusGlosa ?? ''} onChange={(e) => onStatusGlosaChange?.(e.target.value)}
+        >
+          <option value="">Status: todos</option>
+          {STATUS_GLOSA.map((s) => <option key={s.valor} value={s.valor}>{s.rotulo}</option>)}
         </select>
 
-        <select className="convenios-sel" disabled title="Disponível quando a aba Glosas entrar em operação" aria-label="Responsável">
-          <option>Responsável: todos</option>
+        <select
+          className="convenios-sel" aria-label="Responsável"
+          disabled={!mostrarFiltrosGlosa} title={mostrarFiltrosGlosa ? undefined : 'Disponível na aba Glosas'}
+          value={responsavelId ?? ''} onChange={(e) => onResponsavelIdChange?.(e.target.value)}
+        >
+          <option value="">Responsável: todos</option>
+          {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
         </select>
       </div>
     </div>

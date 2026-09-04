@@ -21,6 +21,8 @@ import { Whatsapp } from './components/whatsapp/whatsapp'
 import { Medicos } from './components/medicos/medicos'
 import { Caixa } from './components/caixa/caixa'
 import { Convenios } from './components/convenios/convenios'
+import ConvenioDetalhePagina from './components/convenios/ConvenioDetalhePagina'
+import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
 
 // Configurando o roteador com os caminhos e seus respectivos componentes.
 // Login fica fora do Layout (sem sidebar); as demais telas navegam pela
@@ -42,6 +44,8 @@ const router = createBrowserRouter([
       { path: "medicos", element: <Medicos /> },
       { path: "caixa", element: <Caixa /> },
       { path: "convenios", element: <Convenios /> },
+      { path: "convenios/glosas/:id", element: <GlosaDetalhePagina /> },
+      { path: "convenios/:id", element: <ConvenioDetalhePagina /> },
     ],
   },
   {

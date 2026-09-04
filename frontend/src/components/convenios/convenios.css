@@ -205,6 +205,36 @@ select.convenios-input { cursor: pointer; }
 .convenios-sub-form-head { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; }
 .convenios-sub-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 14px; margin-bottom: 4px; }
 
+/* Indicadores da aba Glosas (tira acima da tabela) */
+.convenios-indicador { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-tertiary); }
+.convenios-indicador svg { color: var(--text-tertiary); flex: none; }
+.convenios-indicador strong { font-family: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif; color: var(--text-primary); font-weight: 600; margin-left: 2px; }
+
+/* Página de detalhe de uma glosa */
+.convenios-glosa-topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+.convenios-glosa-nav { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-tertiary); }
+.convenios-glosa-header {
+  position: sticky; top: 0; z-index: 8; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;
+}
+.convenios-glosa-header-nome { font-size: 17px; font-weight: 600; }
+.convenios-glosa-header-meta { font-size: 12.5px; color: var(--text-tertiary); margin-top: 4px; }
+.convenios-glosa-header-valor { text-align: right; flex: none; }
+.convenios-glosa-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; align-items: start; }
+.convenios-glosa-col-principal, .convenios-glosa-col-lateral { display: flex; flex-direction: column; gap: 14px; }
+.convenios-glosa-col-principal .convenios-sub, .convenios-glosa-col-lateral .convenios-sub { margin-top: 0; }
+@media (max-width: 980px) {
+  .convenios-glosa-grid { grid-template-columns: 1fr; }
+}
+
+.convenios-checklist-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); padding: 5px 0; }
+
+.convenios-timeline { display: flex; flex-direction: column; gap: 12px; }
+.convenios-timeline-item { display: flex; gap: 10px; align-items: flex-start; }
+.convenios-timeline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); flex: none; margin-top: 5px; }
+.convenios-timeline-evento { font-size: 13px; color: var(--text-primary); }
+.convenios-timeline-data { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+
 /* Detalhe do convênio */
 .convenios-detalhe { padding-bottom: 20px; }
 .convenios-voltar { display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent; color: var(--text-tertiary); font-size: 13px; cursor: pointer; padding: 4px 0; margin-bottom: 14px; }

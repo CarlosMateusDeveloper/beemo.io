@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ConveniosFiltros from './ConveniosFiltros'
 import ConveniosKpis from './ConveniosKpis'
 import ConveniosLista from './ConveniosLista'
-import ConvenioDetalhe from './ConvenioDetalhe'
 import ConveniosPlaceholder from './ConveniosPlaceholder'
-import { fetchKpis } from './api'
+import GlosasFila from './GlosasFila'
+import { fetchKpis, fetchUsuarios } from './api'
 import './convenios.css'
 
 const ABAS = [
@@ -15,14 +16,18 @@ const ABAS = [
 ]
 
 export function Convenios() {
-  const [aba, setAba] = useState('convenios')
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const aba = searchParams.get('aba') || 'glosas'
+  const statusGlosa = searchParams.get('status') || ''
+  const responsavelId = searchParams.get('responsavel') || ''
+
   const [periodo, setPeriodo] = useState('Últimos 30 dias')
   const [convenioId, setConvenioId] = useState('')
   const [convenios, setConvenios] = useState([])
+  const [usuarios, setUsuarios] = useState([])
   const [kpis, setKpis] = useState(null)
   const [carregandoKpis, setCarregandoKpis] = useState(true)
-  const [convenioAbertoId, setConvenioAbertoId] = useState(null)
-  const [recarregarSinal, setRecarregarSinal] = useState(0)
 
   useEffect(() => {
     let cancelado = false
@@ -32,15 +37,28 @@ export function Convenios() {
       .catch(() => {})
       .finally(() => { if (!cancelado) setCarregandoKpis(false) })
     return () => { cancelado = true }
-  }, [periodo, convenioId, recarregarSinal])
+  }, [periodo, convenioId])
 
-  function abrirConvenio(id) {
-    setConvenioAbertoId(id)
+  useEffect(() => {
+    fetchUsuarios().then(setUsuarios).catch(() => setUsuarios([]))
+  }, [])
+
+  function setAba(novaAba) {
+    const proximo = new URLSearchParams(searchParams)
+    proximo.set('aba', novaAba)
+    setSearchParams(proximo)
   }
 
-  function fecharConvenio() {
-    setConvenioAbertoId(null)
-    setRecarregarSinal((n) => n + 1)
+  function setStatusGlosa(valor) {
+    const proximo = new URLSearchParams(searchParams)
+    if (valor) proximo.set('status', valor); else proximo.delete('status')
+    setSearchParams(proximo)
+  }
+
+  function setResponsavelId(valor) {
+    const proximo = new URLSearchParams(searchParams)
+    if (valor) proximo.set('responsavel', valor); else proximo.delete('responsavel')
+    setSearchParams(proximo)
   }
 
   return (
@@ -49,6 +67,9 @@ export function Convenios() {
         periodo={periodo} onPeriodoChange={setPeriodo}
         convenioId={convenioId} onConvenioIdChange={setConvenioId}
         convenios={convenios}
+        statusGlosa={statusGlosa} onStatusGlosaChange={setStatusGlosa}
+        responsavelId={responsavelId} onResponsavelIdChange={setResponsavelId}
+        usuarios={usuarios} mostrarFiltrosGlosa={aba === 'glosas'}
       />
 
       <ConveniosKpis kpis={kpis} carregando={carregandoKpis} />
@@ -66,9 +87,10 @@ export function Convenios() {
       </div>
 
       {aba === 'glosas' && (
-        <ConveniosPlaceholder
-          titulo="Glosas — em construção"
-          texto="A fila de glosas, com prazos de recurso e ações em lote, entra numa próxima etapa."
+        <GlosasFila
+          statusGlosa={statusGlosa} idConvenio={convenioId || ''} idUsuarioResponsavel={responsavelId}
+          usuarios={usuarios} searchParams={searchParams}
+          onAbrirGlosa={(id, idsFila) => navigate(`/convenios/glosas/${id}`, { state: { idsFila, voltarPara: `/convenios?${searchParams.toString()}` } })}
         />
       )}
 
@@ -80,15 +102,10 @@ export function Convenios() {
       )}
 
       {aba === 'convenios' && (
-        convenioAbertoId ? (
-          <ConvenioDetalhe id={convenioAbertoId} onVoltar={fecharConvenio} onAtualizado={() => setRecarregarSinal((n) => n + 1)} />
-        ) : (
-          <ConveniosLista
-            onAbrirConvenio={abrirConvenio}
-            recarregarSinal={recarregarSinal}
-            onListaAtualizada={(lista) => setConvenios(lista.map((c) => ({ id: c.id, nome: c.nome })))}
-          />
-        )
+        <ConveniosLista
+          onAbrirConvenio={(id) => navigate(`/convenios/${id}`)}
+          onListaAtualizada={(lista) => setConvenios(lista.map((c) => ({ id: c.id, nome: c.nome })))}
+        />
       )}
 
       {aba === 'lotes' && (
