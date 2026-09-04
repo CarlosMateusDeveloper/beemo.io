@@ -18,7 +18,7 @@ const FORM_VAZIO = {
   idMedico: '', tipo: 'Consulta', dataHora: agoraDatetimeLocal(),
   queixaPrincipal: '', historiaDoencaAtual: '', descricao: '', exameFisico: '',
   hipoteseDiagnostica: '', diagnostico: '', tipoDiagnostico: 'DEFINITIVO',
-  prescricao: '', planoTerapeutico: '', conduta: '',
+  prescricao: '', planoTerapeutico: '', conduta: '', retornoSugeridoDias: '',
 }
 
 const PACIENTE_VAZIO = {
@@ -220,6 +220,7 @@ export function PaginaAtendimento() {
       prescricao: form.prescricao || null,
       planoTerapeutico: form.planoTerapeutico || null,
       conduta: form.conduta || null,
+      retornoSugeridoDias: form.retornoSugeridoDias ? Number(form.retornoSugeridoDias) : null,
       finalizar,
     }
   }
@@ -490,6 +491,14 @@ export function PaginaAtendimento() {
               <textarea
                 id="na-conduta" className="prontuario-textarea atendimento-textarea" value={form.conduta}
                 onChange={(e) => atualizar('conduta', e.target.value)}
+              />
+            </div>
+            <div className="prontuario-modal-campo" style={{ maxWidth: 260 }}>
+              <label className="prontuario-label" htmlFor="na-retorno">Retorno sugerido em (dias)</label>
+              <input
+                id="na-retorno" type="number" min={1} className="prontuario-input" value={form.retornoSugeridoDias}
+                onChange={(e) => atualizar('retornoSugeridoDias', e.target.value)}
+                placeholder="Ex: 30 — alimenta a fila de /retorno"
               />
             </div>
 

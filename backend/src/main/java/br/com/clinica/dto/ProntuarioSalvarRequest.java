@@ -17,6 +17,7 @@ public record ProntuarioSalvarRequest(
         String prescricao,
         String planoTerapeutico,
         String conduta,
+        Integer retornoSugeridoDias,
         boolean finalizar
 ) {
 }

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -67,6 +68,13 @@ public class Prontuario {
 
     @Column(columnDefinition = "TEXT")
     private String conduta;
+
+    // Data de retorno pedida pelo médico ("retorno em X dias") — alimenta o
+    // grupo "retorno pedido pelo médico" de /retorno (Fase 16). Calculada a
+    // partir de retornoSugeridoDias só quando o atendimento é finalizado
+    // (ver ProntuarioEscritaService) — rascunho não gera pendência de retorno.
+    @Column(name = "retorno_sugerido_em")
+    private LocalDate retornoSugeridoEm;
 
     // Assinatura e auditoria
     @ManyToOne(fetch = FetchType.LAZY)

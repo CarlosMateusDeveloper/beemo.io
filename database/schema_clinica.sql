@@ -935,3 +935,84 @@ CREATE INDEX idx_recurso_glosa_glosa ON recurso_glosa(id_glosa);
 CREATE INDEX idx_recurso_glosa_status ON recurso_glosa(status);
 CREATE INDEX idx_recurso_glosa_prazo ON recurso_glosa(prazo_limite);
 CREATE INDEX idx_recurso_glosa_documento_recurso ON recurso_glosa_documento(id_recurso);
+
+-- =====================================================================
+-- FASE 16 — Retorno de pacientes (docs/specs/retorno.md)
+-- =====================================================================
+
+-- Data que o médico indicou pro retorno ("retorno em X dias"), calculada
+-- em dias -> data absoluta no momento de finalizar o atendimento. É a
+-- ponte entre o prontuário e o grupo "retorno pedido pelo médico" —
+-- sem isso, /retorno não tem como saber que um retorno foi pedido.
+ALTER TABLE prontuario ADD COLUMN retorno_sugerido_em DATE NULL;
+
+CREATE TYPE grupo_retorno AS ENUM (
+    'tratamento_interrompido', 'retorno_medico', 'exame_pendente', 'ritmo_quebrado'
+);
+
+-- Estado de contato por paciente, aplicado nos 4 grupos igualmente — sem
+-- isso a mesma pessoa reaparece toda semana mesmo depois de pedir pra não
+-- ser mais contatada (spec: "o não contatar é obrigatório").
+CREATE TABLE paciente_retorno_status (
+    id_paciente INT PRIMARY KEY REFERENCES paciente(id_paciente),
+    status VARCHAR(15) NOT NULL DEFAULT 'pendente'
+        CHECK (status IN ('pendente', 'adiado', 'nao_contatar')),
+    adiado_ate DATE NULL,
+    motivo_nao_contatar TEXT NULL,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Uma régua por grupo (gatilho fixo = o próprio grupo, prazo em dias e
+-- liga/desliga editáveis). Sem @Scheduled em lugar nenhum do backend
+-- ainda — a régua fica configurável e visível (o que a spec pede: "a tela
+-- existe pra configurar e acompanhar"), disparo automático fica pra uma
+-- fase futura, mesmo espírito da Auditoria de /convenios (Fase 14).
+CREATE TABLE regua_retorno (
+    id_regua INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    grupo grupo_retorno NOT NULL UNIQUE,
+    prazo_dias SMALLINT NOT NULL,
+    ativa BOOLEAN NOT NULL DEFAULT TRUE,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Texto editável por grupo (spec: "cada grupo tem um texto diferente...
+-- usar o mesmo texto pros quatro derruba a conversão").
+CREATE TABLE mensagem_modelo_retorno (
+    id_modelo INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    grupo grupo_retorno NOT NULL UNIQUE,
+    texto TEXT NOT NULL
+);
+
+-- Histórico de envios — alimenta a aba Resultados (mensagens enviadas,
+-- conversão por grupo, receita gerada). id_mensagem liga no registro real
+-- em `mensagem` (Fase 10, compartilhada com /whatsapp); id_usuario_disparou
+-- NULL = disparo automático (régua), preenchido = alguém clicou "enviar".
+CREATE TABLE envio_retorno (
+    id_envio INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_paciente INT NOT NULL REFERENCES paciente(id_paciente),
+    grupo grupo_retorno NOT NULL,
+    texto TEXT NOT NULL,
+    id_mensagem BIGINT NULL REFERENCES mensagem(id_mensagem),
+    id_usuario_disparou INT NULL REFERENCES usuario(id),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_envio_retorno_paciente ON envio_retorno(id_paciente);
+CREATE INDEX idx_envio_retorno_criado_em ON envio_retorno(criado_em);
+
+-- Seed: réguas de exemplo da spec (3 delas) + uma 4ª pro grupo ritmo_quebrado
+-- (a spec não dá exemplo desse grupo, completo por consistência — todos os
+-- 4 grupos precisam de régua pra Aba 2 fazer sentido).
+INSERT INTO regua_retorno (grupo, prazo_dias, ativa) VALUES
+    ('retorno_medico', 15, TRUE),
+    ('exame_pendente', 20, TRUE),
+    ('tratamento_interrompido', 10, FALSE),
+    ('ritmo_quebrado', 30, TRUE);
+
+-- Seed: um texto padrão por grupo (spec, seção "Mensagem por grupo") —
+-- editável depois via "Personalizar mensagem".
+INSERT INTO mensagem_modelo_retorno (grupo, texto) VALUES
+    ('tratamento_interrompido', 'Olá! Vimos que você não concluiu seu tratamento. Podemos te ajudar a retomar? Temos horários disponíveis essa semana.'),
+    ('retorno_medico', 'Olá! O(a) Dr(a). {medico} pediu seu retorno e já passou o prazo indicado. Vamos agendar?'),
+    ('exame_pendente', 'Olá! Notamos que o exame solicitado na sua última consulta ainda não foi realizado. Posso te ajudar a agendar?'),
+    ('ritmo_quebrado', 'Olá! Faz um tempo que você não vem aqui. Que tal agendar uma consulta de acompanhamento?');

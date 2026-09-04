@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 // Escrita de /prontuario (Novo atendimento / Continuar atendimento). Usa
@@ -82,6 +83,11 @@ public class ProntuarioEscritaService {
             if (request.medicoResponsavelId() != null) {
                 prontuario.setMedicoResponsavel(entityManager.getReference(Medico.class, request.medicoResponsavelId()));
             }
+            // "Retorno em X dias" (docs/specs/retorno.md) só vira pendência real
+            // quando o atendimento é finalizado — rascunho ainda pode mudar.
+            prontuario.setRetornoSugeridoEm(request.retornoSugeridoDias() != null
+                    ? LocalDate.now().plusDays(request.retornoSugeridoDias())
+                    : null);
             prontuario.setAssinadoEm(OffsetDateTime.now());
         }
     }
