@@ -24,6 +24,8 @@ import { Caixa } from './components/caixa/caixa'
 import { Convenios } from './components/convenios/convenios'
 import ConvenioDetalhePagina from './components/convenios/ConvenioDetalhePagina'
 import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
+import AuditoriaDetalhePagina from './components/convenios/AuditoriaDetalhePagina'
+import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 
 // Configurando o roteador com os caminhos e seus respectivos componentes.
 // Login fica fora do Layout (sem sidebar); as demais telas navegam pela
@@ -47,6 +49,8 @@ const router = createBrowserRouter([
       { path: "caixa", element: <Caixa /> },
       { path: "convenios", element: <Convenios /> },
       { path: "convenios/glosas/:id", element: <GlosaDetalhePagina /> },
+      { path: "convenios/auditoria/:id", element: <AuditoriaDetalhePagina /> },
+      { path: "convenios/lotes/:id", element: <LoteDetalhePagina /> },
       { path: "convenios/:id", element: <ConvenioDetalhePagina /> },
     ],
   },

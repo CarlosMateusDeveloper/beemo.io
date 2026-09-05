@@ -115,3 +115,46 @@ export const CANAIS_ENVIO = [
   { valor: 'portal_convenio', rotulo: 'Portal do convênio' },
   { valor: 'email', rotulo: 'E-mail' },
 ]
+
+// auditoria_atendimento.status.
+export const STATUS_AUDITORIA = [
+  { valor: 'aprovado', rotulo: 'Aprovado', cls: 'st-ok' },
+  { valor: 'atencao', rotulo: 'Atenção', cls: 'st-warn' },
+  { valor: 'bloqueado', rotulo: 'Bloqueado', cls: 'st-perdida' },
+]
+
+export function statusAuditoriaMeta(valor) {
+  return STATUS_AUDITORIA.find((s) => s.valor === valor) ?? { valor, rotulo: valor, cls: 'st-neutro' }
+}
+
+// lote_faturamento.status (status_lote_faturamento).
+export const STATUS_LOTE = [
+  { valor: 'rascunho', rotulo: 'Rascunho', cls: 'st-neutro' },
+  { valor: 'pronto_envio', rotulo: 'Pronto para envio', cls: 'st-info-tracejado' },
+  { valor: 'enviado', rotulo: 'Enviado', cls: 'st-info' },
+  { valor: 'processando', rotulo: 'Processando', cls: 'st-warn' },
+  { valor: 'pago_parcial', rotulo: 'Pago parcialmente', cls: 'st-warn' },
+  { valor: 'pago', rotulo: 'Pago', cls: 'st-ok' },
+  { valor: 'com_glosas', rotulo: 'Com glosas', cls: 'st-perdida' },
+]
+
+export function statusLoteMeta(valor) {
+  return STATUS_LOTE.find((s) => s.valor === valor) ?? { valor, rotulo: valor, cls: 'st-neutro' }
+}
+
+// Mesmas transições válidas de LoteEscritaService.TRANSICOES (backend) —
+// duplicado aqui só pra desenhar os botões certos na tela; a validação de
+// verdade continua no backend.
+export const TRANSICOES_LOTE = {
+  rascunho: [{ valor: 'pronto_envio', rotulo: 'Marcar pronto para envio' }],
+  pronto_envio: [
+    { valor: 'rascunho', rotulo: 'Voltar para rascunho' },
+    { valor: 'enviado', rotulo: 'Marcar como enviado' },
+  ],
+  enviado: [{ valor: 'processando', rotulo: 'Marcar como processando' }],
+  processando: [
+    { valor: 'pago', rotulo: 'Marcar como pago' },
+    { valor: 'pago_parcial', rotulo: 'Marcar como pago parcialmente' },
+    { valor: 'com_glosas', rotulo: 'Marcar com glosas' },
+  ],
+}

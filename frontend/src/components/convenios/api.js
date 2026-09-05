@@ -149,3 +149,52 @@ export function enviarRecurso(id, dados) {
 export function registrarResultadoRecurso(id, dados) {
   return apiRequest(`/api/recursos/${id}/resultado`, { method: 'POST', body: JSON.stringify(dados) })
 }
+
+// --- Lotes ---
+
+export function fetchSugestoesLotes() {
+  return apiRequest('/api/lotes/sugestoes')
+}
+
+export function fetchElegiveisLote(idConvenio) {
+  return apiRequest(`/api/lotes/elegiveis?idConvenio=${idConvenio}`)
+}
+
+export function criarLote(idConvenio, idsFatura) {
+  return apiRequest('/api/lotes', { method: 'POST', body: JSON.stringify({ idConvenio, idsFatura }) })
+}
+
+export function fetchLotes({ status, idConvenio, page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  if (idConvenio) params.set('idConvenio', idConvenio)
+  params.set('page', page)
+  params.set('size', size)
+  return apiRequest(`/api/lotes?${params.toString()}`)
+}
+
+export function fetchLote(id) {
+  return apiRequest(`/api/lotes/${id}`)
+}
+
+export function atualizarStatusLote(id, status) {
+  return apiRequest(`/api/lotes/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) })
+}
+
+// --- Auditoria ---
+
+export function fetchAuditoriaResumo() {
+  return apiRequest('/api/auditoria/resumo')
+}
+
+export function fetchAuditoriaLista({ status, page = 0, size = 20 } = {}) {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  params.set('page', page)
+  params.set('size', size)
+  return apiRequest(`/api/auditoria?${params.toString()}`)
+}
+
+export function fetchAuditoriaDetalhe(id) {
+  return apiRequest(`/api/auditoria/${id}`)
+}

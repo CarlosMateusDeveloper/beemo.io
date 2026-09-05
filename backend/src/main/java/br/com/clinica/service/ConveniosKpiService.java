@@ -8,11 +8,12 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-// KPIs do cabeçalho de /convenios. Só "A receber" é real hoje — vem de
-// `fatura` (consultas de paciente com convênio, ainda não pagas). Em
-// risco/Glosado/Recuperado dependem de auditoria_atendimento/glosa, que
-// existem no schema (Fase 14) mas não têm motor/tela nesta fase — ficam
-// zero real, não inventado, mesmo princípio já usado em DashboardService.
+// KPIs do cabeçalho de /convenios. "A receber" (fatura) e "Em risco"
+// (auditoria_atendimento, desde que o motor de auditoria — AuditoriaEngineService
+// — passou a rodar na assinatura do prontuário) são reais. Glosado/Recuperado
+// dependem de agregação própria sobre `glosa`/`recurso_glosa` que ainda não
+// foi escrita — ficam zero real, não inventado, mesmo princípio já usado em
+// DashboardService.
 @Service
 public class ConveniosKpiService {
 
@@ -45,9 +46,24 @@ public class ConveniosKpiService {
         // Lotes ainda não existe (aba Lotes é fase futura) — zero real.
         long lotes = 0;
 
+        Query emRiscoQuery = entityManager.createNativeQuery(
+                "SELECT COALESCE(SUM(aa.valor_em_risco), 0), COUNT(*) " +
+                        "FROM auditoria_atendimento aa " +
+                        "JOIN consulta c ON c.id_consulta = aa.id_consulta " +
+                        "JOIN paciente p ON p.id_paciente = c.id_paciente " +
+                        "WHERE aa.status IN ('bloqueado', 'atencao') " +
+                        "  AND aa.avaliado_em >= :inicio " +
+                        "  AND (CAST(:convenioId AS INTEGER) IS NULL OR p.id_convenio = :convenioId)"
+        );
+        emRiscoQuery.setParameter("inicio", inicio.atStartOfDay());
+        emRiscoQuery.setParameter("convenioId", convenioId);
+        Object[] linhaEmRisco = (Object[]) emRiscoQuery.getSingleResult();
+        BigDecimal emRiscoValor = (BigDecimal) linhaEmRisco[0];
+        long atendimentosPendentes = ((Number) linhaEmRisco[1]).longValue();
+
         return new ConveniosKpisResponse(
                 new ConveniosKpisResponse.AReceberDto(aReceberValor, lotes, mediaDias),
-                new ConveniosKpisResponse.EmRiscoDto(BigDecimal.ZERO, 0),
+                new ConveniosKpisResponse.EmRiscoDto(emRiscoValor, atendimentosPendentes),
                 new ConveniosKpisResponse.GlosadoDto(BigDecimal.ZERO, 0),
                 new ConveniosKpisResponse.RecuperadoDto(BigDecimal.ZERO, 0)
         );

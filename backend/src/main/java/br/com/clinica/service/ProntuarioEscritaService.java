@@ -27,10 +27,14 @@ public class ProntuarioEscritaService {
 
     private final ProntuarioRepository repository;
     private final EntityManager entityManager;
+    private final AuditoriaEngineService auditoriaEngineService;
 
-    public ProntuarioEscritaService(ProntuarioRepository repository, EntityManager entityManager) {
+    public ProntuarioEscritaService(
+            ProntuarioRepository repository, EntityManager entityManager, AuditoriaEngineService auditoriaEngineService
+    ) {
         this.repository = repository;
         this.entityManager = entityManager;
+        this.auditoriaEngineService = auditoriaEngineService;
     }
 
     @Transactional
@@ -43,6 +47,9 @@ public class ProntuarioEscritaService {
         aplicar(prontuario, request);
         Prontuario salvo = repository.save(prontuario);
         atualizarTipoDiagnostico(salvo.getId(), request.tipoDiagnostico());
+        // Atendimento finalizado já na criação (fluxo de um passo só) —
+        // dispara o motor de auditoria (docs/specs/convenios.md).
+        if (request.finalizar()) auditoriaEngineService.avaliarAtendimento(request.consultaId());
         entityManager.clear();
         return paraDto(repository.findById(salvo.getId()).orElseThrow());
     }
@@ -56,9 +63,16 @@ public class ProntuarioEscritaService {
         if (existente.getAssinadoEm() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Atendimento já finalizado não pode ser editado");
         }
+        Integer idConsulta = existente.getConsulta().getId();
         aplicar(existente, request);
         repository.save(existente);
         atualizarTipoDiagnostico(id, request.tipoDiagnostico());
+        // "Atendimento finalizado" é o evento real mais próximo de
+        // consulta.status = 'Realizada' que existe no monólito Java — a
+        // agenda (e esse status) é escrita pelo agenda-service (Go), fora
+        // de alcance daqui. Dispara o motor de auditoria (só roda uma vez
+        // por consulta: o guard de imutabilidade acima impede refinalizar).
+        if (request.finalizar()) auditoriaEngineService.avaliarAtendimento(idConsulta);
         entityManager.clear();
         return paraDto(repository.findById(id).orElseThrow());
     }

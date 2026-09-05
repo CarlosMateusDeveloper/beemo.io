@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ConveniosFiltros from './ConveniosFiltros'
 import ConveniosKpis from './ConveniosKpis'
 import ConveniosLista from './ConveniosLista'
-import ConveniosPlaceholder from './ConveniosPlaceholder'
 import GlosasFila from './GlosasFila'
+import AuditoriaLista from './AuditoriaLista'
+import LotesLista from './LotesLista'
 import { fetchKpis, fetchUsuarios } from './api'
 import './convenios.css'
 
@@ -94,12 +95,7 @@ export function Convenios() {
         />
       )}
 
-      {aba === 'auditoria' && (
-        <ConveniosPlaceholder
-          titulo="Auditoria — em construção"
-          texto="O motor de regras já roda na configuração de cada convênio (aba Convênios); a esteira que aplica essas regras aos atendimentos antes do faturamento entra numa próxima etapa."
-        />
-      )}
+      {aba === 'auditoria' && <AuditoriaLista />}
 
       {aba === 'convenios' && (
         <ConveniosLista
@@ -109,10 +105,7 @@ export function Convenios() {
       )}
 
       {aba === 'lotes' && (
-        <ConveniosPlaceholder
-          titulo="Lotes — em construção"
-          texto="Agrupamento de atendimentos aprovados na auditoria em remessas de faturamento entra numa próxima etapa."
-        />
+        <LotesLista onAbrirLote={(id) => navigate(`/convenios/lotes/${id}`)} />
       )}
     </div>
   )
