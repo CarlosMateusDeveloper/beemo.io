@@ -76,6 +76,20 @@
 .sidebar-link:hover { background: var(--surface-hover); }
 .sidebar-link.active { background: var(--acc-soft); color: var(--acc-deep); }
 
+.sidebar-sublist {
+  list-style: none; margin: 2px 0 2px; padding: 0 0 0 30px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sidebar-sublink {
+  display: block; padding: 7px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 500;
+  color: var(--text-tertiary); text-decoration: none; box-sizing: border-box;
+}
+.sidebar-sublink:hover { background: var(--surface-hover); color: var(--text-secondary); }
+.sidebar-sublink.active { background: var(--acc-soft); color: var(--acc-deep); font-weight: 600; }
+
+/* Sidebar recolhida vira um trilho só de ícones — subseções não cabem. */
+.sidebar.collapsed .sidebar-sublist { display: none; }
+
 /* Sidebar recolhida manualmente (botão de colapsar) vira um trilho so de icones. */
 .sidebar.collapsed .sidebar-header { justify-content: center; padding: 4px 0 20px; }
 .sidebar.collapsed .sidebar-brand { display: none; }
@@ -95,4 +109,5 @@
   .sidebar-brand { display: none; }
   .sidebar-link { justify-content: center; padding: 10px; }
   .sidebar-link span { display: none; }
+  .sidebar-sublist { display: none; }
 }

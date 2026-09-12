@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, AlertTriangle, UserPlus } from 'lucide-react'
 import { ordenarConversas } from './whatsappData'
 import { fetchConversas, fetchMensagens, fetchContexto, assumirConversa, devolverConversa, enviarMensagem } from './api'
 
-// Placeholder até a autenticação real existir — deveria vir do usuário
-// logado (ver mesmo placeholder em components/layout/UserMenu.jsx).
-const ATENDENTE_ATUAL = 'Ana Souza'
+import { useAuth } from '../../auth/AuthContext'
 
 const FILTROS = [
   { id: 'aguardando', label: 'Aguardando atendente' },
-  { id: 'bot', label: 'Bot resolveu' },
+  { id: 'com_agente', label: 'Em atendimento' },
+  { id: 'bot', label: 'Com assistente' },
   { id: 'todas', label: 'Todas' },
 ]
 
@@ -19,7 +18,8 @@ function iniciaisDe(nome) {
 
 function destacarTexto(texto, destaque) {
   if (!destaque) return texto
-  const partes = texto.split(new RegExp(`(${destaque})`, 'i'))
+  const literal = destaque.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const partes = texto.split(new RegExp(`(${literal})`, 'i'))
   return partes.map((p, i) => (p.toLowerCase() === destaque.toLowerCase()
     ? <mark key={i} className="whatsapp-msg-destaque">{p}</mark>
     : p))
@@ -50,11 +50,12 @@ function ListaConversas({ conversas, filtro, onFiltro, busca, onBusca, seleciona
     const porFiltro = conversas.filter((c) => {
       if (filtro === 'aguardando') return c.estado === 'aguardando'
       if (filtro === 'bot') return c.estado === 'bot'
+      if (filtro === 'com_agente') return c.estado === 'com_agente'
       return true
     })
     const termo = busca.trim().toLowerCase()
     const porBusca = termo
-      ? porFiltro.filter((c) => (c.paciente || '').toLowerCase().includes(termo) || c.telefone.includes(termo))
+      ? porFiltro.filter((c) => (c.paciente || '').toLowerCase().includes(termo) || (c.telefone || '').includes(termo))
       : porFiltro
     return ordenarConversas(porBusca)
   }, [conversas, filtro, busca])
@@ -107,7 +108,7 @@ function ListaConversas({ conversas, filtro, onFiltro, busca, onBusca, seleciona
   )
 }
 
-function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnviar, onAssumir, onDevolver }) {
+function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnviar, onAssumir, onDevolver, erroEnvio, ocupado, carregandoMensagens, erroMensagens, mensagensRef }) {
   if (!conversa) {
     return <div className="whatsapp-thread whatsapp-thread-vazia">Selecione uma conversa</div>
   }
@@ -128,7 +129,9 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
         {conversa.estado === 'com_agente' && <span className="whatsapp-espera-pill info">com {conversa.agente}</span>}
       </div>
 
-      <div className="whatsapp-thread-msgs">
+      <div className="whatsapp-thread-msgs" ref={mensagensRef}>
+        {carregandoMensagens && <div className="whatsapp-lista-vazia">Carregando mensagens…</div>}
+        {erroMensagens && <div role="alert" className="dashboard-erro">{erroMensagens}</div>}
         {mensagens.map((m) => {
           if (m.tipo === 'escalonamento') {
             return (
@@ -142,10 +145,10 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
           return (
             <div key={m.id} className={`whatsapp-bubble ${m.remetente}`}>
               {m.remetente !== 'paciente' && (
-                <span className={`whatsapp-bubble-label ${m.remetente}`}>{m.remetente === 'bot' ? 'assistente' : `${m.agente} · atendente`}</span>
+                <span className={`whatsapp-bubble-label ${m.remetente}`}>{m.remetente === 'bot' ? 'assistente' : `${m.agente || 'Recepção'} · atendente`}</span>
               )}
               <span className="whatsapp-bubble-txt">
-                {m.texto.split('\n').map((linha, i) => (
+                {(m.texto || '').split('\n').map((linha, i) => (
                   <span key={i}>{i > 0 && <br />}{destacarTexto(linha, m.destaque)}</span>
                 ))}
               </span>
@@ -159,15 +162,19 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
         <textarea
           placeholder={podeResponder ? `Escreva uma resposta para ${conversa.paciente || 'o paciente'}…` : 'Assuma a conversa para responder'}
           value={resposta} onChange={(e) => onRespostaChange(e.target.value)}
-          disabled={!podeResponder}
+          disabled={!podeResponder || ocupado}
         />
+        {/* O envio passa pela API oficial do WhatsApp e pode ser recusado
+            (janela de 24h, credencial vencida). O atendente precisa saber
+            que a mensagem NÃO chegou — o texto fica no campo pra reenviar. */}
+        {erroEnvio && <div className="dashboard-erro">Não foi possível concluir: {erroEnvio}</div>}
         <div className="whatsapp-composer-acoes">
           {conversa.estado !== 'com_agente' ? (
-            <button type="button" className="whatsapp-btn-primario" onClick={onAssumir}>Assumir conversa</button>
+            <button type="button" className="whatsapp-btn-primario" onClick={onAssumir} disabled={ocupado}>Assumir conversa</button>
           ) : (
             <>
-              <button type="button" className="whatsapp-btn-primario" onClick={onEnviar} disabled={!resposta.trim()}>Enviar</button>
-              <button type="button" className="whatsapp-btn-secundario" onClick={onDevolver}>Devolver ao assistente</button>
+              <button type="button" className="whatsapp-btn-primario" onClick={onEnviar} disabled={!resposta.trim() || ocupado}>{ocupado ? 'Aguarde…' : 'Enviar'}</button>
+              <button type="button" className="whatsapp-btn-secundario" onClick={onDevolver} disabled={ocupado}>Devolver ao assistente</button>
             </>
           )}
         </div>
@@ -272,97 +279,162 @@ function PainelContexto({ conversa, contexto, contextoCarregado }) {
   )
 }
 
-export default function WhatsappConversas({ onConversasAtualizadas }) {
-  const [conversas, setConversas] = useState([])
-  const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState(null)
+function Atendimento({ conversa, onAtualizar }) {
+  const { usuario } = useAuth()
   const [mensagens, setMensagens] = useState([])
   const [contexto, setContexto] = useState(null)
   const [contextoCarregado, setContextoCarregado] = useState(false)
-  const [filtro, setFiltro] = useState('aguardando')
-  const [busca, setBusca] = useState('')
-  const [selecionadoId, setSelecionadoId] = useState(null)
+  const [erroContexto, setErroContexto] = useState(null)
+  const [carregandoMensagens, setCarregandoMensagens] = useState(true)
+  const [erroMensagens, setErroMensagens] = useState(null)
   const [resposta, setResposta] = useState('')
-
-  function recarregarConversas() {
-    return fetchConversas().then((lista) => {
-      setConversas(lista)
-      onConversasAtualizadas?.(lista)
-      if (selecionadoId == null && lista.length > 0) {
-        setSelecionadoId(ordenarConversas(lista)[0].id)
-      }
-      return lista
-    })
-  }
+  const [erroEnvio, setErroEnvio] = useState(null)
+  const [ocupado, setOcupado] = useState(false)
+  const ativo = useRef(false)
+  const emAcao = useRef(false)
+  const versao = useRef(0)
+  const mensagensRef = useRef(null)
+  const pertoDoFim = useRef(true)
+  const id = conversa.id
 
   useEffect(() => {
-    let cancelado = false
-    setCarregando(true)
-    setErro(null)
-    recarregarConversas()
-      .catch((err) => { if (!cancelado) setErro(err.message) })
-      .finally(() => { if (!cancelado) setCarregando(false) })
-    return () => { cancelado = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ativo.current = true
+    return () => { ativo.current = false }
   }, [])
 
   useEffect(() => {
-    if (selecionadoId == null) { setMensagens([]); setContexto(null); setContextoCarregado(false); return }
     let cancelado = false
-    setContextoCarregado(false)
-    fetchMensagens(selecionadoId).then((lista) => { if (!cancelado) setMensagens(lista) }).catch(() => {})
-    fetchContexto(selecionadoId)
-      .then((c) => { if (!cancelado) { setContexto(c); setContextoCarregado(true) } })
-      .catch(() => { if (!cancelado) setContextoCarregado(true) })
+    let timer
+    async function atualizar() {
+      const atual = versao.current
+      try {
+        const lista = await fetchMensagens(id)
+        if (!cancelado && atual === versao.current && !emAcao.current) {
+          const el = mensagensRef.current
+          pertoDoFim.current = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80
+          setMensagens(lista)
+          setErroMensagens(null)
+        }
+      } catch (err) {
+        if (!cancelado) setErroMensagens(`Não foi possível atualizar o histórico (${err.message}).`)
+      } finally {
+        if (!cancelado) {
+          setCarregandoMensagens(false)
+          timer = setTimeout(atualizar, 5000)
+        }
+      }
+    }
+    atualizar()
+    return () => { cancelado = true; clearTimeout(timer) }
+  }, [id])
+
+  useEffect(() => {
+    if (pertoDoFim.current && mensagensRef.current) {
+      mensagensRef.current.scrollTop = mensagensRef.current.scrollHeight
+    }
+  }, [mensagens])
+
+  useEffect(() => {
+    let cancelado = false
+    fetchContexto(id)
+      .then((dados) => { if (!cancelado) setContexto(dados) })
+      .catch((err) => { if (!cancelado) setErroContexto(err.message) })
+      .finally(() => { if (!cancelado) setContextoCarregado(true) })
     return () => { cancelado = true }
-  }, [selecionadoId])
+  }, [id])
 
-  const conversa = conversas.find((c) => c.id === selecionadoId) || null
-  const contadorAguardando = conversas.filter((c) => c.estado === 'aguardando').length
-
-  function selecionar(id) {
-    setSelecionadoId(id)
-    setResposta('')
-  }
-
-  function assumir() {
-    if (!selecionadoId) return
-    assumirConversa(selecionadoId, ATENDENTE_ATUAL).then(recarregarConversas)
-  }
-
-  function devolver() {
-    if (!selecionadoId) return
-    devolverConversa(selecionadoId).then(recarregarConversas)
+  async function executar(acao) {
+    if (emAcao.current) return
+    emAcao.current = true
+    versao.current += 1
+    setOcupado(true)
+    setErroEnvio(null)
+    try {
+      await acao()
+      if (ativo.current) onAtualizar()
+    } catch (err) {
+      if (ativo.current) setErroEnvio(err.message)
+    } finally {
+      emAcao.current = false
+      if (ativo.current) setOcupado(false)
+    }
   }
 
   function enviar() {
     const texto = resposta.trim()
-    if (!texto || !selecionadoId) return
-    enviarMensagem(selecionadoId, texto).then((nova) => {
-      setMensagens((prev) => [...prev, nova])
+    if (!texto) return
+    executar(async () => {
+      const nova = await enviarMensagem(id, texto)
+      if (!ativo.current) return
+      pertoDoFim.current = true
+      setMensagens((prev) => prev.some((m) => m.id === nova.id) ? prev : [...prev, nova])
       setResposta('')
-      recarregarConversas()
     })
   }
 
-  const vazio = !carregando && conversas.length === 0
+  return (
+    <>
+      <ConversaThread
+        conversa={conversa} mensagens={mensagens} resposta={resposta} onRespostaChange={setResposta}
+        onEnviar={enviar} onAssumir={() => executar(() => assumirConversa(id, usuario?.nome || 'Recepção'))}
+        onDevolver={() => executar(() => devolverConversa(id))} erroEnvio={erroEnvio}
+        ocupado={ocupado} carregandoMensagens={carregandoMensagens} erroMensagens={erroMensagens} mensagensRef={mensagensRef}
+      />
+      {erroContexto ? <div className="whatsapp-contexto" role="alert">Não foi possível carregar os dados do paciente ({erroContexto}).</div>
+        : <PainelContexto conversa={conversa} contexto={contexto} contextoCarregado={contextoCarregado} />}
+    </>
+  )
+}
+
+export default function WhatsappConversas({ onConversasAtualizadas }) {
+  const [conversas, setConversas] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState(null)
+  const [filtro, setFiltro] = useState('todas')
+  const [busca, setBusca] = useState('')
+  const [selecionadoId, setSelecionadoId] = useState(null)
+  const [revisao, setRevisao] = useState(0)
+
+  useEffect(() => {
+    let cancelado = false
+    let timer
+    async function atualizar() {
+      try {
+        const lista = await fetchConversas()
+        if (!cancelado) {
+          setConversas(lista)
+          onConversasAtualizadas?.(lista)
+          setErro(null)
+        }
+      } catch (err) {
+        if (!cancelado) setErro(err.message)
+      } finally {
+        if (!cancelado) {
+          setCarregando(false)
+          timer = setTimeout(atualizar, 5000)
+        }
+      }
+    }
+    atualizar()
+    return () => { cancelado = true; clearTimeout(timer) }
+  }, [onConversasAtualizadas, revisao])
+
+  const conversa = conversas.find((c) => c.id === selecionadoId) || null
+  const contadorAguardando = conversas.filter((c) => c.estado === 'aguardando').length
 
   return (
-    <div className="whatsapp-conversas">
-      {erro && <div className="dashboard-erro">Não foi possível carregar as conversas ({erro}).</div>}
-      {carregando ? <SkeletonLista /> : (
-        <ListaConversas
-          conversas={conversas} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca}
-          selecionadoId={selecionadoId} onSelecionar={selecionar} contadorAguardando={contadorAguardando}
-        />
-      )}
-      {!carregando && (
-        <ConversaThread
-          conversa={conversa} mensagens={mensagens} resposta={resposta} onRespostaChange={setResposta}
-          onEnviar={enviar} onAssumir={assumir} onDevolver={devolver}
-        />
-      )}
-      {!carregando && !vazio && <PainelContexto conversa={conversa} contexto={contexto} contextoCarregado={contextoCarregado} />}
-    </div>
+    <>
+      {erro && <div role="alert" className="dashboard-erro">Não foi possível atualizar as conversas ({erro}). Tentaremos novamente automaticamente.</div>}
+      <div className="whatsapp-conversas">
+        {carregando ? <SkeletonLista /> : (
+          <ListaConversas
+            conversas={conversas} filtro={filtro} onFiltro={setFiltro} busca={busca} onBusca={setBusca}
+            selecionadoId={selecionadoId} onSelecionar={setSelecionadoId} contadorAguardando={contadorAguardando}
+          />
+        )}
+        {conversa ? <Atendimento key={conversa.id} conversa={conversa} onAtualizar={() => setRevisao((n) => n + 1)} />
+          : <div className="whatsapp-thread whatsapp-thread-vazia">Selecione uma conversa</div>}
+      </div>
+    </>
   )
 }

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from chatbot.config import WHATSAPP_API_TOKEN, WHATSAPP_API_URL
+from chatbot.config import ID_CLINICA_ATUAL
 from chatbot.models.capacidade_bot import CapacidadeBotConfig
 # Import necessario mesmo sem uso direto: registra a tabela `clinica` no
 # metadata do SQLAlchemy, senao as FKs de Conversa/CapacidadeBotConfig/etc
@@ -14,11 +14,12 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
+from chatbot.services import whatsapp_service
 
-# Sem sessao/login real ainda (Fase 0 do roadmap "multiempresa" nao
-# implementada) — mono-clinica por enquanto, mas o schema ja esta pronto
-# pra multi-tenant (ver database/schema_clinica.sql, Fase 10).
-ID_CLINICA_ATUAL = 1
+# ID_CLINICA_ATUAL vem de chatbot.config: sem sessao/login real ainda
+# (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
+# enquanto, mas o schema ja esta pronto pra multi-tenant (ver
+# database/schema_clinica.sql, Fase 10).
 
 # Copy de produto (nome, texto de impacto ao desligar), nao dado de linha —
 # mesmo catalogo que estava hardcoded no mock do frontend.
@@ -55,10 +56,14 @@ def _data_curta(d) -> str:
 
 
 def obter_status() -> dict:
-    """conectado=True só quando as credenciais do provedor de WhatsApp
-    estiverem configuradas — hoje não estão, então isso é False de verdade,
-    não mock."""
-    return {"conectado": bool(WHATSAPP_API_URL and WHATSAPP_API_TOKEN), "numero": None}
+    """conectado=True só quando a Cloud API responde de fato pelo número.
+
+    Não basta ter credencial preenchida: token vencido ou número errado
+    também é "desconectado" — é justamente o caso em que o painel não pode
+    dizer que está no ar.
+    """
+    numero = whatsapp_service.consultar_numero()
+    return {"conectado": numero is not None, "numero": numero, "configurado": whatsapp_service.esta_configurado()}
 
 
 def listar_conversas(db: Session) -> list[dict]:
@@ -250,12 +255,18 @@ def devolver_conversa(db: Session, conversa_id: int) -> Conversa | None:
 
 
 def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | None:
-    """Persiste a resposta do atendente no historico real. Não chama a API
-    do WhatsApp de fato — isso depende do provedor escolhido
-    (whatsapp_service.send_message, ainda NotImplementedError)."""
+    """Envia a resposta do atendente pelo WhatsApp e registra no historico.
+
+    Envia antes de gravar de propósito — uma bolha no histórico de algo que
+    nunca chegou ao paciente é pior do que um erro na tela. WhatsAppError
+    sobe para o controller virar 502/503.
+    """
     conversa = _buscar_conversa(db, conversa_id)
     if conversa is None:
         return None
+    if conversa.estado != EstadoConversaBot.com_agente:
+        raise ValueError("Assuma a conversa antes de enviar uma mensagem.")
+    whatsapp_service.send_message_sync(conversa.telefone, texto)
     nova = Mensagem(
         id_paciente=conversa.id_paciente,
         telefone=conversa.telefone,
@@ -293,7 +304,13 @@ def obter_assistente(db: Session) -> dict:
         mensagens.setdefault(row.capacidade_id, {})[row.campo] = row.texto
 
     regra_row = db.get(RegraAtendimentoBot, ID_CLINICA_ATUAL)
-    regras = regra_row.regras if regra_row else {}
+    salvas = regra_row.regras if regra_row and regra_row.regras else {}
+    regras = {
+        "escalonamento": {"pedirAtendenteSempre": True, "naoEntendeuLimite": 2, "palavrasChave": [], **salvas.get("escalonamento", {})},
+        "horarios": {"atendimentoHumano": "08:00–18:00", "sabado": "08:00–12:00", **salvas.get("horarios", {})},
+        "disparos": {"confirmacaoPresencaHoras": 24, **salvas.get("disparos", {})},
+        "limiteMensagensPorPacientePorDia": salvas.get("limiteMensagensPorPacientePorDia", 10),
+    }
 
     return {"capacidades": capacidades, "mensagens": mensagens, "regras": regras}
 

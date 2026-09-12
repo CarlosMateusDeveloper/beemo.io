@@ -196,3 +196,43 @@
   box-shadow: var(--shadow-modal); font-size: 13px; color: var(--text-primary); max-width: 420px;
 }
 .caixa-toast-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--acc); flex: none; }
+
+/* Badges de status (despesas) */
+.caixa-badge { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.caixa-badge.st-ok { background: var(--success-bg); color: var(--success); }
+.caixa-badge.st-warn { background: var(--warning-bg); color: var(--warning); }
+.caixa-badge.st-perdida { background: var(--danger-bg); color: var(--danger); }
+.caixa-badge.st-neutro { background: var(--surface-muted); color: var(--text-secondary); }
+
+/* Pills de filtro (mesmo padrão de .convenios-pill) */
+.caixa-pill {
+  height: 29px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent;
+  color: var(--text-secondary); font-size: 12.5px; font-weight: 500; cursor: pointer;
+}
+.caixa-pill:hover { background: var(--surface-hover); }
+.caixa-pill.active { background: var(--acc-soft); border-color: var(--acc-line); color: var(--acc-deep); font-weight: 600; }
+
+.caixa-tabela-scroll { overflow-x: auto; }
+
+/* Relatórios financeiros: escala compacta e cartões responsivos. */
+.caixa-financeiro { font-size: 13px; line-height: 1.45; }
+.caixa-financeiro .caixa-titulo { font-size: 20px; }
+.caixa-financeiro .caixa-painel-titulo h2 { font-size: 14px; }
+.caixa-financeiro .caixa-tabela-esperado { font-size: 13px; }
+.caixa-financeiro .caixa-input-sm,
+.caixa-financeiro .caixa-btn-primary,
+.caixa-financeiro .caixa-btn-secondary { font-size: 13px; font-family: inherit; }
+.caixa-financeiro .caixa-btn-ghost { border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.caixa-financeiro .caixa-btn-ghost:hover { background: var(--surface-hover); }
+.caixa-financeiro .caixa-btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+.caixa-resumos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+.caixa-resumos-tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.caixa-resumo-valor { font-size: 18px; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.caixa-financeiro .caixa-tabela { overflow-x: auto; }
+.caixa-financeiro .caixa-tabela-head,
+.caixa-financeiro .caixa-tabela-row { min-width: 600px; }
+@media (max-width: 1100px) { .caixa-resumos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .caixa-financeiro { padding: 20px 16px; }
+  .caixa-resumos { grid-template-columns: 1fr; }
+}

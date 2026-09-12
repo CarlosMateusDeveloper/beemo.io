@@ -14,7 +14,14 @@ const NAV_ITEMS = [
   { to: '/retorno', label: 'Retorno', icon: Repeat },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope },
-  { to: '/caixa', label: 'Caixa', icon: Wallet },
+  {
+    to: '/caixa', label: 'Caixa', icon: Wallet, end: true,
+    children: [
+      { to: '/caixa/dre', label: 'DRE' },
+      { to: '/caixa/fluxo-consolidado', label: 'Fluxo de caixa' },
+      { to: '/caixa/despesas', label: 'Despesas' },
+    ],
+  },
   { to: '/convenios', label: 'Convênios', icon: HeartHandshake },
 ]
 
@@ -47,7 +54,7 @@ export default function Sidebar() {
         <div className="sidebar-brand">ClinicOS</div>
       </div>
       <ul className="sidebar-nav">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {NAV_ITEMS.map(({ to, label, icon: Icon, end, children }) => (
           <li key={to}>
             <NavLink
               to={to}
@@ -58,6 +65,21 @@ export default function Sidebar() {
               <Icon size={18} strokeWidth={2} />
               <span>{label}</span>
             </NavLink>
+            {children && (
+              <ul className="sidebar-sublist">
+                {children.map((child) => (
+                  <li key={child.to}>
+                    <NavLink
+                      to={child.to}
+                      className={({ isActive }) => `sidebar-sublink${isActive ? ' active' : ''}`}
+                      title={collapsed ? child.label : undefined}
+                    >
+                      <span>{child.label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
       </ul>

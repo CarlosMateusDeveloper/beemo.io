@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class StatusOut(BaseModel):
@@ -30,11 +30,21 @@ class MensagemBolhaOut(BaseModel):
 
 
 class AssumirIn(BaseModel):
-    agenteNome: str
+    agenteNome: str = Field(min_length=1, max_length=120)
+
+    @field_validator("agenteNome", mode="before")
+    @classmethod
+    def limpar_nome(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
 
 
 class EnviarMensagemIn(BaseModel):
-    texto: str
+    texto: str = Field(min_length=1, max_length=4096)
+
+    @field_validator("texto", mode="before")
+    @classmethod
+    def limpar_texto(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
 
 
 class CapacidadeOut(BaseModel):

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from chatbot.db import get_db
 from chatbot.services import whatsapp_painel_service as service
+from chatbot.services.whatsapp_service import WhatsAppError, WhatsAppNaoConfiguradoError
 from chatbot.views.whatsapp import AssumirIn, AtualizarMensagensIn, EnviarMensagemIn, TogglecapacidadeIn
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -51,7 +52,14 @@ def devolver(conversa_id: int, db: Session = Depends(get_db)):
 
 @router.post("/conversas/{conversa_id}/mensagens")
 def enviar_mensagem(conversa_id: int, body: EnviarMensagemIn, db: Session = Depends(get_db)):
-    mensagem = service.enviar_mensagem_agente(db, conversa_id, body.texto)
+    try:
+        mensagem = service.enviar_mensagem_agente(db, conversa_id, body.texto)
+    except ValueError as erro:
+        raise HTTPException(status_code=409, detail=str(erro)) from erro
+    except WhatsAppNaoConfiguradoError as erro:
+        raise HTTPException(status_code=503, detail=str(erro)) from erro
+    except WhatsAppError as erro:
+        raise HTTPException(status_code=502, detail=str(erro)) from erro
     if mensagem is None:
         raise HTTPException(status_code=404, detail="Conversa não encontrada")
     return mensagem

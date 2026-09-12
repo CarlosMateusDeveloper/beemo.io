@@ -20,3 +20,39 @@ export function parseValorInput(raw) {
   const v = parseFloat(String(raw ?? '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.'))
   return isNaN(v) ? 0 : v
 }
+
+// Mesmas strings de período aceitas por CaixaDreService/CaixaFluxoConsolidadoService
+// (e por ConveniosKpiService, do lado de /convenios) — consistência entre módulos.
+export const PERIODOS = [
+  { valor: 'Últimos 30 dias', rotulo: 'Últimos 30 dias' },
+  { valor: 'Hoje', rotulo: 'Hoje' },
+  { valor: '7 dias', rotulo: 'Últimos 7 dias' },
+  { valor: '90 dias', rotulo: 'Últimos 90 dias' },
+]
+
+// Mesmo CHECK de despesa.categoria (migração 008).
+export const CATEGORIAS_DESPESA = [
+  { valor: 'aluguel', rotulo: 'Aluguel' },
+  { valor: 'folha', rotulo: 'Folha de pagamento' },
+  { valor: 'fornecedores', rotulo: 'Fornecedores' },
+  { valor: 'insumos', rotulo: 'Insumos' },
+  { valor: 'impostos', rotulo: 'Impostos' },
+  { valor: 'marketing', rotulo: 'Marketing' },
+  { valor: 'manutencao', rotulo: 'Manutenção' },
+  { valor: 'servicos', rotulo: 'Serviços' },
+  { valor: 'outros', rotulo: 'Outros' },
+]
+
+export function categoriaDespesaLabel(valor) {
+  return CATEGORIAS_DESPESA.find((c) => c.valor === valor)?.rotulo ?? valor
+}
+
+// despesa.status (pendente/pago/cancelado) + "atrasado" calculado pelo
+// backend (DespesaDto.atrasado) — não é um status armazenado.
+export function statusDespesaMeta(status, atrasado) {
+  if (status === 'pendente' && atrasado) return { rotulo: 'Atrasada', cls: 'st-perdida' }
+  if (status === 'pendente') return { rotulo: 'Pendente', cls: 'st-warn' }
+  if (status === 'pago') return { rotulo: 'Paga', cls: 'st-ok' }
+  if (status === 'cancelado') return { rotulo: 'Cancelada', cls: 'st-neutro' }
+  return { rotulo: status, cls: 'st-neutro' }
+}

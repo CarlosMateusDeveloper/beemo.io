@@ -1,0 +1,332 @@
+{
+  "conservador": [
+    {
+      "month": 1,
+      "new": 1,
+      "cancellations": 0,
+      "active": 1,
+      "subscription": 499,
+      "operating_cash": -5735.75,
+      "cash": 45264.25
+    },
+    {
+      "month": 2,
+      "new": 1,
+      "cancellations": 0,
+      "active": 2,
+      "subscription": 998,
+      "operating_cash": -5361.5,
+      "cash": 39902.75
+    },
+    {
+      "month": 3,
+      "new": 1,
+      "cancellations": 0,
+      "active": 3,
+      "subscription": 1497,
+      "operating_cash": -4987.25,
+      "cash": 34915.5
+    },
+    {
+      "month": 4,
+      "new": 1,
+      "cancellations": 0,
+      "active": 4,
+      "subscription": 1996,
+      "operating_cash": -4613.0,
+      "cash": 30302.5
+    },
+    {
+      "month": 5,
+      "new": 1,
+      "cancellations": 0,
+      "active": 5,
+      "subscription": 2495,
+      "operating_cash": -4238.75,
+      "cash": 26063.75
+    },
+    {
+      "month": 6,
+      "new": 2,
+      "cancellations": 1,
+      "active": 6,
+      "subscription": 2994,
+      "operating_cash": -3474.5,
+      "cash": 22589.25
+    },
+    {
+      "month": 7,
+      "new": 2,
+      "cancellations": 1,
+      "active": 7,
+      "subscription": 3493,
+      "operating_cash": -3100.25,
+      "cash": 19489.0
+    },
+    {
+      "month": 8,
+      "new": 2,
+      "cancellations": 1,
+      "active": 8,
+      "subscription": 3992,
+      "operating_cash": -2726.0,
+      "cash": 16763.0
+    },
+    {
+      "month": 9,
+      "new": 2,
+      "cancellations": 1,
+      "active": 9,
+      "subscription": 4491,
+      "operating_cash": -2351.75,
+      "cash": 14411.25
+    },
+    {
+      "month": 10,
+      "new": 2,
+      "cancellations": 1,
+      "active": 10,
+      "subscription": 4990,
+      "operating_cash": -1977.5,
+      "cash": 12433.75
+    },
+    {
+      "month": 11,
+      "new": 2,
+      "cancellations": 1,
+      "active": 11,
+      "subscription": 5489,
+      "operating_cash": -1603.25,
+      "cash": 10830.5
+    },
+    {
+      "month": 12,
+      "new": 2,
+      "cancellations": 1,
+      "active": 12,
+      "subscription": 5988,
+      "operating_cash": -1229.0,
+      "cash": 9601.5
+    }
+  ],
+  "base": [
+    {
+      "month": 1,
+      "new": 1,
+      "cancellations": 0,
+      "active": 1,
+      "subscription": 599,
+      "operating_cash": -5660.75,
+      "cash": 45339.25
+    },
+    {
+      "month": 2,
+      "new": 2,
+      "cancellations": 0,
+      "active": 3,
+      "subscription": 1797,
+      "operating_cash": -4372.25,
+      "cash": 40967.0
+    },
+    {
+      "month": 3,
+      "new": 3,
+      "cancellations": 0,
+      "active": 6,
+      "subscription": 3594,
+      "operating_cash": -2634.5,
+      "cash": 38332.5
+    },
+    {
+      "month": 4,
+      "new": 3,
+      "cancellations": 0,
+      "active": 9,
+      "subscription": 5391,
+      "operating_cash": -1286.75,
+      "cash": 37045.75
+    },
+    {
+      "month": 5,
+      "new": 3,
+      "cancellations": 1,
+      "active": 11,
+      "subscription": 6589,
+      "operating_cash": -388.25,
+      "cash": 36657.5
+    },
+    {
+      "month": 6,
+      "new": 4,
+      "cancellations": 1,
+      "active": 14,
+      "subscription": 8386,
+      "operating_cash": 1349.5,
+      "cash": 38007.0
+    },
+    {
+      "month": 7,
+      "new": 4,
+      "cancellations": 1,
+      "active": 17,
+      "subscription": 10183,
+      "operating_cash": 2697.25,
+      "cash": 40704.25
+    },
+    {
+      "month": 8,
+      "new": 4,
+      "cancellations": 1,
+      "active": 20,
+      "subscription": 11980,
+      "operating_cash": 4045.0,
+      "cash": 44749.25
+    },
+    {
+      "month": 9,
+      "new": 4,
+      "cancellations": 1,
+      "active": 23,
+      "subscription": 13777,
+      "operating_cash": 5392.75,
+      "cash": 50142.0
+    },
+    {
+      "month": 10,
+      "new": 4,
+      "cancellations": 1,
+      "active": 26,
+      "subscription": 15574,
+      "operating_cash": 6740.5,
+      "cash": 56882.5
+    },
+    {
+      "month": 11,
+      "new": 4,
+      "cancellations": 2,
+      "active": 28,
+      "subscription": 16772,
+      "operating_cash": 7639.0,
+      "cash": 64521.5
+    },
+    {
+      "month": 12,
+      "new": 4,
+      "cancellations": 2,
+      "active": 30,
+      "subscription": 17970,
+      "operating_cash": 8537.5,
+      "cash": 73059.0
+    }
+  ],
+  "expansao": [
+    {
+      "month": 1,
+      "new": 2,
+      "cancellations": 0,
+      "active": 2,
+      "subscription": 1398,
+      "operating_cash": -9171.5,
+      "cash": 41828.5
+    },
+    {
+      "month": 2,
+      "new": 3,
+      "cancellations": 0,
+      "active": 5,
+      "subscription": 3495,
+      "operating_cash": -7208.75,
+      "cash": 34619.75
+    },
+    {
+      "month": 3,
+      "new": 4,
+      "cancellations": 0,
+      "active": 9,
+      "subscription": 6291,
+      "operating_cash": -4721.75,
+      "cash": 29898.0
+    },
+    {
+      "month": 4,
+      "new": 5,
+      "cancellations": 1,
+      "active": 13,
+      "subscription": 9087,
+      "operating_cash": -2234.75,
+      "cash": 27663.25
+    },
+    {
+      "month": 5,
+      "new": 6,
+      "cancellations": 1,
+      "active": 18,
+      "subscription": 12582,
+      "operating_cash": 776.5,
+      "cash": 28439.75
+    },
+    {
+      "month": 6,
+      "new": 7,
+      "cancellations": 1,
+      "active": 24,
+      "subscription": 16776,
+      "operating_cash": 4312.0,
+      "cash": 32751.75
+    },
+    {
+      "month": 7,
+      "new": 8,
+      "cancellations": 1,
+      "active": 31,
+      "subscription": 21669,
+      "operating_cash": 8371.75,
+      "cash": 41123.5
+    },
+    {
+      "month": 8,
+      "new": 8,
+      "cancellations": 2,
+      "active": 37,
+      "subscription": 25863,
+      "operating_cash": 11517.25,
+      "cash": 52640.75
+    },
+    {
+      "month": 9,
+      "new": 8,
+      "cancellations": 2,
+      "active": 43,
+      "subscription": 30057,
+      "operating_cash": 14662.75,
+      "cash": 67303.5
+    },
+    {
+      "month": 10,
+      "new": 8,
+      "cancellations": 2,
+      "active": 49,
+      "subscription": 34251,
+      "operating_cash": 17808.25,
+      "cash": 85111.75
+    },
+    {
+      "month": 11,
+      "new": 8,
+      "cancellations": 2,
+      "active": 55,
+      "subscription": 38445,
+      "operating_cash": 20953.75,
+      "cash": 106065.5
+    },
+    {
+      "month": 12,
+      "new": 8,
+      "cancellations": 3,
+      "active": 60,
+      "subscription": 41940,
+      "operating_cash": 23575.0,
+      "cash": 129640.5
+    }
+  ]
+}

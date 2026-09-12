@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createAutosave } from './autosave'
 import { X } from 'lucide-react'
 import { VARIAVEIS, preencherVariaveis } from './whatsappData'
 import { fetchAssistente, alternarCapacidade, salvarMensagensCapacidade, salvarRegras } from './api'
@@ -14,7 +15,6 @@ const CAMPOS = [
 // textos atuais, não uma conversa real registrada.
 const RESPOSTAS_EXEMPLO = ['1', 'sim']
 const SAMPLE_VARS = { nome: 'Renata', clinica: 'a clínica', data: '27/08', hora: '14:20', medico: 'Dr. Ivan Portela', especialidade: 'cardiologia' }
-const AUTOSAVE_MS = 700
 
 function Skeleton() {
   return <div className="dashboard-card-skel" />
@@ -61,7 +61,7 @@ function Mensagens({ capacidadeNome, textos, refs, onChange, onFocus, saveState,
         <span className="whatsapp-flex" />
         <span className={`whatsapp-save-indicador ${saveState}`}>
           <span className="whatsapp-save-dot" />
-          {saveState === 'saving' ? 'salvando…' : 'salvo automaticamente'}
+          {saveState === 'saving' ? 'salvando…' : saveState === 'error' ? 'alterações não salvas' : 'salvo automaticamente'}
         </span>
       </div>
 
@@ -249,7 +249,8 @@ export default function WhatsappAssistente() {
   const [regras, setRegras] = useState(null)
   const [campoFocado, setCampoFocado] = useState('saudacao')
   const [saveState, setSaveState] = useState('saved')
-  const saveTimer = useRef(null)
+  const [saveQueue] = useState(() => createAutosave(setSaveState))
+  useEffect(() => () => { saveQueue.flush() }, [saveQueue])
 
   const saudacaoRef = useRef(null)
   const opcoesRef = useRef(null)
@@ -274,24 +275,13 @@ export default function WhatsappAssistente() {
 
   function alterarTexto(campo, valor) {
     setMensagens((prev) => ({ ...prev, [selecionadaId]: { ...prev[selecionadaId], [campo]: valor } }))
-    setSaveState('saving')
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      salvarMensagensCapacidade(selecionadaId, { [campo]: valor })
-        .then(() => setSaveState('saved'))
-        .catch(() => setSaveState('saved'))
-    }, AUTOSAVE_MS)
+    const id = selecionadaId
+    saveQueue.schedule(`mensagem:${id}:${campo}`, () => salvarMensagensCapacidade(id, { [campo]: valor }))
   }
 
   function alterarRegras(novasRegras) {
     setRegras(novasRegras)
-    setSaveState('saving')
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      salvarRegras(novasRegras)
-        .then(() => setSaveState('saved'))
-        .catch(() => setSaveState('saved'))
-    }, AUTOSAVE_MS)
+    saveQueue.schedule('regras', () => salvarRegras(novasRegras))
   }
 
   function alternarCapacidadeLocal(id) {
@@ -299,9 +289,7 @@ export default function WhatsappAssistente() {
     if (!atual) return
     const novoAtivo = !atual.ativo
     setCapacidades((prev) => prev.map((c) => (c.id === id ? { ...c, ativo: novoAtivo } : c)))
-    alternarCapacidade(id, novoAtivo).catch(() => {
-      setCapacidades((prev) => prev.map((c) => (c.id === id ? { ...c, ativo: atual.ativo } : c)))
-    })
+    saveQueue.schedule(`capacidade:${id}`, () => alternarCapacidade(id, novoAtivo))
   }
 
   function inserirVariavel(nomeVar) {
@@ -345,6 +333,9 @@ export default function WhatsappAssistente() {
   return (
     <div className="whatsapp-assistente">
       <div className="whatsapp-assistente-col-esq">
+        {saveState === 'error' && <div role="alert" className="dashboard-erro">
+          Algumas alterações não foram salvas. <button type="button" className="whatsapp-btn-secundario" onClick={() => saveQueue.retry()}>Tentar novamente</button>
+        </div>}
         <Capacidades capacidades={capacidades} selecionadaId={selecionadaId} onSelecionar={setSelecionadaId} onToggle={alternarCapacidadeLocal} />
         <Mensagens
           capacidadeNome={capacidadeSelecionada?.nome || ''} textos={textosSelecionados} refs={refs}

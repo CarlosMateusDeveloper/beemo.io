@@ -1016,3 +1016,32 @@ INSERT INTO mensagem_modelo_retorno (grupo, texto) VALUES
     ('retorno_medico', 'Olá! O(a) Dr(a). {medico} pediu seu retorno e já passou o prazo indicado. Vamos agendar?'),
     ('exame_pendente', 'Olá! Notamos que o exame solicitado na sua última consulta ainda não foi realizado. Posso te ajudar a agendar?'),
     ('ritmo_quebrado', 'Olá! Faz um tempo que você não vem aqui. Que tal agendar uma consulta de acompanhamento?');
+
+-- =====================================================================
+-- FASE 17 — Despesas / contas a pagar (/caixa/despesas)
+-- =====================================================================
+
+-- status/categoria ficam VARCHAR + CHECK, não enum nativo do Postgres —
+-- mesmo padrão de Glosa.status/Medico.status, e evita o bug de ddl-auto do
+-- Hibernate criar a coluna antes da migração rodar com o enum nativo (já
+-- bateu nisso em recurso_glosa e regra_auditoria). Sem status "atrasado"
+-- armazenado: não existe job/cron que faria essa transição sozinho — é
+-- calculado na leitura (status='pendente' AND vencimento < hoje).
+CREATE TABLE despesa (
+    id_despesa INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_clinica INT NOT NULL REFERENCES clinica(id_clinica),
+    descricao VARCHAR(200) NOT NULL,
+    categoria VARCHAR(30) NOT NULL
+        CHECK (categoria IN ('aluguel', 'folha', 'fornecedores', 'insumos', 'impostos', 'marketing', 'manutencao', 'servicos', 'outros')),
+    valor NUMERIC(10, 2) NOT NULL,
+    vencimento DATE NOT NULL,
+    pago_em DATE NULL,
+    status VARCHAR(10) NOT NULL DEFAULT 'pendente'
+        CHECK (status IN ('pendente', 'pago', 'cancelado')),
+    fornecedor VARCHAR(150) NULL,
+    observacoes TEXT NULL,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_despesa_clinica_vencimento ON despesa(id_clinica, vencimento);
+CREATE INDEX idx_despesa_status ON despesa(status);
