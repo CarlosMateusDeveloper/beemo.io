@@ -1,52 +1,49 @@
-// Cliente HTTP único pro backend Java — todas as telas que falam com
-// :8080 (dashboard, caixa, pacientes, prontuario, medicos, Agenda) usam
-// isso em vez de duplicar `request()` local. Injeta o token salvo e, se a
-// API responder 401/403 (token ausente/expirado), limpa a sessão e manda
-// pro /login — sem isso, uma tela ficaria presa girando num "carregando"
-// eterno quando o token vence.
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-const TOKEN_KEY = 'clinicos-token'
-
-export function getToken() {
-  return window.localStorage.getItem(TOKEN_KEY)
+export function serviceBase(configured, port) {
+  if (configured) return configured.replace(/\/$/, '')
+  const hostname = globalThis.window?.location?.hostname || 'localhost'
+  if (!['localhost', '127.0.0.1'].includes(hostname)) return globalThis.window.location.origin + (port === 8080 ? '' : port === 8081 ? '/agenda-api' : '/chatbot-api')
+  return `http://${hostname}:${port}`
 }
-
-export function setToken(token) {
-  if (token) window.localStorage.setItem(TOKEN_KEY, token)
-  else window.localStorage.removeItem(TOKEN_KEY)
-}
-
-// Setado pelo AuthProvider — evita import circular entre apiClient e o
-// contexto de auth (que por sua vez usa apiClient pra chamar /api/auth/*).
+export const API_BASE = serviceBase(import.meta.env?.VITE_API_URL, 8080)
+let csrfPromise
+let generation = 0
 let aoDeslogar = () => {}
+export function sessaoAtualizada() { generation++; csrfPromise = undefined; return generation }
+export function geracaoSessao() { return generation }
 export function aoReceberNaoAutenticado(callback) {
   aoDeslogar = callback
+  return () => { if (aoDeslogar === callback) aoDeslogar = () => {} }
 }
-
-export async function apiRequest(path, options = {}) {
-  const token = getToken()
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-
-  // 401/403 sem token nunca aconteceu por sessão expirada (não tinha sessão
-  // pra expirar) — é o caso normal de "senha errada" no login, por exemplo.
-  // Só desloga quando um token que a gente tinha parou de ser aceito.
-  if ((res.status === 401 || res.status === 403) && token) {
-    setToken(null)
-    aoDeslogar()
-    throw new Error('Sessão expirada. Faça login novamente.')
+async function csrfToken() {
+  if (!csrfPromise) {
+    csrfPromise = fetch(`${API_BASE}/api/auth/csrf`, { credentials: 'include' })
+      .then(async res => { if (!res.ok) throw new Error('Não foi possível preparar o acesso seguro.'); return res.json() })
+      .catch(() => { csrfPromise = undefined; throw new Error('Não foi possível preparar o acesso seguro. Verifique a conexão e tente novamente.') })
   }
-
-  if (!res.ok) {
+  return (await csrfPromise).token
+}
+export function apiRequest(path, options = {}) { return authenticatedRequest(`${API_BASE}${path}`, options) }
+export async function authenticatedRequest(url, options = {}) {
+  const { authenticated = true, ...fetchOptions } = options
+  const initialGeneration = generation
+  const mutation = !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const headers = new Headers(options.headers)
+    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    if (mutation) headers.set('X-CSRF-TOKEN', await csrfToken())
+    const res = await fetch(url, { ...fetchOptions, credentials: 'include', headers })
+      .catch(() => { throw new Error('Não foi possível conectar ao clinicOS. Verifique sua conexão e tente novamente.') })
+    if (res.status === 401 && authenticated && initialGeneration === generation) {
+      sessaoAtualizada(); aoDeslogar()
+      throw new Error('Sessão expirada. Faça login novamente.')
+    }
+    if (res.status === 204) return null
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.message || body.erro || `Erro ${res.status} em ${path}`)
+    if (res.status === 403 && body.code === 'csrf_invalid' && mutation && attempt === 0) {
+      csrfPromise = undefined
+      continue
+    }
+    if (!res.ok) throw new Error(body.message || body.erro || (typeof body.detail === 'string' ? body.detail : null) || (res.status === 403 ? 'Seu perfil não tem permissão para esta ação.' : `Não foi possível concluir a solicitação (${res.status}).`))
+    return body
   }
-  if (res.status === 204) return null
-  return res.json()
 }

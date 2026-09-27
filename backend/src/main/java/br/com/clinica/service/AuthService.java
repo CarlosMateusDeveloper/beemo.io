@@ -15,20 +15,28 @@ public class AuthService {
 
     private final UsuarioRepository repository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final SessionService jwtService;
+    private final String hashAusente;
 
-    public AuthService(UsuarioRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UsuarioRepository repository, PasswordEncoder passwordEncoder, SessionService jwtService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.hashAusente=passwordEncoder.encode(java.util.UUID.randomUUID().toString());
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public LoginResponse login(LoginRequest request) {
-        Usuario usuario = repository.findByEmail(request.email())
-                .filter(u -> passwordEncoder.matches(request.senha(), u.getSenha()))
-                // Mesma mensagem pra e-mail inexistente e senha errada — não dar
-                // pista de qual dos dois está incorreto.
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha inválidos"));
+        var encontrado = repository.findByEmailIgnoreCase(request.email().trim());
+        boolean confere;
+        try { confere=passwordEncoder.matches(request.senha(),encontrado.map(Usuario::getSenha).orElse(hashAusente)); }
+        catch (IllegalArgumentException e) { confere=false; }
+        if (!confere || encontrado.isEmpty()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"E-mail ou senha inválidos");
+        Usuario usuario=encontrado.get();
+        if(passwordEncoder.upgradeEncoding(usuario.getSenha())) {
+            usuario.setSenha(passwordEncoder.encode(request.senha()));
+            repository.save(usuario);
+        }
 
         return new LoginResponse(jwtService.gerar(usuario), paraDto(usuario));
     }

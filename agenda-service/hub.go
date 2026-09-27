@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,8 +22,8 @@ type agendaEvent struct {
 
 // hub mantém os clientes WebSocket conectados e distribui eventos pra todos.
 type hub struct {
-	mu      sync.Mutex
-	clients map[*websocket.Conn]struct{}
+	mu            sync.Mutex
+	clients       map[*websocket.Conn]struct{}
 	allowedOrigin string
 }
 
@@ -51,9 +53,10 @@ func (h *hub) broadcast(event any) {
 
 func (h *hub) serveWS(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
+		Subprotocols: []string{"clinicos"},
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
-			return origin == "" || origin == h.allowedOrigin
+			return origin == "" || allowedBrowserOrigin(origin, h.allowedOrigin)
 		},
 	}
 
@@ -69,7 +72,24 @@ func (h *hub) serveWS(w http.ResponseWriter, r *http.Request) {
 
 	// Só precisamos manter a leitura pra detectar quando o cliente desconecta;
 	// o hub é quem envia (broadcast), o cliente não manda comandos por aqui.
+	done := make(chan struct{})
 	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if sessionStatus(context.Background(), r) != http.StatusOK {
+					conn.Close()
+					return
+				}
+			}
+		}
+	}()
+	go func() {
+		defer close(done)
 		defer func() {
 			h.mu.Lock()
 			delete(h.clients, conn)

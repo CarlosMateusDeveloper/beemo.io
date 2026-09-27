@@ -46,6 +46,14 @@
 .login-divisor span { position: relative; padding: 0 12px; background: var(--surface); color: var(--text-faint); font-size: 12px; }
 
 .login-form { display: flex; flex-direction: column; gap: 16px; }
+.login-modos { display: flex; gap: 8px; margin-bottom: 22px; }
+.login-modos button { flex: 1; padding: 10px 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-secondary); cursor: pointer; font: inherit; font-size: 13px; }
+.login-modos button[aria-pressed="true"] { color: var(--acc); border-color: var(--acc); background: var(--acc-soft); }
+.login-aviso { color: var(--text-primary); background: var(--surface-sunken); border: 1px solid var(--border); padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.login-aviso p { margin-bottom: 0; }
+.login-ajuda { font-size: 12px; line-height: 1.5; color: var(--text-tertiary); margin: 20px 0 0; }
+.login-confirmar { width: 100%; }
+.login-page button:focus-visible, .login-page a:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
 .login-campo { display: flex; flex-direction: column; gap: 7px; }
 .login-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
 .login-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -75,3 +83,4 @@
 }
 .login-btn:hover:not(:disabled) { background: var(--acc-deep); }
 .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.login-social { margin-bottom: 12px; }

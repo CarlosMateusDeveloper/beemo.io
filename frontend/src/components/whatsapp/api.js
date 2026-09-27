@@ -1,19 +1,8 @@
-const API_BASE = import.meta.env.VITE_CHATBOT_API_URL || 'http://localhost:8082'
+import { authenticatedRequest, serviceBase } from '../../lib/apiClient'
+const API_BASE = serviceBase(import.meta.env.VITE_CHATBOT_API_URL, 8082)
 
 async function request(path, options) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    const detalhe = Array.isArray(body.detail)
-      ? body.detail.map((item) => item.msg).join('; ')
-      : body.detail
-    throw new Error(detalhe || `Erro ${res.status} em ${path}`)
-  }
-  if (res.status === 204) return null
-  return res.json()
+  return authenticatedRequest(`${API_BASE}${path}`, options)
 }
 
 export function fetchStatus() {

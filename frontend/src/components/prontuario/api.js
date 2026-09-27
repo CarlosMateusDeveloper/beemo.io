@@ -1,6 +1,6 @@
-import { apiRequest } from '../../lib/apiClient'
+import { apiRequest, authenticatedRequest, serviceBase } from '../../lib/apiClient'
 
-const AGENDA_BASE = import.meta.env.VITE_AGENDA_SERVICE_URL || 'http://localhost:8081'
+const AGENDA_BASE = serviceBase(import.meta.env.VITE_AGENDA_SERVICE_URL, 8081)
 
 export function fetchProntuarioListagem() {
   return apiRequest('/api/prontuarios/listagem')
@@ -50,18 +50,11 @@ export function fetchConvenios() {
 
 // Cria o slot de agenda + consulta no agenda-service (Go) — prontuario só
 // pode existir depois que a consulta existe (FK id_consulta NOT NULL UNIQUE).
-// Vai direto (não passa pelo apiClient): agenda-service ainda não exige
-// autenticação — ver plano de auth, escopo ficou só no backend Java por ora.
+// Compartilha a sessão com o agenda-service.
 export async function criarConsultaAgenda(payload) {
-  const res = await fetch(`${AGENDA_BASE}/consultas`, {
+  return authenticatedRequest(`${AGENDA_BASE}/consultas`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.message || body.erro || `Erro ${res.status} em /consultas`)
-  }
-  if (res.status === 204) return null
-  return res.json()
 }

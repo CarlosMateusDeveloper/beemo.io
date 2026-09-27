@@ -30,6 +30,9 @@ public class UsuarioEscritaService {
 
     @Transactional
     public Usuario criar(Usuario usuario) {
+        if(usuario.getId()!=null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Não informe ID ao criar uma conta.");
+        if(usuario.getSenha()==null || usuario.getSenha().length()<12 || usuario.getSenha().length()>200)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"A senha deve ter entre 12 e 200 caracteres.");
         // perfil é insertable=false (ver Usuario.java) — Jackson ainda popula
         // o campo em memória a partir do JSON, só o save() é que ignora.
         String perfilSolicitado = usuario.getPerfil() == null ? null : usuario.getPerfil().name();

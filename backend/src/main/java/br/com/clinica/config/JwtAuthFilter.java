@@ -1,6 +1,7 @@
 package br.com.clinica.config;
 
-import br.com.clinica.service.JwtService;
+import br.com.clinica.service.SessionService;
+import br.com.clinica.service.SessionCookies;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,33 +18,35 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-// Lê "Authorization: Bearer <token>", valida via JwtService e, se válido,
+// Lê cookie HttpOnly ou Bearer, valida a sessão revogável via SessionService e, se válido,
 // autentica a request com o id do usuário como principal (SecurityConfig
 // decide quais rotas exigem isso — este filtro só popula o contexto).
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private final SessionService jwtService;
+    private final br.com.clinica.repository.UsuarioRepository usuarios;
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(SessionService jwtService, br.com.clinica.repository.UsuarioRepository usuarios) {
         this.jwtService = jwtService;
+        this.usuarios=usuarios;
     }
 
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain chain
     ) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
+        String token=SessionCookies.token(request);
+        if (!token.isEmpty()) {
             Optional<Claims> claims = jwtService.validar(token);
             if (claims.isPresent()) {
-                Integer idUsuario = Integer.valueOf(claims.get().getSubject());
-                String perfil = claims.get().get("perfil", String.class);
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        idUsuario, null, List.of(new SimpleGrantedAuthority("ROLE_" + perfil.toUpperCase()))
-                );
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                try {
+                    usuarios.findById(Integer.valueOf(claims.get().getSubject())).ifPresent(u -> {
+                        var authentication = new UsernamePasswordAuthenticationToken(u.getId(), null,
+                            List.of(new SimpleGrantedAuthority("ROLE_"+u.getPerfil().name().toUpperCase(java.util.Locale.ROOT))));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    });
+                } catch (NumberFormatException ignored) { SecurityContextHolder.clearContext(); }
             }
         }
         chain.doFilter(request, response);

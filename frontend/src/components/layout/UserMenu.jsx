@@ -7,9 +7,6 @@ import './UserMenu.css'
 
 const PERFIL_LABEL = { medico: 'Médico(a)', administrador: 'Administrador(a)' }
 
-// Autenticação desligada (ver SecurityConfig.java) — sem usuario real pra
-// mostrar aqui, então cai nesse placeholder em vez de sumir o menu inteiro.
-const USUARIO_PLACEHOLDER = { nome: 'Ana Souza', perfil: 'administrador' }
 
 function getInitials(name) {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -23,6 +20,7 @@ const MENU_ITEMS = [
 
 export default function UserMenu() {
   const [open, setOpen] = useState(false)
+  const [erro, setErro] = useState('')
   const containerRef = useRef(null)
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
@@ -37,18 +35,21 @@ export default function UserMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  function handleSelect(key) {
-    setOpen(false)
+  async function handleSelect(key) {
+    setOpen(false); setErro('')
+    if (key === 'perfil') navigate('/conta')
     if (key === 'sair') {
-      logout()
-      navigate('/login')
+      try { await logout(); navigate('/login') }
+      catch (e) { setErro(e.message) }
     }
   }
 
-  const usuarioExibido = usuario ?? USUARIO_PLACEHOLDER
+  if (!usuario) return null
+  const usuarioExibido = usuario
 
   return (
     <div className="user-menu" ref={containerRef}>
+      {erro && <p role="alert">{erro}</p>}
       {open && (
         <div className="user-menu-popover">
           {MENU_ITEMS.map(({ key, label, icon: Icon }) => (

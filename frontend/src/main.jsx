@@ -4,9 +4,9 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import './index.css'
 import { ThemeProvider } from './theme/ThemeContext'
 import { AuthProvider } from './auth/AuthContext'
-// RotaProtegida desligada a pedido explícito — ver SecurityConfig.java pro
-// mesmo motivo no backend. Pra reativar: importa de volta e envolve o
-// Layout com <RotaProtegida /> como antes.
+import RotaProtegida from './auth/RotaProtegida'
+import MagicLink from './components/login/MagicLink'
+import Conta from './auth/Conta'
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
@@ -32,15 +32,15 @@ import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 
 // Configurando o roteador com os caminhos e seus respectivos componentes.
 // Login fica fora do Layout (sem sidebar); as demais telas navegam pela
-// sidebar. Sem RotaProtegida por ora — nenhuma rota exige sessão (ver nota
-// acima sobre autenticação desligada).
+// sidebar, protegidas pela sessão.
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Layout />,
+    element: <RotaProtegida><Layout /></RotaProtegida>,
     children: [
       { index: true, element: <Dashboard /> },
       { path: "agenda", element: <Agenda /> },
+      { path: "conta", element: <Conta /> },
       { path: "pacientes", element: <Pacientes /> },
       { path: "pacientes/:pacienteId", element: <ProntuarioDetalhe /> },
       { path: "prontuario", element: <Prontuario /> },
@@ -64,6 +64,7 @@ const router = createBrowserRouter([
     path: "/login",
     element: <Login />,
   },
+  { path: '/login/magic', element: <MagicLink /> },
 ])
 
 ReactDOM.createRoot(document.getElementById('root')).render(

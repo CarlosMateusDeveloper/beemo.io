@@ -1,6 +1,6 @@
 package br.com.clinica.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -30,12 +30,12 @@ public class Usuario {
     @Column(unique = true)
     private String email;
 
-    // Hash BCrypt — nunca o texto puro. Ver PasswordEncoder em SecurityConfig.
-    // @JsonIgnore garante que isso nunca vaza numa resposta, mesmo se algum
+    // Hash Argon2id (BCrypt legado migrado no login) — nunca o texto puro. Ver PasswordEncoder em SecurityConfig.
+    // WRITE_ONLY aceita a senha na criação, sem expô-la em respostas mesmo se algum
     // endpoint futuro devolver a entidade Usuario direto por engano.
     @NotBlank
     @Size(max = 255)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String senha;
 
     // insertable/updatable = false: perfil é enum nativo do Postgres

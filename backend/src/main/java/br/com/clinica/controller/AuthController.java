@@ -1,48 +1,73 @@
 package br.com.clinica.controller;
 
-import br.com.clinica.dto.LoginRequest;
-import br.com.clinica.dto.LoginResponse;
-import br.com.clinica.dto.UsuarioDto;
-import br.com.clinica.model.Usuario;
+import br.com.clinica.dto.*;
 import br.com.clinica.repository.UsuarioRepository;
-import br.com.clinica.service.AuthService;
-import org.springframework.http.HttpStatus;
+import br.com.clinica.service.*;
+import jakarta.servlet.http.*;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.Map;
+import java.util.Locale;
 
-@RestController
-@RequestMapping("/api/auth")
+@RestController @RequestMapping("/api/auth")
 public class AuthController {
-
-    private final AuthService authService;
-    private final UsuarioRepository usuarioRepository;
-
-    public AuthController(AuthService authService, UsuarioRepository usuarioRepository) {
-        this.authService = authService;
-        this.usuarioRepository = usuarioRepository;
+    private final AuthService auth;
+    private final UsuarioRepository usuarios;
+    private final MagicLinkService magic;
+    private final AuthRateLimiter limiter;
+    private final SessionService sessions;
+    private final SessionCookies cookies;
+    public AuthController(AuthService auth,UsuarioRepository usuarios,MagicLinkService magic,AuthRateLimiter limiter,
+            SessionService sessions,SessionCookies cookies) {
+        this.auth=auth;this.usuarios=usuarios;this.magic=magic;this.limiter=limiter;this.sessions=sessions;this.cookies=cookies;
     }
-
-    @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
-        return authService.login(request);
+    @GetMapping("/csrf") public Map<String,String> csrf(CsrfToken token) { return Map.of("token",token.getToken(),"headerName",token.getHeaderName()); }
+    @PostMapping("/login") public LoginResponse login(@Valid @RequestBody LoginRequest request,HttpServletRequest req,HttpServletResponse res) {
+        limitar("senha",request.email(),req,15);
+        var result=auth.login(request);
+        cookies.emitir(req,res,result.token());
+        return result;
     }
-
-    // Usado pelo frontend pra restaurar a sessão a partir do token salvo,
-    // sem pedir a senha de novo — se o token ainda for válido (JwtAuthFilter
-    // já populou o contexto), devolve os dados atuais do usuário.
-    @GetMapping("/me")
-    public UsuarioDto me(Authentication authentication) {
-        if (authentication == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-        Integer id = (Integer) authentication.getPrincipal();
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        return authService.paraDto(usuario);
+    public record MagicRequest(@NotBlank @Email @Size(max=100) String email) {}
+    public record VerifyRequest(@NotBlank @Size(max=100) String token) {}
+    @PostMapping("/magic-link") public ResponseEntity<Map<String,String>> solicitar(@Valid @RequestBody MagicRequest request,HttpServletRequest req) {
+        limitar("link",request.email(),req,3);
+        magic.solicitar(request.email());
+        return ResponseEntity.accepted().body(Map.of("message","Se este e-mail estiver cadastrado, você receberá um link de acesso. Confira também a pasta de spam."));
+    }
+    @PostMapping("/magic-link/verify") public LoginResponse verificar(@Valid @RequestBody VerifyRequest request,HttpServletRequest req,HttpServletResponse res) {
+        limiter.verificar("verify-ip:"+req.getRemoteAddr(),30);
+        var result=magic.verificar(request.token());
+        cookies.emitir(req,res,result.token());
+        return result;
+    }
+    @PostMapping("/logout") public ResponseEntity<Void> logout(HttpServletRequest req,HttpServletResponse res) {
+        sessions.revogar(SessionCookies.token(req));
+        cookies.limpar(req,res);
+        var session=req.getSession(false);
+        if(session!=null) session.invalidate();
+        return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/me") public UsuarioDto me(Authentication authentication) {
+        if(authentication==null || !(authentication.getPrincipal() instanceof Integer id)) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return auth.paraDto(usuarios.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED)));
+    }
+    @RequestMapping(value="/session/check",method={RequestMethod.GET,RequestMethod.POST})
+    public UsuarioDto check(Authentication authentication) { return me(authentication); }
+    private void limitar(String fluxo,String email,HttpServletRequest req,int maximo) {
+        limiter.verificar(fluxo+"-ip:"+req.getRemoteAddr(),50);
+        limiter.verificar(fluxo+"-email:"+email.trim().toLowerCase(Locale.ROOT),maximo);
+    }
+    @ExceptionHandler(ResponseStatusException.class) public ResponseEntity<Map<String,String>> erro(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(Map.of("message",e.getReason()==null?"Não foi possível autenticar.":e.getReason()));
+    }
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String,String>> dadosInvalidos() {
+        return ResponseEntity.badRequest().body(Map.of("message","Confira os campos informados e tente novamente."));
     }
 }

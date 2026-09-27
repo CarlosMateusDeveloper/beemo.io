@@ -1,0 +1,7 @@
+.conta-card { max-width: 680px; margin: 32px auto; padding: 32px; border: 1px solid var(--border-color, #8885); border-radius: 20px; }
+.conta-card h1 { margin-top: 0; }
+.conta-card h2 { margin-top: 32px; font-size: 20px; }
+.conta-card p { line-height: 1.6; }
+.conta-provider { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-top: 1px solid #8884; }
+.conta-provider button { padding: 10px 16px; border-radius: 8px; cursor: pointer; }
+.conta-card [role="alert"] { color: #d84a4a; }

@@ -7,9 +7,13 @@ import (
 
 func withCORS(allowedOrigin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		if allowedBrowserOrigin(r.Header.Get("Origin"), allowedOrigin) {
+			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		w.Header().Add("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-TOKEN")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -23,7 +27,7 @@ func main() {
 	defer db.Close()
 	bootstrapSchema(db)
 
-	allowedOrigin := env("CORS_ALLOWED_ORIGIN", "http://localhost:5173")
+	allowedOrigin := env("CORS_ALLOWED_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 	h := &agendaHandler{db: db, hub: newHub(allowedOrigin)}
 
 	mux := http.NewServeMux()
@@ -45,5 +49,5 @@ func main() {
 
 	port := env("AGENDA_SERVICE_PORT", "8081")
 	log.Printf("agenda-service ouvindo na porta %s (websocket em /ws/agenda)", port)
-	log.Fatal(http.ListenAndServe(":"+port, withCORS(allowedOrigin, mux)))
+	log.Fatal(http.ListenAndServe(":"+port, withCORS(allowedOrigin, withAuth(mux))))
 }
