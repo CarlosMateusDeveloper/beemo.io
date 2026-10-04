@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import './index.css'
 import { ThemeProvider } from './theme/ThemeContext'
 import { AuthProvider } from './auth/AuthContext'
@@ -10,6 +10,9 @@ import Conta from './auth/Conta'
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
+import PosVenda from './modules/pos-venda/PosVenda'
+import PosVendaPlaceholder from './modules/pos-venda/PosVendaPlaceholder'
+import Oportunidades from './modules/pos-venda/Oportunidades'
 import { Dashboard } from './components/dashboard/dashboard'
 import Login from './components/login/login'
 import Agenda from './pages/Agenda'
@@ -17,7 +20,6 @@ import { Pacientes } from './components/pacientes/pacientes'
 import { Prontuario } from './components/prontuario/Prontuario'
 import { ProntuarioDetalhe } from './components/prontuario/ProntuarioDetalhe'
 import { PaginaAtendimento } from './components/prontuario/PaginaAtendimento'
-import { Retorno } from './components/retorno/retorno'
 import { Whatsapp } from './components/whatsapp/whatsapp'
 import { Medicos } from './components/medicos/medicos'
 import { Caixa } from './components/caixa/caixa'
@@ -39,6 +41,13 @@ const router = createBrowserRouter([
     element: <RotaProtegida><Layout /></RotaProtegida>,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: "pos-venda", element: <PosVenda /> },
+      { path: "pos-venda/pacientes", element: <PosVendaPlaceholder title="Pacientes" /> },
+      { path: "pos-venda/oportunidades", element: <Oportunidades /> },
+      { path: "pos-venda/jornadas", element: <PosVendaPlaceholder title="Jornadas" /> },
+      { path: "pos-venda/campanhas", element: <PosVendaPlaceholder title="Campanhas" /> },
+      { path: "pos-venda/tarefas", element: <PosVendaPlaceholder title="Tarefas" /> },
+      { path: "pos-venda/whatsapp", element: <Whatsapp /> },
       { path: "agenda", element: <Agenda /> },
       { path: "conta", element: <Conta /> },
       { path: "pacientes", element: <Pacientes /> },
@@ -46,7 +55,6 @@ const router = createBrowserRouter([
       { path: "prontuario", element: <Prontuario /> },
       { path: "prontuario/atendimento", element: <PaginaAtendimento /> },
       { path: "prontuario/:pacienteId", element: <ProntuarioDetalhe /> },
-      { path: "retorno", element: <Retorno /> },
       { path: "whatsapp", element: <Whatsapp /> },
       { path: "medicos", element: <Medicos /> },
       { path: "caixa", element: <Caixa /> },
@@ -64,6 +72,8 @@ const router = createBrowserRouter([
     path: "/login",
     element: <Login />,
   },
+  { path: '/clinicas', element: <Navigate to="/" replace /> },
+  { path: '/minha-conta', element: <RotaProtegida><Conta /></RotaProtegida> },
   { path: '/login/magic', element: <MagicLink /> },
 ])
 
