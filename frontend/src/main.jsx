@@ -11,10 +11,11 @@ import Conta from './auth/Conta'
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
 import PosVenda from './modules/pos-venda/PosVenda'
-import PosVendaPlaceholder from './modules/pos-venda/PosVendaPlaceholder'
 import Oportunidades from './modules/pos-venda/Oportunidades'
 import PosVendaPacientes from './modules/pos-venda/Pacientes'
 import Tarefas from './modules/pos-venda/Tarefas'
+import Jornadas from './modules/pos-venda/Jornadas'
+import Campanhas from './modules/pos-venda/Campanhas'
 import { Dashboard } from './components/dashboard/dashboard'
 import Login from './components/login/login'
 import Agenda from './pages/Agenda'
@@ -46,8 +47,8 @@ const router = createBrowserRouter([
       { path: "pos-venda", element: <PosVenda /> },
       { path: "pos-venda/pacientes", element: <PosVendaPacientes /> },
       { path: "pos-venda/oportunidades", element: <Oportunidades /> },
-      { path: "pos-venda/jornadas", element: <PosVendaPlaceholder title="Jornadas" /> },
-      { path: "pos-venda/campanhas", element: <PosVendaPlaceholder title="Campanhas" /> },
+      { path: "pos-venda/jornadas", element: <Jornadas /> },
+      { path: "pos-venda/campanhas", element: <Campanhas /> },
       { path: "pos-venda/tarefas", element: <Tarefas /> },
       { path: "pos-venda/whatsapp", element: <Whatsapp /> },
       { path: "agenda", element: <Agenda /> },
