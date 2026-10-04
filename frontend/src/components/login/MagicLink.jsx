@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
-import ThemeToggle from '../../theme/ThemeToggle'
 import './login.css'
 
 export default function MagicLink() {
@@ -20,7 +19,6 @@ export default function MagicLink() {
     finally { enviando.current = false; setCarregando(false) }
   }
   return <div className="login-page">
-    <div className="login-theme"><ThemeToggle /></div>
     <div className="login-card">
       <div className="login-brand">ClinicOS</div>
       <h1 className="login-titulo">Confirme seu acesso</h1>

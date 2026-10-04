@@ -13,6 +13,7 @@ import Layout from './components/layout/Layout'
 import PosVenda from './modules/pos-venda/PosVenda'
 import PosVendaPlaceholder from './modules/pos-venda/PosVendaPlaceholder'
 import Oportunidades from './modules/pos-venda/Oportunidades'
+import PosVendaPacientes from './modules/pos-venda/Pacientes'
 import { Dashboard } from './components/dashboard/dashboard'
 import Login from './components/login/login'
 import Agenda from './pages/Agenda'
@@ -42,7 +43,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: "pos-venda", element: <PosVenda /> },
-      { path: "pos-venda/pacientes", element: <PosVendaPlaceholder title="Pacientes" /> },
+      { path: "pos-venda/pacientes", element: <PosVendaPacientes /> },
       { path: "pos-venda/oportunidades", element: <Oportunidades /> },
       { path: "pos-venda/jornadas", element: <PosVendaPlaceholder title="Jornadas" /> },
       { path: "pos-venda/campanhas", element: <PosVendaPlaceholder title="Campanhas" /> },

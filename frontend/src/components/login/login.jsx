@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { Mail, Lock } from 'lucide-react'
-import ThemeToggle from '../../theme/ThemeToggle'
 import { useAuth } from '../../auth/AuthContext'
 import { apiRequest } from '../../lib/apiClient'
 import './login.css'
@@ -43,7 +42,6 @@ export default function Login() {
   if (restaurando) return <div className="login-page" role="status">Verificando sessão…</div>
   if (autenticado) return <Navigate to={destino.startsWith('/') && !destino.startsWith('//') ? destino : '/'} replace />
   return <div className="login-page login-page--photo">
-    <div className="login-theme"><ThemeToggle /></div>
     <div className="login-card">
       <div className="login-brand">ClinicOS</div>
       <h1 className="login-titulo">Entrar na sua clínica</h1>
