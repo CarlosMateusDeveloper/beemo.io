@@ -3,13 +3,21 @@
   background: var(--app-bg); color: var(--text-primary); font-family: 'IBM Plex Sans', system-ui, sans-serif;
   box-sizing: border-box; padding: 24px; position: relative;
 }
+.login-page--photo {
+  background-image:
+    linear-gradient(rgba(241, 248, 252, 0.16), rgba(241, 248, 252, 0.16)),
+    url('../../assets/login-background.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
 .login-page *, .login-page *::before, .login-page *::after { box-sizing: border-box; }
 
 .login-theme { position: fixed; top: 20px; right: 20px; }
 
 .login-card {
   width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; box-shadow: var(--shadow-card); padding: 36px 32px 32px;
+  border-radius: 14px; box-shadow: 0 20px 55px rgba(24, 55, 76, 0.2); padding: 36px 32px 32px;
 }
 
 .login-brand { margin: 0 0 26px; font-size: 18px; font-weight: 700; color: var(--acc); letter-spacing: -0.01em; }

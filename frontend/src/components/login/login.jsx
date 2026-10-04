@@ -42,7 +42,7 @@ export default function Login() {
   }
   if (restaurando) return <div className="login-page" role="status">Verificando sessão…</div>
   if (autenticado) return <Navigate to={destino.startsWith('/') && !destino.startsWith('//') ? destino : '/'} replace />
-  return <div className="login-page">
+  return <div className="login-page login-page--photo">
     <div className="login-theme"><ThemeToggle /></div>
     <div className="login-card">
       <div className="login-brand">ClinicOS</div>
