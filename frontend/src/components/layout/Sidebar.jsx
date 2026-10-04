@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet, HeartHandshake, Target, Workflow, Megaphone, CheckSquare, ChevronLeft, ChevronRight,
+  LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet,
+  HeartHandshake, Target, Workflow, Megaphone, CheckSquare, ChevronLeft, ChevronRight,
+  BarChart3, ArrowUpDown, Receipt,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
 import ModuleSwitcher from './ModuleSwitcher'
@@ -14,14 +16,6 @@ const NAV_ITEMS = [
   { to: '/prontuario', label: 'Prontuários', icon: FileText },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope },
-  {
-    to: '/caixa', label: 'Caixa', icon: Wallet, end: true,
-    children: [
-      { to: '/caixa/dre', label: 'DRE' },
-      { to: '/caixa/fluxo-consolidado', label: 'Fluxo de caixa' },
-      { to: '/caixa/despesas', label: 'Despesas' },
-    ],
-  },
   { to: '/convenios', label: 'Convênios', icon: HeartHandshake },
 ]
 
@@ -35,12 +29,23 @@ const POS_VENDA_NAV_ITEMS = [
   { to: '/pos-venda/campanhas', label: 'Campanhas', icon: Megaphone },
 ]
 
+const FINANCEIRO_NAV_ITEMS = [
+  { to: '/caixa', label: 'Visão geral', icon: Wallet, end: true },
+  { to: '/caixa/dre', label: 'DRE', icon: BarChart3 },
+  { to: '/caixa/fluxo-consolidado', label: 'Fluxo de caixa', icon: ArrowUpDown },
+  { to: '/caixa/despesas', label: 'Despesas', icon: Receipt },
+]
+
 const COLLAPSE_STORAGE_KEY = 'sidebar-collapsed'
 
 export default function Sidebar() {
   const { pathname } = useLocation()
-  const activeModule = pathname === '/pos-venda' || pathname.startsWith('/pos-venda/') ? 'pos-venda' : 'clinicos'
-  const navigation = activeModule === 'clinicos' ? NAV_ITEMS : POS_VENDA_NAV_ITEMS
+  const activeModule = pathname === '/pos-venda' || pathname.startsWith('/pos-venda/')
+    ? 'pos-venda'
+    : pathname === '/caixa' || pathname.startsWith('/caixa/') ? 'financeiro' : 'clinicos'
+  const navigation = activeModule === 'pos-venda'
+    ? POS_VENDA_NAV_ITEMS
+    : activeModule === 'financeiro' ? FINANCEIRO_NAV_ITEMS : NAV_ITEMS
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1')
 
   function toggleCollapsed() {

@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronsUpDown, HeartHandshake, LayoutDashboard } from 'lucide-react'
+import { Check, ChevronsUpDown, HeartHandshake, LayoutDashboard, Wallet } from 'lucide-react'
 import './ModuleSwitcher.css'
 
 const MODULES = [
   { id: 'clinicos', label: 'ClinicOS', description: 'Gestão da clínica', to: '/', icon: LayoutDashboard },
   { id: 'pos-venda', label: 'Pós-venda', description: 'Pós-atendimento e retenção', to: '/pos-venda', icon: HeartHandshake },
+  { id: 'financeiro', label: 'Financeiro', description: 'Caixa, resultados e despesas', to: '/caixa', icon: Wallet },
 ]
 
 export default function ModuleSwitcher({ activeModule }) {
