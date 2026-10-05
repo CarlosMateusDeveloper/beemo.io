@@ -23,6 +23,6 @@ public class LoteItem {
     private Integer idLote;
 
     @NotNull
-    @Column(name = "id_fatura", nullable = false, unique = true)
+    @Column(name = "id_fatura", nullable = false)
     private Integer idFatura;
 }

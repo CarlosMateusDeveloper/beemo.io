@@ -25,7 +25,7 @@ public class AutorizacaoConvenio {
     private Integer id;
 
     @NotNull
-    @Column(name = "id_consulta", nullable = false, unique = true)
+    @Column(name = "id_consulta", nullable = false)
     private Integer idConsulta;
 
     @NotNull

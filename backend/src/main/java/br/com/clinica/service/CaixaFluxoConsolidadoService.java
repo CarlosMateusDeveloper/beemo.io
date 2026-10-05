@@ -21,7 +21,6 @@ import java.util.TreeMap;
 @Service
 public class CaixaFluxoConsolidadoService {
 
-    private static final int ID_CLINICA_ATUAL = 1; // mesmo placeholder de CaixaService/DespesaService.
     private static final DateTimeFormatter DIA_MES_ANO = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final EntityManager entityManager;
@@ -49,7 +48,7 @@ public class CaixaFluxoConsolidadoService {
                 "SELECT pago_em, SUM(valor) FROM despesa " +
                         "WHERE id_clinica = :idClinica AND status = 'pago' AND pago_em >= :inicio GROUP BY pago_em"
         );
-        saidasQuery.setParameter("idClinica", ID_CLINICA_ATUAL).setParameter("inicio", inicio);
+        saidasQuery.setParameter("idClinica", TenantContext.id()).setParameter("inicio", inicio);
         for (Object[] linha : (List<Object[]>) saidasQuery.getResultList()) {
             saidasPorDia.put(paraLocalDate(linha[0]), (BigDecimal) linha[1]);
         }

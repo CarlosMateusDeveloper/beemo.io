@@ -29,7 +29,7 @@ public class LoteFaturamento {
     private Integer idConvenio;
 
     @NotNull
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String codigo;
 
     // Espelha o enum status_lote_faturamento (rascunho/pronto_envio/enviado/

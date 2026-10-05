@@ -17,9 +17,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SessionService jwtService;
     private final String hashAusente;
+    private final TenantService tenants;
 
-    public AuthService(UsuarioRepository repository, PasswordEncoder passwordEncoder, SessionService jwtService) {
+    public AuthService(UsuarioRepository repository, PasswordEncoder passwordEncoder, SessionService jwtService, TenantService tenants) {
         this.repository = repository;
+        this.tenants=tenants;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.hashAusente=passwordEncoder.encode(java.util.UUID.randomUUID().toString());
@@ -41,7 +43,8 @@ public class AuthService {
         return new LoginResponse(jwtService.gerar(usuario), paraDto(usuario));
     }
 
-    public UsuarioDto paraDto(Usuario usuario) {
-        return new UsuarioDto(usuario.getId(), usuario.getNome(), usuario.getEmail(), usuario.getPerfil().name());
+    public UsuarioDto paraDto(Usuario usuario) { return paraDto(usuario,tenants.resolver(usuario.getId())); }
+    public UsuarioDto paraDto(Usuario usuario,TenantService.Access tenant) {
+        return new UsuarioDto(usuario.getId(),usuario.getNome(),usuario.getEmail(),tenant==null?null:tenant.perfil(),tenant);
     }
 }

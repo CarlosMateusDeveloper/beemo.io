@@ -49,5 +49,5 @@ func main() {
 
 	port := env("AGENDA_SERVICE_PORT", "8081")
 	log.Printf("agenda-service ouvindo na porta %s (websocket em /ws/agenda)", port)
-	log.Fatal(http.ListenAndServe(":"+port, withCORS(allowedOrigin, withAuth(mux))))
+	log.Fatal(http.ListenAndServe(":"+port, withCORS(allowedOrigin, withAuth(withTenantTransaction(db, h.hub, mux)))))
 }

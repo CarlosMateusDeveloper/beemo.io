@@ -38,7 +38,7 @@ public class AuthController {
     @PostMapping("/magic-link") public ResponseEntity<Map<String,String>> solicitar(@Valid @RequestBody MagicRequest request,HttpServletRequest req) {
         limitar("link",request.email(),req,3);
         magic.solicitar(request.email());
-        return ResponseEntity.accepted().body(Map.of("message","Se este e-mail estiver cadastrado, você receberá um link de acesso. Confira também a pasta de spam."));
+        return ResponseEntity.accepted().body(Map.of("message","Enviamos um link de acesso para seu e-mail. Confira também a pasta de spam."));
     }
     @PostMapping("/magic-link/verify") public LoginResponse verificar(@Valid @RequestBody VerifyRequest request,HttpServletRequest req,HttpServletResponse res) {
         limiter.verificar("verify-ip:"+req.getRemoteAddr(),30);
@@ -55,7 +55,7 @@ public class AuthController {
     }
     @GetMapping("/me") public UsuarioDto me(Authentication authentication) {
         if(authentication==null || !(authentication.getPrincipal() instanceof Integer id)) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        return auth.paraDto(usuarios.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED)));
+        return auth.paraDto(usuarios.findById(id).orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED)),TenantContext.get());
     }
     @RequestMapping(value="/session/check",method={RequestMethod.GET,RequestMethod.POST})
     public UsuarioDto check(Authentication authentication) { return me(authentication); }

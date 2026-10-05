@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-router-dom'
+import ClinisisLanding from '../../landing-page/src/ClinisisLanding.jsx'
 import './index.css'
 import { ThemeProvider } from './theme/ThemeContext'
 import { AuthProvider } from './auth/AuthContext'
@@ -35,15 +36,13 @@ import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
 import AuditoriaDetalhePagina from './components/convenios/AuditoriaDetalhePagina'
 import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 
-// Configurando o roteador com os caminhos e seus respectivos componentes.
-// Login fica fora do Layout (sem sidebar); as demais telas navegam pela
-// sidebar, protegidas pela sessão.
-const router = createBrowserRouter([
+// A página inicial é pública, independentemente da sessão. Apenas as rotas
+// do sistema carregam autenticação e tema; o dashboard continua protegido.
+const systemRoutes = [
   {
-    path: "/",
     element: <RotaProtegida><Layout /></RotaProtegida>,
     children: [
-      { index: true, element: <Dashboard /> },
+      { path: "dashboard", element: <Dashboard /> },
       { path: "pos-venda", element: <PosVenda /> },
       { path: "pos-venda/pacientes", element: <PosVendaPacientes /> },
       { path: "pos-venda/oportunidades", element: <Oportunidades /> },
@@ -75,18 +74,21 @@ const router = createBrowserRouter([
     path: "/login",
     element: <Login />,
   },
-  { path: '/clinicas', element: <Navigate to="/" replace /> },
+  { path: '/clinicas', element: <Navigate to="/dashboard" replace /> },
   { path: '/minha-conta', element: <RotaProtegida><Conta /></RotaProtegida> },
   { path: '/login/magic', element: <MagicLink /> },
+]
+
+const router = createBrowserRouter([
+  { path: '/', element: <ClinisisLanding loginUrl="/login" /> },
+  {
+    element: <AuthProvider><ThemeProvider><Outlet /></ThemeProvider></AuthProvider>,
+    children: systemRoutes,
+  },
 ])
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthProvider>
-      <ThemeProvider>
-        {/* Passamos o 'router' que configuramos acima como propriedade */}
-        <RouterProvider router={router} />
-      </ThemeProvider>
-    </AuthProvider>
+    <RouterProvider router={router} />
   </React.StrictMode>,
 )

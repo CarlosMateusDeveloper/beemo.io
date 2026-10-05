@@ -14,7 +14,7 @@ export default function MagicLink() {
   async function confirmar() {
     if (enviando.current) return
     enviando.current = true; setCarregando(true); setErro('')
-    try { await entrarComLink(token); navigate('/', { replace: true }) }
+    try { await entrarComLink(token); navigate('/dashboard', { replace: true }) }
     catch (e) { setErro(e.message) }
     finally { enviando.current = false; setCarregando(false) }
   }

@@ -18,7 +18,7 @@ public class MensagemModeloRetorno {
     private Integer id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private GrupoRetorno grupo;
 
     @Column(columnDefinition = "TEXT", nullable = false)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
 )
 
@@ -13,7 +12,7 @@ type Paciente struct {
 	Nome string `json:"nome"`
 }
 
-func queryPacientes(db *sql.DB) ([]Paciente, error) {
+func queryPacientes(db DBTX) ([]Paciente, error) {
 	rows, err := db.Query(`SELECT id_paciente, nome FROM paciente ORDER BY nome`)
 	if err != nil {
 		return nil, err
@@ -32,7 +31,7 @@ func queryPacientes(db *sql.DB) ([]Paciente, error) {
 }
 
 func (h *agendaHandler) listPacientes(w http.ResponseWriter, r *http.Request) {
-	pacientes, err := queryPacientes(h.db)
+	pacientes, err := queryPacientes(requestDB(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

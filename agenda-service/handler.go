@@ -34,7 +34,7 @@ func (h *agendaHandler) list(w http.ResponseWriter, r *http.Request) {
 		idMedico = parsed
 	}
 
-	agendas, err := listAgendas(h.db, idMedico)
+	agendas, err := listAgendas(requestDB(r), idMedico)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -49,7 +49,7 @@ func (h *agendaHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agenda, err := getAgenda(h.db, id)
+	agenda, err := getAgenda(requestDB(r), id)
 	if errors.Is(err, errNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -75,12 +75,12 @@ func (h *agendaHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := createAgenda(h.db, &a); err != nil {
+	if err := createAgenda(requestDB(r), &a); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "created", Agenda: a})
+	deferBroadcast(r, agendaEvent{Entity: "agenda", Type: "created", Agenda: a})
 	writeJSON(w, http.StatusCreated, a)
 }
 
@@ -102,7 +102,7 @@ func (h *agendaHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := updateAgenda(h.db, &a); err != nil {
+	if err := updateAgenda(requestDB(r), &a); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
@@ -111,7 +111,7 @@ func (h *agendaHandler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "updated", Agenda: a})
+	deferBroadcast(r, agendaEvent{Entity: "agenda", Type: "updated", Agenda: a})
 	writeJSON(w, http.StatusOK, a)
 }
 
@@ -122,7 +122,7 @@ func (h *agendaHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := deleteAgenda(h.db, id); err != nil {
+	if err := deleteAgenda(requestDB(r), id); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
@@ -131,6 +131,6 @@ func (h *agendaHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(agendaEvent{Entity: "agenda", Type: "deleted", Agenda: Agenda{ID: id}})
+	deferBroadcast(r, agendaEvent{Entity: "agenda", Type: "deleted", Agenda: Agenda{ID: id}})
 	w.WriteHeader(http.StatusNoContent)
 }

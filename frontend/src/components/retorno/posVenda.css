@@ -1,0 +1,39 @@
+.pv { display: grid; gap: 18px; }
+.pv h2, .pv h3, .pv p { margin: 0; }
+.pv h2 { font-size: 23px; letter-spacing: -.02em; }
+.pv h3 { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.pv-intro { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pv-intro p, .pv-contexto p { color: var(--text-tertiary); margin-top: 7px; font-size: 13px; }
+.pv button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.pv button:disabled { opacity: .5; cursor: not-allowed; }
+.pv-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.pv .pv-note { font-size: 12px; color: var(--text-tertiary); line-height: 1.6; }
+.pv-note a { color: var(--acc-deep); }
+.pv-filtros { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+.pv-filtros > button { align-self: end; min-height: 40px; }
+.pv-atalhos { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-atalhos button[aria-pressed="true"] { background: var(--acc-soft); color: var(--acc-deep); outline: 1px solid var(--acc); }
+.pv label { display: grid; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pv input, .pv select, .pv textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font: inherit; font-size: 13px; min-width: 0; }
+.pv input:focus, .pv select:focus, .pv textarea:focus, .pv button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.pv-status { display: inline-block; background: var(--surface-muted); color: var(--text-secondary); padding: 5px 9px; border-radius: 7px; font-size: 12px; font-weight: 600; }
+.pv-status.recuperado { background: var(--acc-soft); color: var(--success); }
+.pv-status.reagendado, .pv-status.em_contato { color: var(--acc-deep); }
+.pv-paginacao { display: flex; align-items: center; justify-content: flex-end; gap: 14px; font-size: 13px; }
+.pv-error { padding: 14px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--surface-muted); }
+.pv-error button { margin-left: 8px; color: inherit; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
+.pv-success { padding: 12px; background: var(--acc-soft); color: var(--success); border-radius: 8px; }
+.pv-contexto { display: flex; align-items: flex-start; gap: 14px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.pv-colunas { display: grid; grid-template-columns: minmax(300px,1fr) minmax(300px,1fr); gap: 20px; align-items: start; }
+.pv-colunas > :only-child { grid-column: 1 / -1; }
+.pv-form { display: grid; gap: 16px; padding: 20px; }
+.pv-form-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pv label.pv-checkbox { display: flex; align-items: center; }
+.pv-checkbox input { width: 16px; height: 16px; }
+.pv-historico ol { list-style: none; margin: 0; padding: 0 20px; max-height: 650px; overflow: auto; }
+.pv-historico li { padding: 17px 0; border-bottom: 1px solid var(--border); }
+.pv-historico time, .pv-historico small { color: var(--text-tertiary); font-size: 11px; }
+.pv-historico p { font-size: 13px; line-height: 1.5; margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 1050px) { .pv-kpis { grid-template-columns: repeat(2,1fr); } .pv-colunas { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .pv-filtros, .pv-form-linha { grid-template-columns: 1fr; } .pv-kpis { grid-template-columns: 1fr; } .retorno-page { padding: 18px 14px; } .retorno-tabs { gap: 15px; flex-wrap: wrap; } }

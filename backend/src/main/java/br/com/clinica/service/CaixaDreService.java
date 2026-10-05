@@ -24,7 +24,6 @@ import java.util.List;
 @Service
 public class CaixaDreService {
 
-    private static final int ID_CLINICA_ATUAL = 1; // mesmo placeholder de CaixaService/DespesaService.
 
     private static final String AVISO_DESPESAS =
             "O resultado reflete as despesas lançadas em Caixa → Despesas. Categorias " +
@@ -92,7 +91,7 @@ public class CaixaDreService {
                 "SELECT categoria, SUM(valor) FROM despesa " +
                         "WHERE id_clinica = :idClinica AND status != 'cancelado' AND vencimento BETWEEN :inicio AND :fim " +
                         "GROUP BY categoria ORDER BY SUM(valor) DESC"
-        ).setParameter("idClinica", ID_CLINICA_ATUAL).setParameter("inicio", inicio).setParameter("fim", fim).getResultList();
+        ).setParameter("idClinica", TenantContext.id()).setParameter("inicio", inicio).setParameter("fim", fim).getResultList();
 
         List<CaixaDreResponse.DespesaCategoriaDto> despesasPorCategoria = new ArrayList<>();
         BigDecimal totalDespesas = BigDecimal.ZERO;

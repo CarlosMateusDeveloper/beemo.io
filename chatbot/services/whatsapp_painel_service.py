@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from chatbot.config import ID_CLINICA_ATUAL
+from chatbot.tenant import tenant_id
 from chatbot.models.capacidade_bot import CapacidadeBotConfig
 # Import necessario mesmo sem uso direto: registra a tabela `clinica` no
 # metadata do SQLAlchemy, senao as FKs de Conversa/CapacidadeBotConfig/etc
@@ -16,7 +16,7 @@ from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
 from chatbot.services import whatsapp_service
 
-# ID_CLINICA_ATUAL vem de chatbot.config: sem sessao/login real ainda
+# tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
 # enquanto, mas o schema ja esta pronto pra multi-tenant (ver
 # database/schema_clinica.sql, Fase 10).
@@ -69,7 +69,7 @@ def obter_status() -> dict:
 def listar_conversas(db: Session) -> list[dict]:
     conversas = (
         db.query(Conversa)
-        .filter(Conversa.id_clinica == ID_CLINICA_ATUAL)
+        .filter(Conversa.id_clinica == tenant_id())
         .order_by(Conversa.atualizado_em.desc())
         .all()
     )
@@ -117,7 +117,7 @@ def listar_conversas(db: Session) -> list[dict]:
 
 def _buscar_conversa(db: Session, conversa_id: int) -> Conversa | None:
     conversa = db.get(Conversa, conversa_id)
-    if conversa is None or conversa.id_clinica != ID_CLINICA_ATUAL:
+    if conversa is None or conversa.id_clinica != tenant_id():
         return None
     return conversa
 
@@ -292,7 +292,7 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | 
 def obter_assistente(db: Session) -> dict:
     ativos = {
         row.capacidade_id: row.ativo
-        for row in db.query(CapacidadeBotConfig).filter(CapacidadeBotConfig.id_clinica == ID_CLINICA_ATUAL)
+        for row in db.query(CapacidadeBotConfig).filter(CapacidadeBotConfig.id_clinica == tenant_id())
     }
     capacidades = [
         {**catalogo, "ativo": ativos.get(catalogo["id"], True)}
@@ -300,10 +300,10 @@ def obter_assistente(db: Session) -> dict:
     ]
 
     mensagens: dict[str, dict[str, str]] = {}
-    for row in db.query(MensagemTemplateBot).filter(MensagemTemplateBot.id_clinica == ID_CLINICA_ATUAL):
+    for row in db.query(MensagemTemplateBot).filter(MensagemTemplateBot.id_clinica == tenant_id()):
         mensagens.setdefault(row.capacidade_id, {})[row.campo] = row.texto
 
-    regra_row = db.get(RegraAtendimentoBot, ID_CLINICA_ATUAL)
+    regra_row = db.get(RegraAtendimentoBot, tenant_id())
     salvas = regra_row.regras if regra_row and regra_row.regras else {}
     regras = {
         "escalonamento": {"pedirAtendenteSempre": True, "naoEntendeuLimite": 2, "palavrasChave": [], **salvas.get("escalonamento", {})},
@@ -316,9 +316,9 @@ def obter_assistente(db: Session) -> dict:
 
 
 def alternar_capacidade(db: Session, capacidade_id: str, ativo: bool) -> None:
-    row = db.get(CapacidadeBotConfig, (ID_CLINICA_ATUAL, capacidade_id))
+    row = db.get(CapacidadeBotConfig, (tenant_id(), capacidade_id))
     if row is None:
-        row = CapacidadeBotConfig(id_clinica=ID_CLINICA_ATUAL, capacidade_id=capacidade_id, ativo=ativo)
+        row = CapacidadeBotConfig(id_clinica=tenant_id(), capacidade_id=capacidade_id, ativo=ativo)
         db.add(row)
     else:
         row.ativo = ativo
@@ -328,9 +328,9 @@ def alternar_capacidade(db: Session, capacidade_id: str, ativo: bool) -> None:
 
 def atualizar_mensagens(db: Session, capacidade_id: str, campos: dict[str, str]) -> None:
     for campo, texto in campos.items():
-        row = db.get(MensagemTemplateBot, (ID_CLINICA_ATUAL, capacidade_id, campo))
+        row = db.get(MensagemTemplateBot, (tenant_id(), capacidade_id, campo))
         if row is None:
-            row = MensagemTemplateBot(id_clinica=ID_CLINICA_ATUAL, capacidade_id=capacidade_id, campo=campo, texto=texto)
+            row = MensagemTemplateBot(id_clinica=tenant_id(), capacidade_id=capacidade_id, campo=campo, texto=texto)
             db.add(row)
         else:
             row.texto = texto
@@ -339,9 +339,9 @@ def atualizar_mensagens(db: Session, capacidade_id: str, campos: dict[str, str])
 
 
 def atualizar_regras(db: Session, regras: dict) -> None:
-    row = db.get(RegraAtendimentoBot, ID_CLINICA_ATUAL)
+    row = db.get(RegraAtendimentoBot, tenant_id())
     if row is None:
-        row = RegraAtendimentoBot(id_clinica=ID_CLINICA_ATUAL, regras=regras)
+        row = RegraAtendimentoBot(id_clinica=tenant_id(), regras=regras)
         db.add(row)
     else:
         row.regras = regras
@@ -432,12 +432,12 @@ def calcular_desempenho(db: Session, periodo: str) -> dict:
 
     aguardando_agora = (
         db.query(Conversa)
-        .filter(Conversa.id_clinica == ID_CLINICA_ATUAL, Conversa.estado == EstadoConversaBot.aguardando)
+        .filter(Conversa.id_clinica == tenant_id(), Conversa.estado == EstadoConversaBot.aguardando)
         .count()
     )
     aguardando_rows = (
         db.query(Conversa)
-        .filter(Conversa.id_clinica == ID_CLINICA_ATUAL, Conversa.estado == EstadoConversaBot.aguardando)
+        .filter(Conversa.id_clinica == tenant_id(), Conversa.estado == EstadoConversaBot.aguardando)
         .all()
     )
     esperas_hoje = []

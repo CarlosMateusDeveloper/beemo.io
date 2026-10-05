@@ -8,6 +8,8 @@ FastAPI) e o painel do atendente (endpoints sincronos). A montagem do
 request e a leitura da resposta sao compartilhadas entre as duas.
 """
 
+import os
+from chatbot.tenant import current_tenant
 import hashlib
 import hmac
 import logging
@@ -48,7 +50,7 @@ class WhatsAppNaoConfiguradoError(WhatsAppError):
 
 
 def esta_configurado() -> bool:
-    return bool(WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID)
+    return bool(WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID and current_tenant.get() == int(os.getenv('ID_CLINICA', '1')))
 
 
 def normalizar_telefone(telefone: str) -> str:
@@ -68,13 +70,12 @@ def normalizar_telefone(telefone: str) -> str:
 def validar_assinatura(assinatura: str | None, corpo: bytes) -> bool:
     """Confere o header X-Hub-Signature-256 do webhook contra o App Secret.
 
-    Sem App Secret configurado a validacao e pulada (retorna True) — util
-    em desenvolvimento com ngrok, mas em producao o App Secret deve estar
-    sempre setado, senao qualquer um consegue injetar mensagens falsas.
+    Sem App Secret configurado o webhook e recusado. O tenant so e definido
+    depois da verificacao da assinatura e do numero receptor.
     """
     if not WHATSAPP_APP_SECRET:
-        logger.warning("WHATSAPP_APP_SECRET nao configurado: assinatura do webhook nao verificada.")
-        return True
+        logger.warning("WHATSAPP_APP_SECRET nao configurado: webhook recusado.")
+        return False
     if not assinatura or not assinatura.startswith("sha256="):
         return False
     esperado = hmac.new(WHATSAPP_APP_SECRET.encode(), corpo, hashlib.sha256).hexdigest()

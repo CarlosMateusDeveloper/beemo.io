@@ -28,7 +28,7 @@ public class Paciente {
 
     @NotBlank
     @Size(min = 11, max = 11)
-    @Column(length = 11, unique = true)
+    @Column(length = 11)
     private String cpf;
 
     @NotNull

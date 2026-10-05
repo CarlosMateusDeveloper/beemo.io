@@ -18,7 +18,7 @@ public class SecurityConfig {
 
     @Bean
     @org.springframework.core.annotation.Order(2)
-    public SecurityFilterChain apiSecurity(HttpSecurity http, @org.springframework.beans.factory.annotation.Value("${app.auth.secure-cookies:false}") boolean secureCookies) throws Exception {
+    public SecurityFilterChain apiSecurity(HttpSecurity http, TenantDatabaseFilter tenantDatabase, @org.springframework.beans.factory.annotation.Value("${app.auth.secure-cookies:false}") boolean secureCookies) throws Exception {
         var csrf=new CookieCsrfTokenRepository();
         csrf.setCookieName("clinicos_csrf");
         csrf.setHeaderName("X-CSRF-TOKEN");
@@ -35,17 +35,26 @@ public class SecurityConfig {
                 .accessDeniedHandler((req,res,ex) -> {
                     res.setStatus(403);res.setContentType("application/json");res.setCharacterEncoding("UTF-8");
                     boolean csrfError=ex instanceof org.springframework.security.web.csrf.CsrfException;
+                    boolean noTenant=br.com.clinica.service.TenantContext.get()==null;
                     res.getWriter().write(csrfError
                         ? "{\"code\":\"csrf_invalid\",\"message\":\"Atualize a página e tente novamente.\"}"
+                        : noTenant ? "{\"code\":\"tenant_required\",\"message\":\"Sua conta ainda não possui acesso a esta organização.\"}"
                         : "{\"message\":\"Seu perfil não tem permissão para esta ação.\"}");
                 }))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/auth/login","/api/auth/magic-link","/api/auth/magic-link/verify",
                     "/api/auth/csrf","/api/auth/providers","/api/auth/logout","/error").permitAll()
+                .requestMatchers("/api/auth/session/check").hasAuthority("TENANT_ACCESS")
+                .requestMatchers("/api/auth/**","/api/tenants","/api/tenants/**").authenticated()
                 .requestMatchers("/api/usuarios/**").hasRole("ADMINISTRADOR")
-                .anyRequest().authenticated())
-            .addFilterBefore(jwt,UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().hasAuthority("TENANT_ACCESS"))
+            .addFilterBefore(jwt,UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(tenantDatabase,JwtAuthFilter.class);
         return http.build();
+    }
+    @Bean public org.springframework.boot.web.servlet.FilterRegistrationBean<TenantDatabaseFilter> tenantRegistration(TenantDatabaseFilter filter) {
+        var registration=new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);return registration;
     }
     @Bean public PasswordEncoder passwordEncoder() { return new MigratingPasswordEncoder(); }
 

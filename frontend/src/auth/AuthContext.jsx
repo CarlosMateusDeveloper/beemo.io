@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { apiRequest, aoReceberNaoAutenticado, sessaoAtualizada, geracaoSessao } from '../lib/apiClient'
+import { apiRequest, aoReceberNaoAutenticado, aoReceberTenantObrigatorio, sessaoAtualizada, geracaoSessao } from '../lib/apiClient'
 
 const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [carregando, setCarregando] = useState(true)
   const channel = useRef(null)
   useEffect(() => aoReceberNaoAutenticado(() => setUsuario(null)), [])
+  useEffect(() => aoReceberTenantObrigatorio(() => setUsuario(u => u ? { ...u, tenantAtivo: null, perfil: null } : u)), [])
   useEffect(() => {
     let ativo = true
     // Remove apenas o token legado; a sessão atual fica em cookie HttpOnly.
@@ -22,7 +23,10 @@ export function AuthProvider({ children }) {
     }
     if (typeof BroadcastChannel !== 'undefined') {
       channel.current = new BroadcastChannel('clinicos-auth')
-      channel.current.onmessage = () => { sessaoAtualizada(); restaurar() }
+      channel.current.onmessage = event => {
+        if (event.data === 'tenant-changed') { window.location.reload(); return }
+        sessaoAtualizada(); restaurar()
+      }
     }
     restaurar()
     return () => { ativo = false; channel.current?.close(); channel.current = null }

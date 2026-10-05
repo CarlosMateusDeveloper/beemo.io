@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,7 @@ func TestSessionProtection(t *testing.T) {
 			return
 		}
 		w.WriteHeader(200)
+		fmt.Fprint(w, `{"tenantAtivo":{"id":7}}`)
 	}))
 	defer upstream.Close()
 	t.Setenv("AUTH_API_URL", upstream.URL)

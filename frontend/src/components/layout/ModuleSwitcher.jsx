@@ -4,7 +4,7 @@ import { Check, ChevronsUpDown, HeartHandshake, LayoutDashboard, Wallet } from '
 import './ModuleSwitcher.css'
 
 const MODULES = [
-  { id: 'clinicos', label: 'ClinicOS', description: 'Gestão da clínica', to: '/', icon: LayoutDashboard },
+  { id: 'clinicos', label: 'ClinicOS', description: 'Gestão da clínica', to: '/dashboard', icon: LayoutDashboard },
   { id: 'pos-venda', label: 'Pós-venda', description: 'Pós-atendimento e retenção', to: '/pos-venda', icon: HeartHandshake },
   { id: 'financeiro', label: 'Financeiro', description: 'Caixa, resultados e despesas', to: '/caixa', icon: Wallet },
 ]

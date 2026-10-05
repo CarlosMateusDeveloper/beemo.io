@@ -25,7 +25,7 @@ public class Consulta {
 
     // agenda vive no servico Go (mesmo Postgres, tabela agenda); aqui fica so o FK.
     @NotNull
-    @Column(name = "id_agenda", nullable = false, unique = true)
+    @Column(name = "id_agenda", nullable = false)
     private Integer idAgenda;
 
     // insertable/updatable = false: status_consulta é enum nativo do Postgres;

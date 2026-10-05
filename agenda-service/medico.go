@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
 )
 
@@ -14,12 +13,12 @@ type Medico struct {
 	Especialidade string `json:"especialidade"`
 }
 
-func queryMedicos(db *sql.DB) ([]Medico, error) {
+func queryMedicos(db DBTX) ([]Medico, error) {
 	rows, err := db.Query(`
 		SELECT m.id_medico, m.nome, e.nome
 		FROM medico m
 		JOIN especialidade e ON e.id_especialidade = m.id_especialidade
-		WHERE m.ativo = true
+		WHERE m.status = 'ativo'
 		ORDER BY m.nome
 	`)
 	if err != nil {
@@ -39,7 +38,7 @@ func queryMedicos(db *sql.DB) ([]Medico, error) {
 }
 
 func (h *agendaHandler) listMedicos(w http.ResponseWriter, r *http.Request) {
-	medicos, err := queryMedicos(h.db)
+	medicos, err := queryMedicos(requestDB(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -20,7 +20,7 @@ public class ReguaRetorno {
     private Integer id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private GrupoRetorno grupo;
 
     @Column(name = "prazo_dias", nullable = false)

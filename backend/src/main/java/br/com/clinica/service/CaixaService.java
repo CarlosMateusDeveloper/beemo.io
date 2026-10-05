@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 @Service
 public class CaixaService {
 
-    private static final int ID_CLINICA_ATUAL = 1;
     private static final String OPERADOR_PLACEHOLDER = "Ana Souza";
     private static final String OPERADOR_CARGO_PLACEHOLDER = "Administradora";
     private static final DateTimeFormatter HORA_FMT = DateTimeFormatter.ofPattern("HH:mm");
@@ -131,7 +130,7 @@ public class CaixaService {
 
         entityManager.createNativeQuery(
                 "INSERT INTO turno_caixa (id_clinica, operador_nome) VALUES (:idClinica, :operador)"
-        ).setParameter("idClinica", ID_CLINICA_ATUAL).setParameter("operador", OPERADOR_PLACEHOLDER).executeUpdate();
+        ).setParameter("idClinica", TenantContext.id()).setParameter("operador", OPERADOR_PLACEHOLDER).executeUpdate();
 
         Integer criado = buscarTurnoAbertoHoje();
         if (criado == null) {
@@ -146,7 +145,7 @@ public class CaixaService {
                 "SELECT id_turno_caixa FROM turno_caixa " +
                         "WHERE id_clinica = :idClinica AND fechado_em IS NULL AND aberto_em::date = CURRENT_DATE " +
                         "ORDER BY aberto_em DESC LIMIT 1"
-        ).setParameter("idClinica", ID_CLINICA_ATUAL).getResultList();
+        ).setParameter("idClinica", TenantContext.id()).getResultList();
         return encontrados.isEmpty() ? null : ((Number) encontrados.get(0)).intValue();
     }
 

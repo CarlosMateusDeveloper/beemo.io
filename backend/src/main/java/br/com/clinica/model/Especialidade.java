@@ -21,6 +21,6 @@ public class Especialidade {
 
     @NotBlank
     @Size(max = 100)
-    @Column(unique = true)
+    @Column
     private String nome;
 }

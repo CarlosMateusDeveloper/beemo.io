@@ -27,7 +27,7 @@ public class Convenio {
 
     @NotBlank
     @Size(min = 6, max = 6)
-    @Column(name = "registro_ans", length = 6, unique = true)
+    @Column(name = "registro_ans", length = 6)
     private String registroAns;
 
     private Boolean ativo = true;

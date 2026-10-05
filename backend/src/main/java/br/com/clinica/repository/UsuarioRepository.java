@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
-    Optional<Usuario> findByEmail(String email);
-    Optional<Usuario> findByEmailIgnoreCase(String email);
+    @org.springframework.data.jpa.repository.Query(value="SELECT u.* FROM usuario u JOIN auth_email_identity e ON e.id_usuario=u.id WHERE e.email=lower(:email)",nativeQuery=true)
+    Optional<Usuario> findByEmailIgnoreCase(@org.springframework.data.repository.query.Param("email") String email);
 }

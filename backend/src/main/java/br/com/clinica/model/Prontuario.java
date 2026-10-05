@@ -23,7 +23,7 @@ public class Prontuario {
 
     @NotNull
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_consulta", nullable = false, unique = true)
+    @JoinColumn(name = "id_consulta", nullable = false)
     private Consulta consulta;
 
     // Subjetivo

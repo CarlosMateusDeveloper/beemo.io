@@ -10,12 +10,15 @@ import java.util.Optional;
 public class SessionService {
     private final JwtService jwt;
     private final JdbcTemplate db;
-    public SessionService(JwtService jwt,JdbcTemplate db) { this.jwt=jwt;this.db=db; }
+    private final TenantService tenants;
+    public SessionService(JwtService jwt,JdbcTemplate db,TenantService tenants) { this.jwt=jwt;this.db=db;this.tenants=tenants; }
+    @org.springframework.transaction.annotation.Transactional
     public String gerar(Usuario usuario) {
         String token=jwt.gerar(usuario);
         Claims claims=jwt.validar(token).orElseThrow();
+        var tenant=tenants.resolver(usuario.getId());
         db.update("DELETE FROM auth_session WHERE expira_em<now()-interval '1 day'");
-        db.update("INSERT INTO auth_session(id,id_usuario,expira_em) VALUES (?,?,?)",claims.getId(),usuario.getId(),new Timestamp(claims.getExpiration().getTime()));
+        db.update("INSERT INTO auth_session(id,id_usuario,id_clinica,expira_em) VALUES (?,?,?,?)",claims.getId(),usuario.getId(),tenant==null?null:tenant.id(),new Timestamp(claims.getExpiration().getTime()));
         return token;
     }
     public Optional<Claims> validar(String token) {

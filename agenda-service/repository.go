@@ -7,7 +7,7 @@ import (
 
 var errNotFound = errors.New("agenda não encontrada")
 
-func listAgendas(db *sql.DB, idMedico int) ([]Agenda, error) {
+func listAgendas(db DBTX, idMedico int) ([]Agenda, error) {
 	query := `SELECT id_agenda, id_medico, situacao, data_slot::text, hora_slot::text FROM agenda`
 	args := []any{}
 	if idMedico > 0 {
@@ -33,7 +33,7 @@ func listAgendas(db *sql.DB, idMedico int) ([]Agenda, error) {
 	return agendas, rows.Err()
 }
 
-func getAgenda(db *sql.DB, id int) (*Agenda, error) {
+func getAgenda(db DBTX, id int) (*Agenda, error) {
 	var a Agenda
 	err := db.QueryRow(
 		`SELECT id_agenda, id_medico, situacao, data_slot::text, hora_slot::text FROM agenda WHERE id_agenda = $1`,
@@ -48,7 +48,7 @@ func getAgenda(db *sql.DB, id int) (*Agenda, error) {
 	return &a, nil
 }
 
-func createAgenda(db *sql.DB, a *Agenda) error {
+func createAgenda(db DBTX, a *Agenda) error {
 	return db.QueryRow(
 		`INSERT INTO agenda (id_medico, situacao, data_slot, hora_slot)
 		 VALUES ($1, $2, $3::date, $4::time)
@@ -57,7 +57,7 @@ func createAgenda(db *sql.DB, a *Agenda) error {
 	).Scan(&a.ID)
 }
 
-func updateAgenda(db *sql.DB, a *Agenda) error {
+func updateAgenda(db DBTX, a *Agenda) error {
 	res, err := db.Exec(
 		`UPDATE agenda SET id_medico = $1, situacao = $2, data_slot = $3::date, hora_slot = $4::time
 		 WHERE id_agenda = $5`,
@@ -76,7 +76,7 @@ func updateAgenda(db *sql.DB, a *Agenda) error {
 	return nil
 }
 
-func deleteAgenda(db *sql.DB, id int) error {
+func deleteAgenda(db DBTX, id int) error {
 	res, err := db.Exec(`DELETE FROM agenda WHERE id_agenda = $1`, id)
 	if err != nil {
 		return err

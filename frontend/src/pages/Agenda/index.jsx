@@ -200,13 +200,25 @@ export default function Agenda({
     )
   }
 
-  if (loadError || !currentProf) {
+  if (loadError) {
     return (
       <div className="agenda-page">
         <div className="agenda-main">
           <div className="agenda-hint" style={{ margin: 24 }}>
-            Não foi possível carregar a agenda ({loadError || 'nenhum médico cadastrado'}).
+            Não foi possível carregar a agenda ({loadError}).
             Confirme se o agenda-service está rodando em {import.meta.env.VITE_AGENDA_SERVICE_URL || 'http://localhost:8081'}.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentProf) {
+    return (
+      <div className="agenda-page">
+        <div className="agenda-main">
+          <div className="agenda-hint" style={{ margin: 24 }}>
+            Nenhum médico cadastrado neste ambiente.
           </div>
         </div>
       </div>

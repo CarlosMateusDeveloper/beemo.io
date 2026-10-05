@@ -80,6 +80,11 @@ public class RetornoAcaoService {
         int pulados = 0;
 
         for (Integer idPaciente : idsPaciente) {
+            if (statusRepository.findById(idPaciente)
+                    .map(s -> "nao_contatar".equals(s.getStatus())).orElse(false)) {
+                pulados++;
+                continue;
+            }
             if (envioRepository.contarDesde(idPaciente, desde) > 0) {
                 pulados++;
                 continue;

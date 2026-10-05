@@ -27,7 +27,7 @@ public class AuditoriaAtendimento {
     private Integer id;
 
     @NotNull
-    @Column(name = "id_consulta", nullable = false, unique = true)
+    @Column(name = "id_consulta", nullable = false)
     private Integer idConsulta;
 
     // bloqueado / atencao / aprovado.

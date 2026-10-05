@@ -18,11 +18,23 @@ public class OAuthClients implements ClientRegistrationRepository, Iterable<Clie
             throw new IllegalStateException("Em HTTPS configure JWT_SECRET, AUTH_SECURE_COOKIES=true e APP_API_URL HTTPS");
         }
         configure(env,"google","Google","https://accounts.google.com","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET");
-        String msId=env.getProperty("MICROSOFT_CLIENT_ID","");
-        String tenant=env.getProperty("MICROSOFT_TENANT_ID","");
-        if(!msId.isBlank() && !tenant.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
-            throw new IllegalStateException("Configure MICROSOFT_TENANT_ID com o ID do tenant autorizado");
-        configure(env,"microsoft","Microsoft","https://login.microsoftonline.com/"+tenant+"/v2.0","MICROSOFT_CLIENT_ID","MICROSOFT_CLIENT_SECRET");
+        configureMicrosoft(env);
+
+    }
+    private void configureMicrosoft(Environment env) {
+        String id=env.getProperty("MICROSOFT_CLIENT_ID",""),secret=env.getProperty("MICROSOFT_CLIENT_SECRET","");
+        if(id.isBlank() && secret.isBlank()) return;
+        if(id.isBlank() || secret.isBlank()) throw new IllegalStateException("Configuração OAuth incompleta para microsoft");
+        String directory=MicrosoftIssuer.audience(env.getProperty("MICROSOFT_TENANT_ID","common"));
+        String authority="https://login.microsoftonline.com/"+directory;
+        clients.put("microsoft",ClientRegistration.withRegistrationId("microsoft").clientId(id).clientSecret(secret)
+            .clientName("Microsoft").authorizationGrantType(org.springframework.security.oauth2.core.AuthorizationGrantType.AUTHORIZATION_CODE)
+            .clientAuthenticationMethod(org.springframework.security.oauth2.core.ClientAuthenticationMethod.CLIENT_SECRET_POST)
+            .redirectUri(api+"/login/oauth2/code/microsoft").scope("openid","profile","email")
+            .authorizationUri(authority+"/oauth2/v2.0/authorize").tokenUri(authority+"/oauth2/v2.0/token")
+            .jwkSetUri(authority+"/discovery/v2.0/keys").issuerUri(authority+"/v2.0")
+            .userInfoUri("https://graph.microsoft.com/oidc/userinfo").userNameAttributeName("sub")
+            .clientSettings(ClientRegistration.ClientSettings.builder().requireProofKey(true).build()).build());
     }
     private void configure(Environment env,String id,String name,String issuer,String idKey,String secretKey) {
         String clientId=env.getProperty(idKey,""),secret=env.getProperty(secretKey,"");

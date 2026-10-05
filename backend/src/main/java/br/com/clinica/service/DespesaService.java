@@ -28,7 +28,6 @@ import java.util.Set;
 @Service
 public class DespesaService {
 
-    private static final int ID_CLINICA_ATUAL = 1; // mesmo placeholder de CaixaService — sem sessão/multi-tenant real ainda.
     private static final DateTimeFormatter DIA_MES_ANO = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final Set<String> CATEGORIAS_VALIDAS = Set.of(
             "aluguel", "folha", "fornecedores", "insumos", "impostos", "marketing", "manutencao", "servicos", "outros"
@@ -64,7 +63,7 @@ public class DespesaService {
                         "  COALESCE(SUM(valor) FILTER (WHERE status = 'pendente' AND vencimento < CURRENT_DATE), 0), " +
                         "  COUNT(*) FILTER (WHERE status = 'pendente' AND vencimento < CURRENT_DATE) " +
                         "FROM despesa WHERE id_clinica = :idClinica"
-        ).setParameter("inicio", inicio).setParameter("idClinica", ID_CLINICA_ATUAL).getSingleResult();
+        ).setParameter("inicio", inicio).setParameter("idClinica", TenantContext.id()).getSingleResult();
 
         return new DespesaResumoDto(
                 (BigDecimal) linha[0], (BigDecimal) linha[1], (BigDecimal) linha[2], (BigDecimal) linha[3],
@@ -76,7 +75,7 @@ public class DespesaService {
     public DespesaDto criar(Despesa dados) {
         validarCategoria(dados.getCategoria());
         dados.setId(null);
-        dados.setIdClinica(ID_CLINICA_ATUAL);
+        dados.setIdClinica(TenantContext.id());
         dados.setStatus("pendente");
         dados.setPagoEm(null);
         dados.setCriadoEm(OffsetDateTime.now());

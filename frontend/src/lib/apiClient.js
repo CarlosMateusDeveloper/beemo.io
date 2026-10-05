@@ -8,6 +8,8 @@ export const API_BASE = serviceBase(import.meta.env?.VITE_API_URL, 8080)
 let csrfPromise
 let generation = 0
 let aoDeslogar = () => {}
+let aoPerderTenant = () => {}
+export function aoReceberTenantObrigatorio(callback) { aoPerderTenant = callback; return () => { if (aoPerderTenant === callback) aoPerderTenant = () => {} } }
 export function sessaoAtualizada() { generation++; csrfPromise = undefined; return generation }
 export function geracaoSessao() { return generation }
 export function aoReceberNaoAutenticado(callback) {
@@ -43,6 +45,7 @@ export async function authenticatedRequest(url, options = {}) {
       csrfPromise = undefined
       continue
     }
+    if (res.status === 403 && body.code === 'tenant_required' && initialGeneration === generation) aoPerderTenant()
     if (!res.ok) throw new Error(body.message || body.erro || (typeof body.detail === 'string' ? body.detail : null) || (res.status === 403 ? 'Seu perfil não tem permissão para esta ação.' : `Não foi possível concluir a solicitação (${res.status}).`))
     return body
   }

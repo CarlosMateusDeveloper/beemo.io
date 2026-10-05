@@ -1,4 +1,8 @@
 import hmac
+import json
+import os
+from chatbot.tenant import current_tenant
+from chatbot.config import WHATSAPP_PHONE_NUMBER_ID
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -57,5 +61,15 @@ async def receber_webhook(request: Request, db: Session = Depends(get_db)):
         logger.warning("Payload de webhook em formato inesperado, ignorado.", exc_info=True)
         return {"status": "ignorado"}
 
-    await mensagem_service.processar_mensagens_recebidas(db, payload.extrair_mensagens())
+    envelope = json.loads(corpo)
+    values = [change.get('value', {}) for entry in envelope.get('entry', []) for change in entry.get('changes', [])]
+    if not WHATSAPP_PHONE_NUMBER_ID or any(value.get('metadata', {}).get('phone_number_id') != WHATSAPP_PHONE_NUMBER_ID for value in values):
+        raise HTTPException(status_code=403, detail='Numero receptor nao autorizado')
+    tenant = int(os.getenv('ID_CLINICA', '1'))
+    marker = current_tenant.set(tenant)
+    db.info['tenant_id'] = tenant
+    try:
+        await mensagem_service.processar_mensagens_recebidas(db, payload.extrair_mensagens())
+    finally:
+        current_tenant.reset(marker)
     return {"status": "recebido"}

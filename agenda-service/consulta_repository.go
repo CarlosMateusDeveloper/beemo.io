@@ -25,7 +25,7 @@ func scanConsulta(row interface{ Scan(...any) error }) (*Consulta, error) {
 	return &c, nil
 }
 
-func queryConsultas(db *sql.DB, idMedico int) ([]Consulta, error) {
+func queryConsultas(db DBTX, idMedico int) ([]Consulta, error) {
 	query := consultaSelect
 	args := []any{}
 	if idMedico > 0 {
@@ -51,7 +51,7 @@ func queryConsultas(db *sql.DB, idMedico int) ([]Consulta, error) {
 	return consultas, rows.Err()
 }
 
-func queryConsulta(db *sql.DB, id int) (*Consulta, error) {
+func queryConsulta(db DBTX, id int) (*Consulta, error) {
 	c, err := scanConsulta(db.QueryRow(consultaSelect+` WHERE c.id_consulta = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errNotFound
@@ -66,7 +66,7 @@ func queryConsulta(db *sql.DB, id int) (*Consulta, error) {
 // horaSlot), criando o slot como "Livre" se ainda não existir. A UNIQUE
 // (id_medico, data_slot, hora_slot) trata corrida entre duas criações
 // concorrentes para o mesmo horário.
-func findOrCreateAgendaSlot(tx *sql.Tx, idMedico int, dataSlot, horaSlot string) (int, error) {
+func findOrCreateAgendaSlot(tx DBTX, idMedico int, dataSlot, horaSlot string) (int, error) {
 	var idAgenda int
 	err := tx.QueryRow(
 		`SELECT id_agenda FROM agenda WHERE id_medico = $1 AND data_slot = $2::date AND hora_slot = $3::time`,
@@ -88,12 +88,9 @@ func findOrCreateAgendaSlot(tx *sql.Tx, idMedico int, dataSlot, horaSlot string)
 
 // insertConsulta cria o slot de agenda (se preciso) e a consulta numa só
 // transação, e marca o slot como "Ocupado".
-func insertConsulta(db *sql.DB, in createConsultaInput) (*Consulta, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
+func insertConsulta(db DBTX, in createConsultaInput) (*Consulta, error) {
+	tx := db
+	var err error
 
 	idAgenda, err := findOrCreateAgendaSlot(tx, in.IDMedico, in.DataSlot, in.HoraSlot)
 	if err != nil {
@@ -115,9 +112,6 @@ func insertConsulta(db *sql.DB, in createConsultaInput) (*Consulta, error) {
 		return nil, err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return queryConsulta(db, idConsulta)
 }
 
@@ -125,12 +119,9 @@ func insertConsulta(db *sql.DB, in createConsultaInput) (*Consulta, error) {
 // Quando dataSlot+horaSlot vêm preenchidos, move a consulta pra outro slot de
 // agenda (libera o antigo, ocupa o novo) — é o que o drag-and-drop do
 // calendário usa para reagendar.
-func applyConsultaUpdate(db *sql.DB, id int, in updateConsultaInput) (*Consulta, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
+func applyConsultaUpdate(db DBTX, id int, in updateConsultaInput) (*Consulta, error) {
+	tx := db
+	var err error
 
 	var idAgendaAtual, idMedicoAtual int
 	err = tx.QueryRow(
@@ -193,8 +184,5 @@ func applyConsultaUpdate(db *sql.DB, id int, in updateConsultaInput) (*Consulta,
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return queryConsulta(db, id)
 }

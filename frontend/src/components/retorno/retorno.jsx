@@ -3,18 +3,22 @@ import { Info } from 'lucide-react'
 import RetornoPendentes from './RetornoPendentes'
 import RetornoReguas from './RetornoReguas'
 import RetornoResultados from './RetornoResultados'
+import PosVenda from './PosVenda'
+import PosVendaIndicadores from './PosVendaIndicadores'
 import { fetchResumo } from './api'
 import { brl } from './retornoData'
 import './retorno.css'
 
 const ABAS = [
+  { id: 'pos-venda', label: 'Pós-venda' },
+  { id: 'indicadores-pos-venda', label: 'Indicadores de pós-venda' },
   { id: 'pendentes', label: 'Pendentes' },
   { id: 'reguas', label: 'Réguas' },
   { id: 'resultados', label: 'Resultados' },
 ]
 
 export function Retorno() {
-  const [aba, setAba] = useState('pendentes')
+  const [aba, setAba] = useState('pos-venda')
   const [resumo, setResumo] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [recarregarSinal, setRecarregarSinal] = useState(0)
@@ -36,7 +40,10 @@ export function Retorno() {
   return (
     <div className="retorno-page">
       <div className="retorno-head">
-        <div className="retorno-cabecalho">
+        {aba === 'pos-venda' || aba === 'indicadores-pos-venda' ? <div className="retorno-cabecalho">
+          <span className="retorno-cabecalho-label">Relacionamento com o paciente</span>
+          <span className="retorno-cabecalho-numero">Pós-venda</span>
+        </div> : <div className="retorno-cabecalho">
           <span className="retorno-cabecalho-label">Deveriam ter voltado</span>
           <span className="retorno-cabecalho-numero">
             {carregando ? '—' : `${resumo?.totalPendentes ?? 0} pacientes`}
@@ -49,7 +56,7 @@ export function Retorno() {
               </span>
             )}
           </span>
-        </div>
+        </div>}
 
         <nav className="retorno-tabs" aria-label="Seções de Retorno">
           {ABAS.map((t) => (
@@ -64,6 +71,8 @@ export function Retorno() {
         </nav>
       </div>
 
+      {aba === 'pos-venda' && <PosVenda />}
+      {aba === 'indicadores-pos-venda' && <PosVendaIndicadores />}
       {aba === 'pendentes' && (
         <RetornoPendentes grupos={resumo?.grupos ?? []} carregando={carregando} onAcaoConcluida={recarregar} />
       )}

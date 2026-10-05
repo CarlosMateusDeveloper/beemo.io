@@ -29,7 +29,7 @@ public class ResendEmailService {
     }
     public void verificarConfiguracao() {
         if (key.isBlank() || from.isBlank()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-            "O acesso por e-mail ainda não está configurado. Entre com sua senha ou contate o administrador.");
+            "O acesso por e-mail ainda não foi ativado nesta instalação. Solicite a configuração à administração.");
     }
     public void enviar(String email, String link, String idempotencia) {
         verificarConfiguracao();
@@ -42,7 +42,7 @@ public class ResendEmailService {
                 .retrieve().toBodilessEntity();
         } catch (RestClientException e) {
             // Nunca propaga resposta do provedor, destinatário ou token para logs/cliente.
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Não foi possível enviar o link agora. Tente novamente mais tarde ou entre com sua senha.");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Não foi possível enviar o link agora. Tente novamente mais tarde.");
         }
     }
 }

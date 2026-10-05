@@ -31,7 +31,7 @@ public class Medico {
 
     @NotBlank
     @Size(max = 20)
-    @Column(unique = true)
+    @Column
     private String crm;
 
     @NotBlank

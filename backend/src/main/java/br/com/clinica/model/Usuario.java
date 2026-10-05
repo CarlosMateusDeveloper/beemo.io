@@ -24,10 +24,8 @@ public class Usuario {
     @Size(max = 100)
     private String nome;
 
-    @NotBlank
     @Email
     @Size(max = 100)
-    @Column(unique = true)
     private String email;
 
     // Hash Argon2id (BCrypt legado migrado no login) — nunca o texto puro. Ver PasswordEncoder em SecurityConfig.

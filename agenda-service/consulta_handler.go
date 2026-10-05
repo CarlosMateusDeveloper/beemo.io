@@ -26,7 +26,7 @@ func (h *agendaHandler) listConsultas(w http.ResponseWriter, r *http.Request) {
 		idMedico = parsed
 	}
 
-	consultas, err := queryConsultas(h.db, idMedico)
+	consultas, err := queryConsultas(requestDB(r), idMedico)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -41,7 +41,7 @@ func (h *agendaHandler) getConsulta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := queryConsulta(h.db, id)
+	c, err := queryConsulta(requestDB(r), id)
 	if errors.Is(err, errNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -73,13 +73,13 @@ func (h *agendaHandler) createConsulta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := insertConsulta(h.db, in)
+	c, err := insertConsulta(requestDB(r), in)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.hub.broadcast(consultaEvent{Entity: "consulta", Type: "created", Consulta: *c})
+	deferBroadcast(r, consultaEvent{Entity: "consulta", Type: "created", Consulta: *c})
 	writeJSON(w, http.StatusCreated, c)
 }
 
@@ -100,7 +100,7 @@ func (h *agendaHandler) updateConsulta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := applyConsultaUpdate(h.db, id, in)
+	c, err := applyConsultaUpdate(requestDB(r), id, in)
 	if errors.Is(err, errNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -110,6 +110,6 @@ func (h *agendaHandler) updateConsulta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.hub.broadcast(consultaEvent{Entity: "consulta", Type: "updated", Consulta: *c})
+	deferBroadcast(r, consultaEvent{Entity: "consulta", Type: "updated", Consulta: *c})
 	writeJSON(w, http.StatusOK, c)
 }

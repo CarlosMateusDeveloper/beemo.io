@@ -1,4 +1,3 @@
 package br.com.clinica.dto;
-
-public record UsuarioDto(Integer id, String nome, String email, String perfil) {
-}
+import br.com.clinica.service.TenantService;
+public record UsuarioDto(Integer id,String nome,String email,String perfil,TenantService.Access tenantAtivo) {}

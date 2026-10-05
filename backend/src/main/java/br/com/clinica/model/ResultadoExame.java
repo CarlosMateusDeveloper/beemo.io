@@ -26,7 +26,7 @@ public class ResultadoExame {
     // Sem @NotNull de propósito: vem do path (/api/exames/{idExame}/resultado),
     // não do corpo do POST — ResultadoExameEscritaService é quem define esse
     // valor, então @Valid não deve exigi-lo no JSON de entrada.
-    @Column(name = "id_exame", nullable = false, unique = true)
+    @Column(name = "id_exame", nullable = false)
     private Integer idExame;
 
     @NotBlank

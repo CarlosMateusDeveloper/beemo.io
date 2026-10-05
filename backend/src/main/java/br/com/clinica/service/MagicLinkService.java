@@ -23,11 +23,12 @@ public class MagicLinkService {
     private final ResendEmailService email;
     private final SessionService jwt;
     private final AuthService auth;
+    private final IdentityAccountService accounts;
     private final String frontend;
     private final SecureRandom random=new SecureRandom();
     public MagicLinkService(JdbcTemplate db, UsuarioRepository usuarios, ResendEmailService email,
-            SessionService jwt, AuthService auth, @Value("${app.auth.frontend-url:http://localhost:5173}") String frontend) {
-        this.db=db; this.usuarios=usuarios; this.email=email; this.jwt=jwt; this.auth=auth;
+            SessionService jwt, AuthService auth, IdentityAccountService accounts, @Value("${app.auth.frontend-url:http://localhost:5173}") String frontend) {
+        this.db=db; this.usuarios=usuarios; this.email=email; this.jwt=jwt; this.auth=auth; this.accounts=accounts;
         URI uri=URI.create(frontend);
         boolean local="http".equals(uri.getScheme()) && ("localhost".equals(uri.getHost()) || "127.0.0.1".equals(uri.getHost()));
         if ((!"https".equals(uri.getScheme()) && !local) || uri.getHost()==null || uri.getUserInfo()!=null || uri.getQuery()!=null || uri.getFragment()!=null)
@@ -37,15 +38,14 @@ public class MagicLinkService {
     @Transactional
     public void solicitar(String endereco) {
         email.verificarConfiguracao();
-        var usuario=usuarios.findByEmailIgnoreCase(endereco.trim());
-        if (usuario.isEmpty()) return;
+        endereco=endereco.strip().toLowerCase(java.util.Locale.ROOT);
         byte[] bytes=new byte[32]; random.nextBytes(bytes);
         String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         db.update("DELETE FROM auth_magic_token WHERE expira_em < now() - interval '1 day'");
         db.update("INSERT INTO auth_magic_token(hash,id_usuario,email,expira_em) VALUES (?,?,?,now()+interval '15 minutes')",
-            hash(token),usuario.get().getId(),usuario.get().getEmail());
+            hash(token),null,endereco);
         // Fragmento não é enviado ao servidor web nem em cabeçalhos Referer.
-        email.enviar(usuario.get().getEmail(),frontend+"/login/magic#token="+token,UUID.randomUUID().toString());
+        email.enviar(endereco,frontend+"/login/magic#token="+token,UUID.randomUUID().toString());
     }
     @Transactional
     public LoginResponse verificar(String token) {
@@ -56,9 +56,7 @@ public class MagicLinkService {
             RETURNING id_usuario,email
             """,hash(token));
         if (rows.isEmpty()) throw invalido();
-        var usuario=usuarios.findById(((Number) rows.getFirst().get("id_usuario")).intValue())
-            .filter(u -> u.getEmail().equalsIgnoreCase((String) rows.getFirst().get("email")))
-            .orElseThrow(this::invalido);
+        var usuario=accounts.emailVerificado((String)rows.getFirst().get("email"),"Minha conta");
         return new LoginResponse(jwt.gerar(usuario),auth.paraDto(usuario));
     }
     static String hash(String token) {

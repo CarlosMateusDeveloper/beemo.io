@@ -10,7 +10,7 @@ import ModuleSwitcher from './ModuleSwitcher'
 import './Sidebar.css'
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/pacientes', label: 'Pacientes', icon: Users },
   { to: '/prontuario', label: 'Prontuários', icon: FileText },

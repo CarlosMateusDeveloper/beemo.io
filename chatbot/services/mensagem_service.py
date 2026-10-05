@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from chatbot.config import ID_CLINICA_ATUAL
+from chatbot.tenant import tenant_id
 from chatbot.models.clinica import Clinica  # noqa: F401 — registra `clinica` no metadata para as FKs de Conversa
 from chatbot.models.conversa import Conversa, EstadoConversaBot
 from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem, TipoMensagem
@@ -142,11 +142,11 @@ def _obter_ou_criar_conversa(db: Session, telefone: str, id_paciente: int | None
     """Uma conversa por (clinica, telefone) — e o que alimenta a caixa de entrada do painel."""
     conversa = (
         db.query(Conversa)
-        .filter(Conversa.id_clinica == ID_CLINICA_ATUAL, Conversa.telefone == telefone)
+        .filter(Conversa.id_clinica == tenant_id(), Conversa.telefone == telefone)
         .first()
     )
     if conversa is None:
-        conversa = Conversa(id_clinica=ID_CLINICA_ATUAL, telefone=telefone, id_paciente=id_paciente)
+        conversa = Conversa(id_clinica=tenant_id(), telefone=telefone, id_paciente=id_paciente)
         db.add(conversa)
         db.flush()
     elif conversa.id_paciente is None and id_paciente is not None:

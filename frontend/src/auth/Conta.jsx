@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { apiRequest } from '../lib/apiClient'
 import './Conta.css'
@@ -27,6 +27,7 @@ export default function Conta() {
     } catch (e) { setErro(e.message); setBusy('') }
   }
   return <section className="conta-card">
+    <Link to="/dashboard">Voltar ao ClinicOS</Link>
     <h1>Minha conta</h1>
     <p><strong>{usuario.nome}</strong><br />{usuario.email}</p>
     <h2>Formas de acesso</h2>
@@ -34,7 +35,7 @@ export default function Conta() {
     {params.get('oauth') === 'linked' && <p role="status">Conta vinculada com sucesso.</p>}
     {params.has('oauth_error') && <p role="alert">Não foi possível vincular a conta. Verifique se ela já está vinculada a outro usuário e tente novamente.</p>}
     {erro && <p role="alert">{erro}</p>}
-    {loading ? <p role="status">Carregando formas de acesso…</p> : providers.length === 0 && <p>Google e Microsoft ainda não foram configurados pela administração. Você pode entrar com senha ou link por e-mail.</p>}
+    {loading ? <p role="status">Carregando formas de acesso…</p> : providers.length === 0 && <p>Google e Microsoft ainda não foram configurados pela administração. Você pode entrar com um link por e-mail.</p>}
     {providers.map(provider => <div className="conta-provider" key={provider.id}>
       <span>{provider.nome}</span>
       {linked.includes(provider.id) ? <strong>Vinculada</strong> : <button disabled={!!busy} onClick={() => vincular(provider.id)}>{busy === provider.id ? 'Conectando…' : 'Vincular conta'}</button>}

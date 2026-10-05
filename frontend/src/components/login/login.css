@@ -106,3 +106,7 @@
 .login-btn:hover:not(:disabled) { background: var(--acc-deep); }
 .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 .login-social { margin-bottom: 12px; }
+.login-divisor-sso { margin-top: 26px; }
+.login-sso-btn small { margin-left: auto; color: var(--text-tertiary); font-size: 10px; }
+.login-sso-btn { padding: 0 12px; }
+.login-sso-btn:disabled { opacity: .6; cursor: wait; }

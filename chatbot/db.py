@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from chatbot.tenant import tenant_id
 
 from chatbot.config import DATABASE_URL
 
@@ -18,3 +19,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@event.listens_for(Session, 'after_begin')
+def apply_tenant(session, transaction, connection):
+    if transaction.nested:
+        return
+    tenant = session.info.get('tenant_id') or tenant_id()
+    session.info['tenant_id'] = tenant
+    connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"), {'tenant': str(tenant)})

@@ -23,18 +23,23 @@ type agendaEvent struct {
 // hub mantém os clientes WebSocket conectados e distribui eventos pra todos.
 type hub struct {
 	mu            sync.Mutex
-	clients       map[*websocket.Conn]struct{}
+	clients       map[*websocket.Conn]subscription
 	allowedOrigin string
 }
 
 func newHub(allowedOrigin string) *hub {
 	return &hub{
-		clients:       make(map[*websocket.Conn]struct{}),
+		clients:       make(map[*websocket.Conn]subscription),
 		allowedOrigin: allowedOrigin,
 	}
 }
 
-func (h *hub) broadcast(event any) {
+type subscription struct {
+	tenant  int
+	request *http.Request
+}
+
+func (h *hub) broadcast(tenant int, event any) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		log.Printf("hub: erro ao serializar evento: %v", err)
@@ -43,7 +48,16 @@ func (h *hub) broadcast(event any) {
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for conn := range h.clients {
+	for conn, sub := range h.clients {
+		if sub.tenant != tenant {
+			continue
+		}
+		current, status, _ := sessionTenant(context.Background(), sub.request)
+		if status != http.StatusOK || current != tenant {
+			conn.Close()
+			delete(h.clients, conn)
+			continue
+		}
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
 			delete(h.clients, conn)
@@ -67,7 +81,7 @@ func (h *hub) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	h.clients[conn] = struct{}{}
+	h.clients[conn] = subscription{tenantID(r), r}
 	h.mu.Unlock()
 
 	// Só precisamos manter a leitura pra detectar quando o cliente desconecta;
@@ -81,7 +95,8 @@ func (h *hub) serveWS(w http.ResponseWriter, r *http.Request) {
 			case <-done:
 				return
 			case <-ticker.C:
-				if sessionStatus(context.Background(), r) != http.StatusOK {
+				current, status, _ := sessionTenant(context.Background(), r)
+				if status != http.StatusOK || current != tenantID(r) {
 					conn.Close()
 					return
 				}

@@ -1,6 +1,6 @@
 # Login seguro do clinicOS
 
-O acesso operacional exige uma conta cadastrada pela administração. Senhas novas são protegidas com Argon2id (19 MiB, duas iterações, paralelismo 1 e salt aleatório). Uma senha BCrypt existente é migrada somente após um login válido. Novas contas exigem senha de 12 a 200 caracteres. Não existe cadastro público nem bypass de autenticação.
+A tela oferece magic link por e-mail e SSO Google/Microsoft, sem campo de senha. O acesso operacional exige uma conta cadastrada pela administração com um endereço de e-mail real e autorizado. Senhas novas são protegidas com Argon2id (19 MiB, duas iterações, paralelismo 1 e salt aleatório). Uma senha BCrypt existente é migrada somente após um login válido. Novas contas exigem senha de 12 a 200 caracteres. Não existe cadastro público nem bypass de autenticação.
 
 ## Sessão, CSRF e permissões
 
@@ -12,7 +12,7 @@ Antes de POST/PUT/PATCH/DELETE, o cliente obtém o token em GET /api/auth/csrf e
 
 ## Configuração do backend
 
-backend/.env.example é uma referência e não é carregado automaticamente. Configure no ambiente do processo Java:
+Copie backend/.env.example para backend/.env e preencha os valores sem aspas. O backend carrega esse arquivo ao iniciar dentro da pasta backend; variáveis do ambiente continuam tendo precedência. O arquivo .env é ignorado pelo Git. Configure:
 
 - JWT_SECRET: segredo aleatório com pelo menos 32 bytes. Sem ele, somente no desenvolvimento HTTP local, é gerada chave temporária em memória.
 - JWT_EXPIRATION_MINUTES: 30 por padrão.
@@ -37,7 +37,7 @@ O destino /login/magic#token=... remove o fragmento do endereço e exige confirm
 
 ## Google e Microsoft (OAuth 2.0 / OpenID Connect)
 
-Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET para Google. Para Microsoft, configure MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET e MICROSOFT_TENANT_ID (UUID do tenant autorizado). Provedores incompletos impedem a inicialização; sem credenciais os respectivos botões não aparecem. As credenciais são exclusivas do backend, nunca variáveis VITE.
+Configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET para Google. Para Microsoft, configure MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET e MICROSOFT_TENANT_ID (UUID do tenant autorizado). Provedores incompletos impedem a inicialização; sem credenciais os respectivos botões aparecem como indisponíveis e explicam que a ativação está pendente. As credenciais são exclusivas do backend, nunca variáveis VITE.
 
 Cadastre exatamente os callbacks:
 
@@ -46,7 +46,15 @@ Cadastre exatamente os callbacks:
 
 O Spring Security executa Authorization Code com PKCE S256, estado, nonce e validação do ID token do provedor. O callback público não é uma sessão operacional: a API aceita apenas a sessão própria validada no banco. O estado OAuth usa uma sessão temporária de cinco minutos; tokens de acesso e renovação do provedor não são persistidos.
 
-Primeiro entre com senha ou magic link e abra Perfil → Minha conta → Vincular conta. O vínculo exige CSRF na iniciação e a mesma sessão clinicOS ainda válida no callback. A identidade é issuer + subject; igualdade de e-mail não vincula automaticamente. Uma identidade externa só pode pertencer a um usuário. Depois do vínculo, o botão do provedor na tela de login autentica essa conta existente.
+O callback do SSO conclui o login imediatamente, inclusive no primeiro acesso autorizado, sem magic link, Resend ou confirmação adicional do ClinicOS. A identidade persistida é issuer + subject e só pode pertencer a um usuário. As permissões continuam vindo da conta local; o login não cria administradores nem libera os dados da clínica para qualquer conta pública.
+
+No primeiro Google, o e-mail atestado deve corresponder à conta previamente autorizada no ClinicOS. É necessário email_verified=true e endereço Gmail ou domínio hd correspondente do Google Workspace. Contas Google que usam e-mail de terceiros sem hd não são associadas automaticamente; podem ser vinculadas pelo Perfil de uma sessão já autenticada. Depois de vincular, mudanças no e-mail do provedor não trocam a identidade local.
+
+Na Microsoft, a administração configura MICROSOFT_USER_MAPPINGS com Object-ID:ID-local, separados por vírgula, no tenant indicado por MICROSOFT_TENANT_ID. O callback valida issuer e tid e usa o oid autorizado para a associação inicial. E-mail e preferred_username não concedem acesso, pois são mutáveis. Exemplo: MICROSOFT_USER_MAPPINGS=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:1. O vínculo explícito pelo Perfil de uma sessão válida também permanece disponível. Não há confirmação de e-mail durante o SSO.
+
+Uma conta sem autorização retorna ao login com uma mensagem específica. Nenhum cookie operacional é emitido nessa situação. A sessão temporária OAuth é encerrada em sucesso ou falha.
+
+Referências de identidade: [Google e autoridade sobre e-mail](https://developers.google.com/identity/sign-in/web/backend-auth), [claims da Microsoft](https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference).
 
 ## Agenda e WhatsApp
 
