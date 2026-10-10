@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @EnabledIfEnvironmentVariable(named="RUN_AUTH_INTEGRATION",matches="true")
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT, properties={
     "spring.jpa.show-sql=false","app.auth.frontend-url=http://localhost:5173",
     "GOOGLE_CLIENT_ID=","GOOGLE_CLIENT_SECRET=","MICROSOFT_CLIENT_ID=","MICROSOFT_CLIENT_SECRET=",
@@ -115,8 +116,8 @@ class AuthIntegrationTest {
         assertNull(db.queryForObject("SELECT perfil FROM usuario WHERE id=?",String.class,userA));
         assertEquals(200,request("GET","/api/pacientes",null,a).status());
         assertEquals(200,request("GET","/api/auth/session/check",null,b).status());
-        assertEquals(405,request("POST","/api/tenants",Map.of("nome","Proibido"),a).status());
-        assertEquals(405,request("POST","/api/tenants/1/select",null,a).status());
+        assertEquals(404,request("POST","/api/tenants",Map.of("nome","Proibido"),a).status());
+        assertEquals(404,request("POST","/api/tenants/1/select",null,a).status());
         @SuppressWarnings("unchecked") var tenantA=(Map<String,Object>)me.map().get("tenantAtivo");
         @SuppressWarnings("unchecked") var tenantB=(Map<String,Object>)request("GET","/api/auth/me",null,b).map().get("tenantAtivo");
         int ta=((Number)tenantA.get("id")).intValue(),tb=((Number)tenantB.get("id")).intValue();
@@ -125,7 +126,7 @@ class AuthIntegrationTest {
         assertEquals(404,request("GET","/api/pacientes/"+pb,null,a).status());
         assertEquals(404,request("DELETE","/api/pacientes/"+pb,null,a).status());
         assertEquals(200,request("GET","/api/pacientes/"+pb,null,b).status());
-        int convenio=scope(tb,()->db.queryForObject("INSERT INTO convenio(nome) VALUES ('Convenio B') RETURNING id_convenio",Integer.class));
+        int convenio=scope(tb,()->db.queryForObject("INSERT INTO convenio(nome,registro_ans) VALUES ('Convenio B','987654') RETURNING id_convenio",Integer.class));
         var error=assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->scope(ta,()->db.update("UPDATE paciente SET id_convenio=? WHERE id_paciente=?",convenio,pa)));
         assertEquals("23503",((java.sql.SQLException)error.getMostSpecificCause()).getSQLState());
         assertEquals(0,db.queryForObject("SELECT count(*) FROM paciente",Integer.class));

@@ -10,13 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class TenantService {
     public record Access(Integer id,String nome,String perfil) {}
     private final JdbcTemplate db;
-    @Value("${app.tenant.default-id:1}") private int defaultTenant;
     public TenantService(JdbcTemplate db) { this.db=db; }
     public List<Access> listar(int user) {
         return db.query("SELECT c.id_clinica,c.nome,m.perfil FROM tenant_membro m JOIN clinica c USING(id_clinica) WHERE m.id_usuario=? AND m.ativo ORDER BY c.nome,c.id_clinica",
@@ -31,14 +29,7 @@ public class TenantService {
     public Access resolver(int user) {
         db.queryForObject("SELECT pg_advisory_xact_lock(?)",Object.class,(long)user);
         var existente=unico(user);
-        if(existente!=null && existente.id()==defaultTenant) return existente;
-        var padrao=db.queryForList("SELECT nome FROM clinica WHERE id_clinica=?",String.class,defaultTenant);
-        if(!padrao.isEmpty()) {
-            if(existente!=null && !existente.nome().equals("ClinicOS #"+user)) return existente;
-            if(existente!=null) db.update("UPDATE tenant_membro SET ativo=false WHERE id_usuario=? AND id_clinica=?",user,existente.id());
-            db.update("INSERT INTO tenant_membro(id_clinica,id_usuario,perfil) VALUES (?,?,'administrador') ON CONFLICT(id_clinica,id_usuario) DO UPDATE SET perfil='administrador',ativo=true",defaultTenant,user);
-            return new Access(defaultTenant,padrao.getFirst(),"administrador");
-        }
+        if(existente!=null) return existente;
         String nome="ClinicOS #"+user;
         int tenant=db.queryForObject("INSERT INTO clinica(nome) VALUES (?) RETURNING id_clinica",Integer.class,nome);
         db.update("INSERT INTO tenant_membro(id_clinica,id_usuario,perfil) VALUES (?,?,'administrador')",tenant,user);

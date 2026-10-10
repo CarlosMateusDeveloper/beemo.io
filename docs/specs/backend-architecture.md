@@ -4,7 +4,14 @@
 
 ## Contexto
 
-A pasta `backend/` do repositório está vazia. Antes de qualquer endpoint ser escrito, o grupo precisa decidir a stack e deixar uma estrutura MVC funcional, para que todo mundo contribua seguindo o mesmo padrão.
+A implementação atual usa Java 21, Spring Boot 4.1, Spring MVC, Spring Security e JPA/Hibernate sobre PostgreSQL.
+Controllers recebem DTOs; services concentram regras e agregações; repositories/EntityManager fazem persistência.
+A escolha reutiliza a stack já adotada no produto, com suporte integrado a validação, transações e segurança.
+Node/Express exigiria substituir as entidades e serviços existentes sem benefício para este escopo.
+
+O [README do backend](../../backend/README.md) documenta execução, segurança, observabilidade e contratos.
+Autenticação e dashboard já possuem rotas `/api/v1`, mantendo os aliases legados.
+As demais rotas e o health-check desta proposta permanecem sujeitos à migração; esta spec não afirma que todos os itens abaixo estejam concluídos.
 
 ## Escopo
 

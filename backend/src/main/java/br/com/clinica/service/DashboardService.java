@@ -4,346 +4,185 @@ import br.com.clinica.dto.DashboardRequest;
 import br.com.clinica.dto.DashboardResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-// Agrega o painel do Dashboard a partir do que o schema hoje sustenta de
-// verdade: consulta (status, tipo), agenda (ocupação — tabela do
-// agenda-service, mesmo Postgres, sem entidade JPA aqui), paciente
-// (convênio x particular) e fatura (faturamento real). Sem dado inventado:
-// o schema não tem tabela de procedimento com preço por item, então o mix
-// de receita é por tipo de atendimento (consulta.tipo), não por procedimento;
-// não há meta de faturamento configurável, então a série temporal não traz meta.
+/** Agregações no banco; nunca materializa a lista de consultas ou pacientes na JVM. */
 @Service
 public class DashboardService {
-
+    private static final String BASE = """
+        WITH base AS (
+            SELECT c.id_paciente, c.status_consulta::text AS status, c.tipo::text AS tipo,
+                   a.id_medico, a.data_slot, COALESCE(f.valor, 0) AS valor, p.id_convenio
+            FROM consulta c
+            JOIN agenda a ON a.id_agenda = c.id_agenda
+            JOIN paciente p ON p.id_paciente = c.id_paciente
+            LEFT JOIN fatura f ON f.id_consulta = c.id_consulta
+            WHERE a.data_slot BETWEEN :inicio AND :fim
+              AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId)
+        )
+        """;
     private final EntityManager entityManager;
+    private final Clock clock;
 
-    public DashboardService(EntityManager entityManager) {
+    public DashboardService(EntityManager entityManager, Clock clock) {
         this.entityManager = entityManager;
+        this.clock = clock;
     }
 
+    @Transactional(readOnly = true)
     public DashboardResponse calcular(DashboardRequest request) {
-        LocalDate hoje = LocalDate.now();
-        LocalDate inicio;
-        LocalDate fim;
-
-        Integer medicoId = request.profissionalId();
-        DashboardResponse.HojeDto blocoHoje = calcularHoje(hoje, medicoId);
-
-        String periodo = request.periodo() == null ? "" : request.periodo();
-        switch (periodo) {
-            case "Hoje" -> {
-                inicio = hoje;
-                fim = hoje;
-            }
-            case "7 dias" -> {
-                inicio = hoje.minusDays(6);
-                fim = hoje;
-            }
-            case "Mês", "Mes" -> {
-                inicio = hoje.withDayOfMonth(1);
-                fim = hoje.withDayOfMonth(hoje.lengthOfMonth());
-            }
-            case "Personalizado" -> {
-                if (request.dataInicio() == null || request.dataFim() == null || request.dataInicio().isAfter(request.dataFim())) {
-                    return empty(blocoHoje);
-                }
-                inicio = request.dataInicio();
-                fim = request.dataFim();
-            }
-            default -> {
-                return empty(blocoHoje);
-            }
+        LocalDate hoje = LocalDate.now(clock);
+        Periodo periodo = periodo(request, hoje);
+        Object[] total = (Object[]) query(BASE + """
+            SELECT COUNT(*), COALESCE(SUM(valor), 0),
+                   COUNT(*) FILTER (WHERE status = 'Faltou'),
+                   COUNT(*) FILTER (WHERE status IN ('Realizada', 'Faltou')),
+                   COALESCE(SUM(valor) FILTER (WHERE id_convenio IS NOT NULL), 0),
+                   COALESCE(SUM(valor) FILTER (WHERE id_convenio IS NULL), 0)
+            FROM base
+            """, periodo, request.profissionalId()).getSingleResult();
+        Object[] ocupacao = (Object[]) query("""
+            SELECT COUNT(*) FILTER (WHERE situacao <> 'Livre'), COUNT(*)
+            FROM agenda WHERE data_slot BETWEEN :inicio AND :fim
+              AND (CAST(:medicoId AS INTEGER) IS NULL OR id_medico = :medicoId)
+            """, periodo, request.profissionalId()).getSingleResult();
+        Object[] pacientes = (Object[]) query(BASE + """
+            , primeiras AS (
+                SELECT c.id_paciente, MIN(a.data_slot) AS primeira
+                FROM consulta c JOIN agenda a ON a.id_agenda = c.id_agenda
+                WHERE c.id_paciente IN (SELECT id_paciente FROM base)
+                GROUP BY c.id_paciente
+            )
+            SELECT COUNT(*) FILTER (WHERE primeira BETWEEN :inicio AND :fim),
+                   COUNT(*) FILTER (WHERE primeira < :inicio)
+            FROM primeiras
+            """, periodo, request.profissionalId()).getSingleResult();
+        List<DashboardResponse.RankingItemDto> ranking = rows(query(BASE + """
+            SELECT m.id_medico, m.nome, e.nome, COUNT(*), SUM(b.valor),
+                   COUNT(*) FILTER (WHERE b.status = 'Faltou'),
+                   COUNT(*) FILTER (WHERE b.status IN ('Realizada', 'Faltou'))
+            FROM base b JOIN medico m ON m.id_medico = b.id_medico
+            JOIN especialidade e ON e.id_especialidade = m.id_especialidade
+            GROUP BY m.id_medico, m.nome, e.nome
+            ORDER BY SUM(b.valor) DESC, m.id_medico LIMIT 5
+            """, periodo, request.profissionalId())).stream()
+            .map(r -> new DashboardResponse.RankingItemDto(integer(r[0]), (String) r[1], (String) r[2],
+                integer(r[3]), decimal(r[4]), integer(r[5]), percentual(integer(r[5]), integer(r[6])))).toList();
+        List<DashboardResponse.TipoAtendimentoDto> tipos = rows(query(BASE + """
+            SELECT tipo, SUM(valor) FROM base GROUP BY tipo ORDER BY SUM(valor) DESC, tipo
+            """, periodo, request.profissionalId())).stream()
+            .map(r -> new DashboardResponse.TipoAtendimentoDto((String) r[0], decimal(r[1]))).toList();
+        Map<LocalDate, SerieAcc> dias = new TreeMap<>();
+        for (Object[] r : rows(query(BASE + """
+            SELECT data_slot, SUM(valor),
+                   COUNT(*) FILTER (WHERE status NOT IN ('Cancelada', 'Faltou')),
+                   COUNT(*) FILTER (WHERE status = 'Cancelada'),
+                   COUNT(*) FILTER (WHERE status = 'Faltou')
+            FROM base GROUP BY data_slot ORDER BY data_slot
+            """, periodo, request.profissionalId()))) {
+            LocalDate data = r[0] instanceof LocalDate d ? d : ((java.sql.Date) r[0]).toLocalDate();
+            dias.put(data, new SerieAcc(decimal(r[1]), integer(r[2]), integer(r[3]), integer(r[4])));
         }
-
-        int[] ocupacao = calcularOcupacao(inicio, fim, medicoId);
-        List<Object[]> linhas = buscarConsultas(inicio, fim, medicoId);
-
-        int totalConsultas = linhas.size();
-        BigDecimal faturamento = BigDecimal.ZERO;
-        int faltas = 0;
-        int realizadas = 0;
-        Set<Integer> pacienteIds = new LinkedHashSet<>();
-        Map<Integer, RankingAcc> porMedico = new LinkedHashMap<>();
-        Map<String, BigDecimal> porTipo = new LinkedHashMap<>();
-        BigDecimal convenioValor = BigDecimal.ZERO;
-        BigDecimal particularValor = BigDecimal.ZERO;
-        Map<LocalDate, SerieAcc> porDia = new TreeMap<>();
-
-        for (Object[] linha : linhas) {
-            Integer idPaciente = ((Number) linha[1]).intValue();
-            String status = (String) linha[2];
-            Integer idMedico = ((Number) linha[3]).intValue();
-            String medicoNome = (String) linha[4];
-            String especialidadeNome = (String) linha[5];
-            BigDecimal valorFatura = linha[6] == null ? BigDecimal.ZERO : (BigDecimal) linha[6];
-            String tipoConsulta = (String) linha[7];
-            boolean particular = linha[8] == null;
-            LocalDate dataSlot = paraLocalDate(linha[9]);
-
-            pacienteIds.add(idPaciente);
-            faturamento = faturamento.add(valorFatura);
-            if ("Faltou".equals(status)) faltas++;
-            if ("Realizada".equals(status)) realizadas++;
-
-            RankingAcc acc = porMedico.computeIfAbsent(idMedico, id -> new RankingAcc(id, medicoNome, especialidadeNome));
-            acc.total++;
-            acc.faturamento = acc.faturamento.add(valorFatura);
-            if ("Faltou".equals(status)) acc.faltas++;
-
-            porTipo.merge(tipoConsulta, valorFatura, BigDecimal::add);
-            if (particular) particularValor = particularValor.add(valorFatura);
-            else convenioValor = convenioValor.add(valorFatura);
-
-            SerieAcc diaAcc = porDia.computeIfAbsent(dataSlot, d -> new SerieAcc());
-            diaAcc.receita = diaAcc.receita.add(valorFatura);
-            if ("Cancelada".equals(status)) diaAcc.cancelamentos++;
-            else if ("Faltou".equals(status)) diaAcc.faltas++;
-            else diaAcc.atendimentos++;
-        }
-
-        int[] novosRetornos = calcularNovosRetornos(pacienteIds, inicio, fim);
-
-        int baseAtendimentos = realizadas + faltas;
-        double noShowPct = baseAtendimentos == 0 ? 0 : arredondar((faltas * 100.0) / baseAtendimentos);
-        double ocupacaoPct = ocupacao[1] == 0 ? 0 : arredondar((ocupacao[0] * 100.0) / ocupacao[1]);
-
-        List<DashboardResponse.RankingItemDto> ranking = porMedico.values().stream()
-                .sorted((a, b) -> b.faturamento.compareTo(a.faturamento))
-                .limit(5)
-                .map(acc -> new DashboardResponse.RankingItemDto(
-                        acc.id, acc.nome, acc.especialidade, acc.total, acc.faturamento, acc.faltas,
-                        acc.total == 0 ? 0 : arredondar((acc.faltas * 100.0) / acc.total)
-                ))
-                .collect(Collectors.toList());
-
-        BigDecimal totalPagador = convenioValor.add(particularValor);
-        double convenioPct = totalPagador.signum() == 0 ? 0
-                : arredondar(convenioValor.doubleValue() * 100.0 / totalPagador.doubleValue());
-        List<DashboardResponse.TipoAtendimentoDto> porTipoDto = porTipo.entrySet().stream()
-                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
-                .map(e -> new DashboardResponse.TipoAtendimentoDto(e.getKey(), e.getValue()))
-                .collect(Collectors.toList());
-        DashboardResponse.PagadorDto pagador =
-                new DashboardResponse.PagadorDto(convenioValor, particularValor, convenioPct, porTipoDto);
-
-        List<DashboardResponse.SerieItemDto> serieTemporal = construirSerie(periodo, inicio, fim, porDia);
-        String serieUnidade = ("Mês".equals(periodo) || "Mes".equals(periodo)) ? "por semana" : "por dia";
-
-        return new DashboardResponse(
-                false, totalConsultas, faturamento,
-                new DashboardResponse.OcupacaoDto(ocupacao[0], ocupacao[1], ocupacaoPct),
-                new DashboardResponse.NoShowDto(faltas, baseAtendimentos, noShowPct),
-                new DashboardResponse.NovosRetornosDto(novosRetornos[0], novosRetornos[1]),
-                ranking, pagador, serieTemporal, serieUnidade, blocoHoje
-        );
+        BigDecimal convenio = decimal(total[4]), particular = decimal(total[5]);
+        return new DashboardResponse(integer(total[0]) == 0 && integer(ocupacao[1]) == 0, integer(total[0]), decimal(total[1]),
+            new DashboardResponse.OcupacaoDto(integer(ocupacao[0]), integer(ocupacao[1]), percentual(integer(ocupacao[0]), integer(ocupacao[1]))),
+            new DashboardResponse.NoShowDto(integer(total[2]), integer(total[3]), percentual(integer(total[2]), integer(total[3]))),
+            new DashboardResponse.NovosRetornosDto(integer(pacientes[0]), integer(pacientes[1])), ranking,
+            new DashboardResponse.PagadorDto(convenio, particular, percentual(convenio.doubleValue(), convenio.add(particular).doubleValue()), tipos),
+            serie(periodo, dias), periodo.semanal() ? "por semana" : "por dia", calcularHoje(hoje, request.profissionalId()));
     }
 
-    // Cartões "do dia" (issue #2): consultas de hoje, fila de atendimento
-    // (status_consulta = 'Em Espera', mesma classificação de
-    // PacienteFilaService/coluna "recepcao") e as próximas consultas de hoje
-    // a partir de agora — sempre "hoje", independente do período do filtro.
-    @SuppressWarnings("unchecked")
     private DashboardResponse.HojeDto calcularHoje(LocalDate hoje, Integer medicoId) {
-        Query query = entityManager.createNativeQuery(
-                "SELECT c.id_consulta, p.nome, a.hora_slot, m.nome, c.status_consulta::text " +
-                        "FROM consulta c " +
-                        "JOIN agenda a ON a.id_agenda = c.id_agenda " +
-                        "JOIN paciente p ON p.id_paciente = c.id_paciente " +
-                        "JOIN medico m ON m.id_medico = a.id_medico " +
-                        "WHERE a.data_slot = :hoje " +
-                        "  AND c.status_consulta::text NOT IN ('Cancelada', 'Faltou') " +
-                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId) " +
-                        "ORDER BY a.hora_slot ASC"
-        );
-        query.setParameter("hoje", hoje);
-        query.setParameter("medicoId", medicoId);
-        List<Object[]> linhas = query.getResultList();
-
-        LocalTime agora = LocalTime.now();
-        int filaAguardando = 0;
-        List<DashboardResponse.ProximaConsultaDto> proximas = new ArrayList<>();
-        for (Object[] linha : linhas) {
-            String status = (String) linha[4];
-            if ("Em Espera".equals(status)) filaAguardando++;
-
-            LocalTime hora = paraLocalTime(linha[2]);
-            if (proximas.size() < 5 && !hora.isBefore(agora)
-                    && ("Agendada".equals(status) || "Confirmada".equals(status) || "Em Espera".equals(status))) {
-                proximas.add(new DashboardResponse.ProximaConsultaDto(
-                        ((Number) linha[0]).intValue(), (String) linha[1], hora.toString().substring(0, 5),
-                        (String) linha[3], status
-                ));
-            }
-        }
-
-        return new DashboardResponse.HojeDto(linhas.size(), filaAguardando, proximas);
+        Object[] resumo = (Object[]) entityManager.createNativeQuery("""
+            SELECT COUNT(*), COUNT(*) FILTER (WHERE c.status_consulta::text = 'Em Espera')
+            FROM consulta c JOIN agenda a ON a.id_agenda = c.id_agenda
+            WHERE a.data_slot = :hoje
+              AND c.status_consulta::text NOT IN ('Cancelada', 'Faltou')
+              AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId)
+            """).setParameter("hoje", hoje).setParameter("medicoId", medicoId).getSingleResult();
+        Query proximas = entityManager.createNativeQuery("""
+            SELECT c.id_consulta, p.nome, a.hora_slot, m.nome, c.status_consulta::text
+            FROM consulta c JOIN agenda a ON a.id_agenda = c.id_agenda
+            JOIN paciente p ON p.id_paciente = c.id_paciente
+            JOIN medico m ON m.id_medico = a.id_medico
+            WHERE a.data_slot = :hoje AND a.hora_slot >= :agora
+              AND c.status_consulta::text IN ('Agendada', 'Confirmada', 'Em Espera')
+              AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId)
+            ORDER BY a.hora_slot, c.id_consulta LIMIT 5
+            """).setParameter("hoje", hoje).setParameter("agora", LocalTime.now(clock)).setParameter("medicoId", medicoId);
+        return new DashboardResponse.HojeDto(integer(resumo[0]), integer(resumo[1]), rows(proximas).stream().map(r -> {
+            LocalTime hora = r[2] instanceof LocalTime t ? t : ((java.sql.Time) r[2]).toLocalTime();
+            return new DashboardResponse.ProximaConsultaDto(integer(r[0]), (String) r[1],
+                hora.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")), (String) r[3], (String) r[4]);
+        }).toList());
     }
 
-    private LocalTime paraLocalTime(Object valor) {
-        if (valor instanceof LocalTime localTime) return localTime;
-        if (valor instanceof java.sql.Time sqlTime) return sqlTime.toLocalTime();
-        throw new IllegalStateException("Tipo de hora inesperado: " + valor.getClass());
+    record Periodo(LocalDate inicio, LocalDate fim, boolean semanal, boolean hoje) {}
+    static Periodo periodo(DashboardRequest request, LocalDate hoje) {
+        if (request.profissionalId() != null && request.profissionalId() <= 0) throw invalido("Profissional inválido.");
+        String nome = request.periodo() == null ? "Mês" : request.periodo();
+        Periodo resultado = switch (nome) {
+            case "Hoje" -> new Periodo(hoje, hoje, false, true);
+            case "7 dias" -> new Periodo(hoje.minusDays(6), hoje, false, false);
+            case "Mês", "Mes" -> new Periodo(hoje.withDayOfMonth(1), hoje.withDayOfMonth(hoje.lengthOfMonth()), true, false);
+            case "Personalizado" -> new Periodo(request.dataInicio(), request.dataFim(), false, false);
+            default -> throw invalido("Período inválido. Use Hoje, 7 dias, Mês ou Personalizado.");
+        };
+        if (resultado.inicio() == null || resultado.fim() == null || resultado.inicio().isAfter(resultado.fim()))
+            throw invalido("Informe um intervalo de datas válido.");
+        if (ChronoUnit.DAYS.between(resultado.inicio(), resultado.fim()) >= 366)
+            throw invalido("O intervalo deve ter no máximo 366 dias.");
+        return resultado;
     }
-
-    // "Mês" agrupa em semanas do calendário (dias 1-7, 8-14, ...) pra não virar
-    // um gráfico de ~30 barras; "Hoje" e "7 dias" ficam por dia.
-    private List<DashboardResponse.SerieItemDto> construirSerie(
-            String periodo, LocalDate inicio, LocalDate fim, Map<LocalDate, SerieAcc> porDia
-    ) {
-        List<DashboardResponse.SerieItemDto> serie = new ArrayList<>();
-        if ("Mês".equals(periodo) || "Mes".equals(periodo)) {
-            Map<Integer, SerieAcc> porSemana = new TreeMap<>();
-            for (Map.Entry<LocalDate, SerieAcc> entrada : porDia.entrySet()) {
-                int semana = (entrada.getKey().getDayOfMonth() - 1) / 7;
-                porSemana.computeIfAbsent(semana, k -> new SerieAcc()).somar(entrada.getValue());
-            }
-            int totalSemanas = (fim.getDayOfMonth() - 1) / 7 + 1;
-            for (int i = 0; i < totalSemanas; i++) {
-                SerieAcc acc = porSemana.getOrDefault(i, new SerieAcc());
-                serie.add(acc.paraDto("Sem " + (i + 1)));
-            }
-        } else {
-            for (LocalDate dia = inicio; !dia.isAfter(fim); dia = dia.plusDays(1)) {
-                SerieAcc acc = porDia.getOrDefault(dia, new SerieAcc());
-                String label = "Hoje".equals(periodo) ? "Hoje" : String.format("%02d/%02d", dia.getDayOfMonth(), dia.getMonthValue());
-                serie.add(acc.paraDto(label));
-            }
-        }
-        return serie;
+    private static ResponseStatusException invalido(String mensagem) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, mensagem); }
+    private Query query(String sql, Periodo periodo, Integer medicoId) {
+        return entityManager.createNativeQuery(sql).setParameter("inicio", periodo.inicio())
+            .setParameter("fim", periodo.fim()).setParameter("medicoId", medicoId);
     }
-
-    private int[] calcularOcupacao(LocalDate inicio, LocalDate fim, Integer medicoId) {
-        Query query = entityManager.createNativeQuery(
-                "SELECT " +
-                        "  COUNT(*) FILTER (WHERE situacao <> 'Livre') AS preenchidos, " +
-                        "  COUNT(*) AS total " +
-                        "FROM agenda " +
-                        "WHERE data_slot BETWEEN :inicio AND :fim " +
-                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR id_medico = :medicoId)"
-        );
-        query.setParameter("inicio", inicio);
-        query.setParameter("fim", fim);
-        query.setParameter("medicoId", medicoId);
-        Object[] linha = (Object[]) query.getSingleResult();
-        return new int[]{((Number) linha[0]).intValue(), ((Number) linha[1]).intValue()};
-    }
-
     @SuppressWarnings("unchecked")
-    private List<Object[]> buscarConsultas(LocalDate inicio, LocalDate fim, Integer medicoId) {
-        Query query = entityManager.createNativeQuery(
-                "SELECT c.id_consulta, c.id_paciente, c.status_consulta::text, " +
-                        "  a.id_medico, m.nome AS medico_nome, e.nome AS especialidade_nome, " +
-                        "  f.valor AS fatura_valor, c.tipo::text AS tipo_consulta, " +
-                        "  p.id_convenio, a.data_slot " +
-                        "FROM consulta c " +
-                        "JOIN agenda a ON c.id_agenda = a.id_agenda " +
-                        "JOIN medico m ON a.id_medico = m.id_medico " +
-                        "JOIN especialidade e ON m.id_especialidade = e.id_especialidade " +
-                        "JOIN paciente p ON c.id_paciente = p.id_paciente " +
-                        "LEFT JOIN fatura f ON f.id_consulta = c.id_consulta " +
-                        "WHERE a.data_slot BETWEEN :inicio AND :fim " +
-                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId)"
-        );
-        query.setParameter("inicio", inicio);
-        query.setParameter("fim", fim);
-        query.setParameter("medicoId", medicoId);
-        return query.getResultList();
-    }
+    private static List<Object[]> rows(Query query) { return query.getResultList(); }
+    private static int integer(Object valor) { return ((Number) valor).intValue(); }
+    private static BigDecimal decimal(Object valor) { return (BigDecimal) valor; }
+    private static double percentual(double parte, double total) { return total == 0 ? 0 : Math.round(parte * 1000.0 / total) / 10.0; }
 
-    // Novo = a primeira consulta de todos os tempos do paciente caiu dentro do período pedido.
-    @SuppressWarnings("unchecked")
-    private int[] calcularNovosRetornos(Set<Integer> pacienteIds, LocalDate inicio, LocalDate fim) {
-        if (pacienteIds.isEmpty()) return new int[]{0, 0};
-
-        Query query = entityManager.createNativeQuery(
-                "SELECT c.id_paciente, MIN(a.data_slot) " +
-                        "FROM consulta c " +
-                        "JOIN agenda a ON c.id_agenda = a.id_agenda " +
-                        "WHERE c.id_paciente IN :pacienteIds " +
-                        "GROUP BY c.id_paciente"
-        );
-        query.setParameter("pacienteIds", pacienteIds);
-        List<Object[]> linhas = query.getResultList();
-
-        int novos = 0;
-        int retornos = 0;
-        for (Object[] linha : linhas) {
-            LocalDate primeira = paraLocalDate(linha[1]);
-            boolean isNovo = !primeira.isBefore(inicio) && !primeira.isAfter(fim);
-            if (isNovo) novos++;
-            else retornos++;
+    private static List<DashboardResponse.SerieItemDto> serie(Periodo periodo, Map<LocalDate, SerieAcc> dias) {
+        List<DashboardResponse.SerieItemDto> resultado = new ArrayList<>();
+        SerieAcc semana = new SerieAcc();
+        for (LocalDate dia = periodo.inicio(); !dia.isAfter(periodo.fim()); dia = dia.plusDays(1)) {
+            SerieAcc valor = dias.getOrDefault(dia, new SerieAcc());
+            if (periodo.semanal()) {
+                semana.somar(valor);
+                if (dia.getDayOfMonth() % 7 == 0 || dia.equals(periodo.fim())) {
+                    resultado.add(semana.dto("Sem " + ((dia.getDayOfMonth() - 1) / 7 + 1)));
+                    semana = new SerieAcc();
+                }
+            } else resultado.add(valor.dto(periodo.hoje() ? "Hoje" : String.format("%02d/%02d", dia.getDayOfMonth(), dia.getMonthValue())));
         }
-        return new int[]{novos, retornos};
+        return resultado;
     }
-
-    private LocalDate paraLocalDate(Object valor) {
-        if (valor instanceof LocalDate localDate) return localDate;
-        if (valor instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
-        if (valor instanceof java.sql.Timestamp timestamp) return timestamp.toLocalDateTime().toLocalDate();
-        throw new IllegalStateException("Tipo de data inesperado: " + valor.getClass());
-    }
-
-    private double arredondar(double valor) {
-        return Math.round(valor * 10.0) / 10.0;
-    }
-
-    private DashboardResponse empty(DashboardResponse.HojeDto blocoHoje) {
-        return new DashboardResponse(
-                true, 0, BigDecimal.ZERO,
-                new DashboardResponse.OcupacaoDto(0, 0, 0),
-                new DashboardResponse.NoShowDto(0, 0, 0),
-                new DashboardResponse.NovosRetornosDto(0, 0),
-                List.of(),
-                new DashboardResponse.PagadorDto(BigDecimal.ZERO, BigDecimal.ZERO, 0, List.of()),
-                List.of(),
-                null,
-                blocoHoje
-        );
-    }
-
-    private static class RankingAcc {
-        final Integer id;
-        final String nome;
-        final String especialidade;
-        int total = 0;
-        BigDecimal faturamento = BigDecimal.ZERO;
-        int faltas = 0;
-
-        RankingAcc(Integer id, String nome, String especialidade) {
-            this.id = id;
-            this.nome = nome;
-            this.especialidade = especialidade;
-        }
-    }
-
     private static class SerieAcc {
-        BigDecimal receita = BigDecimal.ZERO;
-        int atendimentos = 0;
-        int cancelamentos = 0;
-        int faltas = 0;
-
+        BigDecimal receita;
+        int atendimentos, cancelamentos, faltas;
+        SerieAcc() { this(BigDecimal.ZERO, 0, 0, 0); }
+        SerieAcc(BigDecimal receita, int atendimentos, int cancelamentos, int faltas) {
+            this.receita = receita; this.atendimentos = atendimentos; this.cancelamentos = cancelamentos; this.faltas = faltas;
+        }
         void somar(SerieAcc outro) {
-            receita = receita.add(outro.receita);
-            atendimentos += outro.atendimentos;
-            cancelamentos += outro.cancelamentos;
-            faltas += outro.faltas;
+            receita = receita.add(outro.receita); atendimentos += outro.atendimentos;
+            cancelamentos += outro.cancelamentos; faltas += outro.faltas;
         }
-
-        DashboardResponse.SerieItemDto paraDto(String label) {
-            return new DashboardResponse.SerieItemDto(label, receita, atendimentos, cancelamentos, faltas);
-        }
+        DashboardResponse.SerieItemDto dto(String label) { return new DashboardResponse.SerieItemDto(label, receita, atendimentos, cancelamentos, faltas); }
     }
 }

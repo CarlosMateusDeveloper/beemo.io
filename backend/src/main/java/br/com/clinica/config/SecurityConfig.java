@@ -30,22 +30,25 @@ public class SecurityConfig {
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req,res,ex) -> {
                     res.setStatus(401);res.setContentType("application/json");res.setCharacterEncoding("UTF-8");
-                    res.getWriter().write("{\"message\":\"Faça login para continuar.\"}");
+                    res.getWriter().write("{\"error\":{\"code\":\"unauthorized\",\"message\":\"Faça login para continuar.\"},\"message\":\"Faça login para continuar.\"}");
                 })
                 .accessDeniedHandler((req,res,ex) -> {
                     res.setStatus(403);res.setContentType("application/json");res.setCharacterEncoding("UTF-8");
                     boolean csrfError=ex instanceof org.springframework.security.web.csrf.CsrfException;
                     boolean noTenant=br.com.clinica.service.TenantContext.get()==null;
                     res.getWriter().write(csrfError
-                        ? "{\"code\":\"csrf_invalid\",\"message\":\"Atualize a página e tente novamente.\"}"
-                        : noTenant ? "{\"code\":\"tenant_required\",\"message\":\"Sua conta ainda não possui acesso a esta organização.\"}"
-                        : "{\"message\":\"Seu perfil não tem permissão para esta ação.\"}");
+                        ? "{\"error\":{\"code\":\"csrf_invalid\",\"message\":\"Atualize a página e tente novamente.\"},\"code\":\"csrf_invalid\",\"message\":\"Atualize a página e tente novamente.\"}"
+                        : noTenant ? "{\"error\":{\"code\":\"tenant_required\",\"message\":\"Sua conta ainda não possui acesso a esta organização.\"},\"code\":\"tenant_required\",\"message\":\"Sua conta ainda não possui acesso a esta organização.\"}"
+                        : "{\"error\":{\"code\":\"forbidden\",\"message\":\"Seu perfil não tem permissão para esta ação.\"},\"message\":\"Seu perfil não tem permissão para esta ação.\"}");
                 }))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/auth/login","/api/auth/magic-link","/api/auth/magic-link/verify",
-                    "/api/auth/csrf","/api/auth/providers","/api/auth/logout","/error").permitAll()
-                .requestMatchers("/api/auth/session/check").hasAuthority("TENANT_ACCESS")
-                .requestMatchers("/api/auth/**","/api/tenants","/api/tenants/**").authenticated()
+                    "/api/auth/csrf","/api/auth/providers","/api/auth/logout",
+                    "/api/v1/auth/login","/api/v1/auth/magic-link","/api/v1/auth/magic-link/verify",
+                    "/api/v1/auth/csrf","/api/v1/auth/providers","/api/v1/auth/logout","/error").permitAll()
+                .requestMatchers("/api/auth/session/check","/api/v1/auth/session/check").hasAuthority("TENANT_ACCESS")
+                .requestMatchers("/api/auth/**","/api/v1/auth/**","/api/tenants","/api/tenants/**").authenticated()
+                .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/api/usuarios/**").hasRole("ADMINISTRADOR")
                 .anyRequest().hasAuthority("TENANT_ACCESS"))
             .addFilterBefore(jwt,UsernamePasswordAuthenticationFilter.class)

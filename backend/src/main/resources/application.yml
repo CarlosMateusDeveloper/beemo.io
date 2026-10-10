@@ -6,14 +6,17 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:clinica}
-    username: ${DB_USER:clinica}
-    password: ${DB_PASSWORD:clinica}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      connection-timeout: 30000
 
   jpa:
     hibernate:
       ddl-auto: update
     open-in-view: false
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -28,9 +31,27 @@ server:
         same-site: lax
         secure: ${AUTH_SECURE_COOKIES:false}
 
+logging:
+  structured:
+    format:
+      console: logstash
+  level:
+    org.hibernate.SQL: 'OFF'
+    org.hibernate.orm.jdbc.bind: 'OFF'
+
+management:
+  # Coleta interna. Não publica métricas globais entre tenants via HTTP.
+  endpoints:
+    web:
+      exposure:
+        exclude: '*'
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
 app:
-  tenant:
-    default-id: ${APP_DEFAULT_TENANT_ID:1}
+  time-zone: ${APP_TIME_ZONE:America/Fortaleza}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   jwt:
