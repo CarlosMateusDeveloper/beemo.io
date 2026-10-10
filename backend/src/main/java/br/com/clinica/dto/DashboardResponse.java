@@ -3,8 +3,7 @@ package br.com.clinica.dto;
 import java.math.BigDecimal;
 import java.util.List;
 
-// empty=true quando o período não pôde ser calculado (ex.: "Personalizado" sem
-// intervalo de datas ainda) — o frontend mostra o estado "sem dados" nesse caso.
+// empty=true quando não há consultas nem slots no período. Filtros inválidos retornam HTTP 400.
 public record DashboardResponse(
         boolean empty,
         int totalConsultas,

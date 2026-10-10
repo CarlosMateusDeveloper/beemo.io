@@ -14,7 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
 import java.util.Locale;
 
-@RestController @RequestMapping("/api/auth")
+@RestController @RequestMapping({"/api/auth", "/api/v1/auth"})
 public class AuthController {
     private final AuthService auth;
     private final UsuarioRepository usuarios;
@@ -63,11 +63,14 @@ public class AuthController {
         limiter.verificar(fluxo+"-ip:"+req.getRemoteAddr(),50);
         limiter.verificar(fluxo+"-email:"+email.trim().toLowerCase(Locale.ROOT),maximo);
     }
-    @ExceptionHandler(ResponseStatusException.class) public ResponseEntity<Map<String,String>> erro(ResponseStatusException e) {
-        return ResponseEntity.status(e.getStatusCode()).body(Map.of("message",e.getReason()==null?"Não foi possível autenticar.":e.getReason()));
+    @ExceptionHandler(ResponseStatusException.class) public ResponseEntity<Map<String,Object>> erro(ResponseStatusException e) {
+        String message=e.getReason()==null?"Não foi possível autenticar.":e.getReason();
+        String code=e.getStatusCode().value()==429?"rate_limited":"authentication_failed";
+        return ResponseEntity.status(e.getStatusCode()).body(Map.of("message",message,"error",Map.of("code",code,"message",message)));
     }
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String,String>> dadosInvalidos() {
-        return ResponseEntity.badRequest().body(Map.of("message","Confira os campos informados e tente novamente."));
+    public ResponseEntity<Map<String,Object>> dadosInvalidos() {
+        String message="Confira os campos informados e tente novamente.";
+        return ResponseEntity.badRequest().body(Map.of("message",message,"error",Map.of("code","invalid_request","message",message)));
     }
 }

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@RestController @RequestMapping("/api/auth")
+@RestController @RequestMapping({"/api/auth", "/api/v1/auth"})
 public class OAuthController {
     private final OAuthClients clients;
     private final OAuthIdentityService identities;

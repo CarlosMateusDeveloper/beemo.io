@@ -21,7 +21,8 @@ public class TenantDatabaseFilter extends OncePerRequestFilter {
     public TenantDatabaseFilter(JdbcTemplate db,PlatformTransactionManager manager) { this.db=db;this.transaction=new TransactionTemplate(manager); }
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String path=req.getServletPath();
-        return !path.startsWith("/api/") || path.startsWith("/api/auth/") || path.equals("/api/tenants") || path.startsWith("/api/tenants/");
+        return !path.startsWith("/api/") || path.startsWith("/api/auth/") || path.startsWith("/api/v1/auth/")
+            || path.equals("/api/tenants") || path.startsWith("/api/tenants/");
     }
     @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain) throws ServletException,IOException {
         if(TenantContext.get()==null) { chain.doFilter(req,res);return; }
