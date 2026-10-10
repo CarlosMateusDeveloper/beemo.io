@@ -11,7 +11,8 @@ import static org.mockito.Mockito.*;
 
 class PosVendaServiceTest {
     private final JdbcTemplate db = mock(JdbcTemplate.class);
-    private final PosVendaService service = new PosVendaService(db);
+    private final AccessControlService access = mock(AccessControlService.class);
+    private final PosVendaService service = new PosVendaService(db, access);
     private PosVendaAcaoRequest request(int versao, String acao) {
         return new PosVendaAcaoRequest(versao,acao,null,null,null,false,null,null,null,null);
     }

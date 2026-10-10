@@ -106,3 +106,10 @@ body {
   flex-direction: column;
   box-sizing: border-box;
 }
+/* Página compartilhada por todas as rotas protegidas sem autorização. */
+.access-denied { min-height: 100%; display: grid; place-items: center; padding: 32px; color: var(--text-primary); }
+.access-denied > div { max-width: 460px; text-align: center; padding: 40px; border: 1px solid var(--border-faint); border-radius: 18px; background: var(--surface-card); }
+.access-denied span { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .12em; }
+.access-denied h1 { margin: 8px 0 10px; font-size: 28px; }
+.access-denied p { color: var(--text-muted); margin: 0 0 24px; }
+.access-denied a { display: inline-flex; padding: 10px 16px; border-radius: 9px; background: var(--accent); color: white; text-decoration: none; font-weight: 700; }

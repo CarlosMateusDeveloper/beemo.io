@@ -18,10 +18,10 @@ function Vazio() {
   )
 }
 
-export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje, hoje }) {
+export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje, hoje, showOperational = true, showFinancial = true }) {
   return (
     <div className="dashboard-kpis">
-      <div className="dashboard-kpi-card">
+      {showOperational && <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon acc"><CalendarClock size={16} strokeWidth={1.8} /></span>
           Consultas hoje
@@ -34,9 +34,9 @@ export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje
             <div className="dashboard-kpi-apoio">agendadas para hoje</div>
           </>
         )}
-      </div>
+      </div>}
 
-      <div className="dashboard-kpi-card">
+      {showOperational && <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon neutro"><Users size={16} strokeWidth={1.8} /></span>
           Fila de atendimento
@@ -49,9 +49,9 @@ export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje
             <div className="dashboard-kpi-apoio">aguardando na recepção agora</div>
           </>
         )}
-      </div>
+      </div>}
 
-      <div className="dashboard-kpi-card">
+      {showFinancial && <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon acc"><Wallet size={16} strokeWidth={1.8} /></span>
           Faturado no período
@@ -64,9 +64,9 @@ export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje
             <div className="dashboard-kpi-apoio">{dados.faturamento.apoio}</div>
           </>
         )}
-      </div>
+      </div>}
 
-      <div className="dashboard-kpi-card">
+      {showOperational && <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon acc"><CalendarCheck2 size={16} strokeWidth={1.8} /></span>
           Ocupação da agenda
@@ -82,9 +82,9 @@ export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje
             <div className="dashboard-kpi-apoio">{dados.ocupacao.apoio}</div>
           </>
         )}
-      </div>
+      </div>}
 
-      <div className="dashboard-kpi-card">
+      {showOperational && <div className="dashboard-kpi-card">
         <div className="dashboard-kpi-lab">
           <span className="dashboard-kpi-icon neutro"><UserX size={16} strokeWidth={1.8} /></span>
           Taxa de no-show
@@ -97,7 +97,7 @@ export default function DashboardKpis({ carregando, vazio, dados, carregandoHoje
             <div className="dashboard-kpi-apoio">{dados.noShow.apoio}</div>
           </>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

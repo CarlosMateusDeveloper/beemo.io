@@ -7,45 +7,49 @@ import {
 } from 'lucide-react'
 import UserMenu from './UserMenu'
 import ModuleSwitcher from './ModuleSwitcher'
+import { usePermissions } from '../../auth/permissions'
 import './Sidebar.css'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/agenda', label: 'Agenda', icon: CalendarDays },
-  { to: '/pacientes', label: 'Pacientes', icon: Users },
-  { to: '/prontuario', label: 'Prontuários', icon: FileText },
-  { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
-  { to: '/medicos', label: 'Médicos', icon: Stethoscope },
-  { to: '/convenios', label: 'Convênios', icon: HeartHandshake },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, permissions: ['dashboard.operacional.visualizar', 'dashboard.financeiro.visualizar'] },
+  { to: '/agenda', label: 'Agenda', icon: CalendarDays, permissions: ['agenda.visualizar'] },
+  { to: '/pacientes', label: 'Pacientes', icon: Users, permissions: ['paciente.visualizar'], hideForDoctorOnly: true },
+  { to: '/prontuario', label: 'Prontuários', icon: FileText, permissions: ['prontuario.visualizar'] },
+  { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
+  { to: '/medicos', label: 'Médicos', icon: Stethoscope, permissions: ['medico.visualizar'] },
 ]
 
 const POS_VENDA_NAV_ITEMS = [
-  { to: '/pos-venda', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/pos-venda/oportunidades', label: 'Oportunidades', icon: Target },
-  { to: '/pos-venda/pacientes', label: 'Pacientes', icon: Users },
-  { to: '/pos-venda/whatsapp', label: 'WhatsApp', icon: MessageCircle },
-  { to: '/pos-venda/tarefas', label: 'Tarefas', icon: CheckSquare },
-  { to: '/pos-venda/jornadas', label: 'Jornadas', icon: Workflow },
-  { to: '/pos-venda/campanhas', label: 'Campanhas', icon: Megaphone },
+  { to: '/pos-venda', label: 'Dashboard', icon: LayoutDashboard, end: true, permissions: ['oportunidade.visualizar'] },
+  { to: '/pos-venda/oportunidades', label: 'Oportunidades', icon: Target, permissions: ['oportunidade.visualizar'] },
+  { to: '/pos-venda/pacientes', label: 'Pacientes', icon: Users, permissions: ['oportunidade.visualizar'] },
+  { to: '/pos-venda/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
+  { to: '/pos-venda/tarefas', label: 'Tarefas', icon: CheckSquare, permissions: ['tarefa.visualizar'] },
+  { to: '/pos-venda/jornadas', label: 'Jornadas', icon: Workflow, permissions: ['jornada.executar', 'jornada.configurar'] },
+  { to: '/pos-venda/campanhas', label: 'Campanhas', icon: Megaphone, permissions: ['campanha.executar', 'campanha.configurar'] },
 ]
 
 const FINANCEIRO_NAV_ITEMS = [
-  { to: '/caixa', label: 'Visão geral', icon: Wallet, end: true },
-  { to: '/caixa/dre', label: 'DRE', icon: BarChart3 },
-  { to: '/caixa/fluxo-consolidado', label: 'Fluxo de caixa', icon: ArrowUpDown },
-  { to: '/caixa/despesas', label: 'Despesas', icon: Receipt },
+  { to: '/caixa', label: 'Visão geral', icon: Wallet, end: true, permissions: ['caixa.visualizar'] },
+  { to: '/caixa/dre', label: 'DRE', icon: BarChart3, permissions: ['financeiro.dre.visualizar'] },
+  { to: '/caixa/fluxo-consolidado', label: 'Fluxo de caixa', icon: ArrowUpDown, permissions: ['financeiro.fluxo.visualizar'] },
+  { to: '/caixa/despesas', label: 'Despesas', icon: Receipt, permissions: ['despesa.visualizar'] },
+  { to: '/convenios', label: 'Convênios', icon: HeartHandshake, permissions: ['convenio.gerenciar'] },
 ]
 
 const COLLAPSE_STORAGE_KEY = 'sidebar-collapsed'
 
 export default function Sidebar() {
   const { pathname } = useLocation()
+  const { canAny, roles } = usePermissions()
   const activeModule = pathname === '/pos-venda' || pathname.startsWith('/pos-venda/')
     ? 'pos-venda'
-    : pathname === '/caixa' || pathname.startsWith('/caixa/') ? 'financeiro' : 'clinicos'
-  const navigation = activeModule === 'pos-venda'
+    : pathname === '/caixa' || pathname.startsWith('/caixa/') || pathname === '/convenios' || pathname.startsWith('/convenios/') ? 'financeiro' : 'clinicos'
+  const allItems = activeModule === 'pos-venda'
     ? POS_VENDA_NAV_ITEMS
     : activeModule === 'financeiro' ? FINANCEIRO_NAV_ITEMS : NAV_ITEMS
+  const doctorOnly = roles.length === 1 && roles[0] === 'medico'
+  const navigation = allItems.filter(item => canAny(item.permissions) && !(item.hideForDoctorOnly && doctorOnly))
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1')
 
   function toggleCollapsed() {

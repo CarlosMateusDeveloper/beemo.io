@@ -6,7 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -33,9 +33,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         tenants.vincularSessao(claims.get().getId(),user,tenant.id());
                     }
                     TenantContext.set(tenant);
-                    var roles=List.of(
-                        new SimpleGrantedAuthority("TENANT_ACCESS"),new SimpleGrantedAuthority("ROLE_"+tenant.perfil().toUpperCase(Locale.ROOT)));
-                    SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user,null,roles));
+                    var authorities=new ArrayList<SimpleGrantedAuthority>();
+                    authorities.add(new SimpleGrantedAuthority("TENANT_ACCESS"));
+                    tenant.papeis().forEach(role -> authorities.add(
+                            new SimpleGrantedAuthority("ROLE_"+role.toUpperCase(Locale.ROOT))));
+                    tenant.permissoes().forEach(permission -> authorities.add(
+                            new SimpleGrantedAuthority("PERM_"+permission)));
+                    SecurityContextHolder.getContext().setAuthentication(
+                            new UsernamePasswordAuthenticationToken(user,null,authorities));
                 }
             }
             chain.doFilter(req,res);

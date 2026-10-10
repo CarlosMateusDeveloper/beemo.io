@@ -13,14 +13,14 @@ type Medico struct {
 	Especialidade string `json:"especialidade"`
 }
 
-func queryMedicos(db DBTX) ([]Medico, error) {
+func queryMedicos(db DBTX, idMedico int) ([]Medico, error) {
 	rows, err := db.Query(`
 		SELECT m.id_medico, m.nome, e.nome
 		FROM medico m
 		JOIN especialidade e ON e.id_especialidade = m.id_especialidade
-		WHERE m.status = 'ativo'
+		WHERE m.status = 'ativo' AND ($1 = 0 OR m.id_medico = $1)
 		ORDER BY m.nome
-	`)
+	`, idMedico)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func queryMedicos(db DBTX) ([]Medico, error) {
 }
 
 func (h *agendaHandler) listMedicos(w http.ResponseWriter, r *http.Request) {
-	medicos, err := queryMedicos(requestDB(r))
+	medicos, err := queryMedicos(requestDB(r), doctorID(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

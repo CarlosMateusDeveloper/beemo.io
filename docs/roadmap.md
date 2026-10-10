@@ -77,7 +77,7 @@ Três fontes de perda, **cada uma no seu módulo de origem** (sem tela consolida
 **Fase 0 — Fundação (antes de qualquer tela)**
 - **Multiempresa (multi-tenant)** — cada clínica enxerga só os próprios dados. Se o banco não nascer preparado, refazer depois é reescrever tudo. **Prioridade máxima.**
 - **Login, recuperação de senha e onboarding** — criar clínica, cadastrar médicos, horários, especialidades. Sem isso, nenhum cliente entra.
-- **Perfis e permissões** — ver issue própria. Cinco perfis (Recepção, Faturamento, Médico, Gestor, Dono) + Enfermagem quando o módulo clínico existir.
+- **Perfis e permissões** — quatro papéis cumulativos: Recepcionista, Médico, Financeiro e Administrador. O médico fica vinculado ao próprio cadastro profissional; o administrador só acessa prontuários quando recebe essa permissão explicitamente.
 - **Configurações** — usuários, horários, especialidades, tabelas de preço, modelos de mensagem.
 
 **Fase 1 — Fechar o módulo Operacional**

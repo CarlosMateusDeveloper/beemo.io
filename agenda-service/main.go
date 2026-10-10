@@ -31,21 +31,20 @@ func main() {
 	h := &agendaHandler{db: db, hub: newHub(allowedOrigin)}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /agendas", h.list)
-	mux.HandleFunc("GET /agendas/{id}", h.get)
-	mux.HandleFunc("POST /agendas", h.create)
-	mux.HandleFunc("PUT /agendas/{id}", h.update)
-	mux.HandleFunc("DELETE /agendas/{id}", h.delete)
+	mux.Handle("GET /agendas", requirePermission("agenda.visualizar", http.HandlerFunc(h.list)))
+	mux.Handle("GET /agendas/{id}", requirePermission("agenda.visualizar", http.HandlerFunc(h.get)))
+	mux.Handle("POST /agendas", requirePermission("agenda.gerenciar", http.HandlerFunc(h.create)))
+	mux.Handle("PUT /agendas/{id}", requirePermission("agenda.gerenciar", http.HandlerFunc(h.update)))
+	mux.Handle("DELETE /agendas/{id}", requirePermission("agenda.gerenciar", http.HandlerFunc(h.delete)))
 
-	mux.HandleFunc("GET /consultas", h.listConsultas)
-	mux.HandleFunc("GET /consultas/{id}", h.getConsulta)
-	mux.HandleFunc("POST /consultas", h.createConsulta)
-	mux.HandleFunc("PUT /consultas/{id}", h.updateConsulta)
+	mux.Handle("GET /consultas", requirePermission("agenda.visualizar", http.HandlerFunc(h.listConsultas)))
+	mux.Handle("GET /consultas/{id}", requirePermission("agenda.visualizar", http.HandlerFunc(h.getConsulta)))
+	mux.Handle("POST /consultas", requirePermission("agenda.gerenciar", http.HandlerFunc(h.createConsulta)))
+	mux.Handle("PUT /consultas/{id}", requirePermission("agenda.gerenciar", http.HandlerFunc(h.updateConsulta)))
 
-	mux.HandleFunc("GET /medicos", h.listMedicos)
-	mux.HandleFunc("GET /pacientes", h.listPacientes)
-
-	mux.HandleFunc("GET /ws/agenda", h.hub.serveWS)
+	mux.Handle("GET /medicos", requirePermission("medico.visualizar", http.HandlerFunc(h.listMedicos)))
+	mux.Handle("GET /pacientes", requirePermission("paciente.visualizar", http.HandlerFunc(h.listPacientes)))
+	mux.Handle("GET /ws/agenda", requirePermission("agenda.visualizar", http.HandlerFunc(h.hub.serveWS)))
 
 	port := env("AGENDA_SERVICE_PORT", "8081")
 	log.Printf("agenda-service ouvindo na porta %s (websocket em /ws/agenda)", port)

@@ -5,7 +5,7 @@ import { useTheme } from '../../theme/ThemeContext'
 import { useAuth } from '../../auth/AuthContext'
 import './UserMenu.css'
 
-const PERFIL_LABEL = { medico: 'Médico(a)', administrador: 'Administrador(a)' }
+const PERFIL_LABEL = { recepcionista: 'Recepcionista', medico: 'Médico(a)', financeiro: 'Financeiro', administrador: 'Administrador(a)' }
 
 
 function getInitials(name) {
@@ -74,7 +74,7 @@ export default function UserMenu() {
         <div className="user-menu-avatar">{getInitials(usuarioExibido.nome)}</div>
         <div className="user-menu-info">
           <div className="user-menu-name">{usuarioExibido.nome}</div>
-          <div className="user-menu-role">{PERFIL_LABEL[usuarioExibido.perfil] ?? usuarioExibido.perfil}</div>
+          <div className="user-menu-role">{(usuarioExibido.tenantAtivo?.papeis || [usuarioExibido.perfil]).map(role => PERFIL_LABEL[role] ?? role).join(' + ')}</div>
         </div>
         <ChevronsUpDown size={14} strokeWidth={2} className="user-menu-chevron" />
       </button>

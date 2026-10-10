@@ -22,7 +22,8 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 Em produção use HTTPS e `AUTH_SECURE_COOKIES=true`. O pool Hikari tem limite padrão de 10 conexões,
 configurável por `DB_POOL_MAX_SIZE`, com espera máxima de 30 segundos por conexão.
-Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard e depende da 012/013.
+Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard e a 015 cria
+os quatro papéis, permissões por membro, vínculo médico e log de auditoria. Ambas dependem da 012/013.
 Confira o procedimento de provisionamento do banco em `database/` antes de usar dados existentes.
 
 ```powershell

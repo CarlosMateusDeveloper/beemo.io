@@ -24,7 +24,7 @@ class SessionTest(unittest.TestCase):
     def test_valida_sessao_e_falha_fechada(self):
         for upstream, expected in [(200, 200), (401, 401), (403, 403), (500, 503)]:
             with patch('chatbot.auth.httpx.AsyncClient') as mock:
-                mock.return_value.__aenter__.return_value.request = AsyncMock(return_value=httpx.Response(upstream, json={'tenantAtivo': {'id': 7}} if upstream == 200 else {'code': 'csrf_invalid'}))
+                mock.return_value.__aenter__.return_value.request = AsyncMock(return_value=httpx.Response(upstream, json={'tenantAtivo': {'id': 7, 'permissoes': ['whatsapp.visualizar']}} if upstream == 200 else {'code': 'csrf_invalid'}))
                 r = self.client.get('/whatsapp/status', headers={'Authorization': 'Bearer test-session-only'})
                 self.assertEqual(r.status_code, expected)
 
@@ -37,7 +37,7 @@ class SessionTest(unittest.TestCase):
         self.client.cookies.set('clinicos_session', 'test-session')
         self.client.cookies.set('clinicos_csrf', 'test-csrf')
         with patch('chatbot.auth.httpx.AsyncClient') as mock:
-            upstream = AsyncMock(return_value=httpx.Response(200, json={'tenantAtivo': {'id': 7}}))
+            upstream = AsyncMock(return_value=httpx.Response(200, json={'tenantAtivo': {'id': 7, 'permissoes': ['whatsapp.enviar']}}))
             mock.return_value.__aenter__.return_value.request = upstream
             self.assertEqual(self.client.post('/whatsapp/send', headers={'X-CSRF-TOKEN': 'test-csrf'}).status_code, 200)
             args, kwargs = upstream.call_args
