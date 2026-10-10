@@ -52,6 +52,9 @@ Recursos operacionais: `GET|POST /api/pos-venda/tarefas`, `PUT /api/pos-venda/ta
 e status existem em `/jornadas` e `/campanhas`. Jornadas aceitam inscrições em
 `POST /api/pos-venda/jornadas/{id}/inscricoes`. Listagens usam `pagina` e `tamanho` (máximo 100).
 
+As fórmulas, fontes de verdade, recorte temporal e rastreabilidade dos indicadores estão em
+[`pos-venda-metricas.md`](pos-venda-metricas.md).
+
 Ações: `organizar`, `contato`, `reagendar`, `nao_deseja`, `nao_contatar`. Todas exigem `versao`. Recuperação não é uma ação manual da API: vem do status Realizada na consulta vinculada.
 
 ## Validação

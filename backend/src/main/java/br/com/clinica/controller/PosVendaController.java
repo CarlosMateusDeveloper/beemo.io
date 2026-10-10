@@ -5,7 +5,10 @@ import br.com.clinica.service.PosVendaService;
 import br.com.clinica.service.PosVendaIndicadoresService;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +37,28 @@ public class PosVendaController {
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate inicio,
             @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate fim) {
         return indicadores.calcular(inicio,fim);
+    }
+
+    @GetMapping("/indicadores/casos")
+    public Map<String,Object> casosIndicador(
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate fim,
+            @RequestParam String metrica,
+            @RequestParam(defaultValue="0") int pagina,
+            @RequestParam(defaultValue="25") int tamanho) {
+        return indicadores.casos(inicio,fim,metrica,pagina,tamanho);
+    }
+
+    @GetMapping(value="/indicadores/exportar", produces="text/csv;charset=UTF-8")
+    public ResponseEntity<String> exportarIndicador(
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate inicio,
+            @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate fim,
+            @RequestParam String metrica) {
+        String csv=indicadores.exportar(inicio,fim,metrica);
+        String nome=metrica.replaceAll("[^a-z0-9_-]", "");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=pos-venda-"+nome+".csv")
+                .contentType(new MediaType("text","csv",StandardCharsets.UTF_8)).body(csv);
     }
 
     @GetMapping("/responsaveis")
