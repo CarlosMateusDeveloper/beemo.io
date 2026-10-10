@@ -3,6 +3,7 @@ package br.com.clinica.controller;
 import br.com.clinica.model.Fatura;
 import br.com.clinica.repository.FaturaRepository;
 import br.com.clinica.service.FaturaEscritaService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,7 +53,11 @@ public class FaturaController {
     }
 
     @PutMapping("/{id}")
-    public Fatura atualizar(@PathVariable Integer id, @Valid @RequestBody Fatura dados) {
+    public Fatura atualizar(@PathVariable Integer id, @Valid @RequestBody Fatura dados,
+                            HttpServletRequest request) {
+        if ("estornado".equals(dados.getStatus())) {
+            request.setAttribute("clinicos.audit.action", "pagamento.estornar");
+        }
         return escritaService.atualizar(id, dados);
     }
 }

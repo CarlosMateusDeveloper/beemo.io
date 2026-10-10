@@ -62,16 +62,10 @@ public class TenantService {
         return accesses.isEmpty() ? null : accesses.getFirst();
     }
 
-    @Transactional
     public Access resolver(int user) {
-        db.queryForObject("SELECT pg_advisory_xact_lock(?)", Object.class, (long) user);
-        var existing = unico(user);
-        if (existing != null) return existing;
-        String name = "ClinicOS #" + user;
-        int tenant = db.queryForObject("INSERT INTO clinica(nome) VALUES (?) RETURNING id_clinica", Integer.class, name);
-        db.update("INSERT INTO tenant_membro(id_clinica,id_usuario,perfil) VALUES (?,?,'administrador')", tenant, user);
-        db.update("INSERT INTO tenant_membro_papel(id_clinica,id_usuario,papel) VALUES (?,?,'administrador')", tenant, user);
-        return acesso(user, tenant);
+        // Autenticar uma identidade nunca autoriza acesso a uma clínica.
+        // O vínculo nasce exclusivamente de convite/provisionamento administrativo.
+        return unico(user);
     }
 
     public Access atual(String sessionId, int user) {

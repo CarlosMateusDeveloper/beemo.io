@@ -22,8 +22,9 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 Em produção use HTTPS e `AUTH_SECURE_COOKIES=true`. O pool Hikari tem limite padrão de 10 conexões,
 configurável por `DB_POOL_MAX_SIZE`, com espera máxima de 30 segundos por conexão.
-Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard e a 015 cria
-os quatro papéis, permissões por membro, vínculo médico e log de auditoria. Ambas dependem da 012/013.
+Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard, a 015 cria
+os quatro papéis, permissões por membro, vínculo médico e log de auditoria, e a 016 persiste
+tarefas, jornadas e campanhas do pós-venda. Elas dependem da 012/013.
 Confira o procedimento de provisionamento do banco em `database/` antes de usar dados existentes.
 
 ```powershell
@@ -55,8 +56,9 @@ usam seus caminhos existentes; esta mudança não migra todo o backend.
 - Rotas privadas exigem sessão válida; falta/expiração/adulteração/revogação retornam 401.
   A autorização usa o perfil no tenant: `/api/usuarios/**` exige administrador,
   enquanto médico pode consultar o dashboard. Não há permissão global inferida pelo e-mail.
-- Uma identidade nova recebe um tenant próprio; identidades que já possuem vínculo continuam
-  no tenant existente. Assim, autenticar qualquer e-mail nunca concede acesso aos dados da clínica legada.
+- Uma identidade nova pode autenticar, mas permanece sem tenant e sem acesso aos módulos até
+  aceitar um convite ou ser provisionada pela administração. Autenticação nunca cria uma clínica
+  nem concede acesso aos dados de qualquer tenant.
 - Magic-link e Google/Microsoft continuam em funcionamento; detalhes em
   [configurar-acesso-sem-senha.md](../docs/specs/configurar-acesso-sem-senha.md).
 

@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,"/api/dashboard","/api/v1/dashboard")
                     .hasAnyAuthority("PERM_dashboard.operacional.visualizar","PERM_dashboard.financeiro.visualizar")
 
+                .requestMatchers(HttpMethod.GET,"/api/pacientes/cobranca").hasAuthority("PERM_paciente.financeiro.visualizar")
                 .requestMatchers(HttpMethod.GET,"/api/pacientes/**").hasAuthority("PERM_paciente.visualizar")
                 .requestMatchers(HttpMethod.POST,"/api/pacientes/**").hasAuthority("PERM_paciente.cadastrar")
                 .requestMatchers(HttpMethod.PUT,"/api/pacientes/**").hasAuthority("PERM_paciente.editar")
@@ -97,6 +98,15 @@ public class SecurityConfig {
 
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/reguas/**").hasAuthority("PERM_jornada.configurar")
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/modelos/**").hasAuthority("PERM_campanha.configurar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/tarefas/**").hasAuthority("PERM_tarefa.visualizar")
+                .requestMatchers("/api/pos-venda/tarefas/**").hasAuthority("PERM_tarefa.gerenciar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/jornadas/**")
+                    .hasAnyAuthority("PERM_jornada.executar","PERM_jornada.configurar")
+                .requestMatchers(HttpMethod.POST,"/api/pos-venda/jornadas/*/inscricoes").hasAuthority("PERM_jornada.executar")
+                .requestMatchers("/api/pos-venda/jornadas/**").hasAuthority("PERM_jornada.configurar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/campanhas/**")
+                    .hasAnyAuthority("PERM_campanha.executar","PERM_campanha.configurar")
+                .requestMatchers("/api/pos-venda/campanhas/**").hasAuthority("PERM_campanha.configurar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/**","/api/retorno/**").hasAuthority("PERM_oportunidade.visualizar")
                 .requestMatchers("/api/pos-venda/**","/api/retorno/**").hasAuthority("PERM_oportunidade.gerenciar")
                 .anyRequest().denyAll())
