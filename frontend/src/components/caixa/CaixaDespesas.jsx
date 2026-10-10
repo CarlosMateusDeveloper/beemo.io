@@ -7,6 +7,7 @@ import {
   brl, PERIODOS, CATEGORIAS_DESPESA, categoriaDespesaLabel, statusDespesaMeta,
 } from './caixaData'
 import './caixa.css'
+import { usePermissions } from '../../auth/permissions'
 
 const STATUS_FILTRO = [
   { valor: '', rotulo: 'Todas' },
@@ -18,6 +19,7 @@ const STATUS_FILTRO = [
 const FORM_VAZIO = { descricao: '', categoria: 'outros', valor: '', vencimento: '', fornecedor: '', observacoes: '' }
 
 export function CaixaDespesas() {
+  const { can } = usePermissions()
   const [periodo, setPeriodo] = useState('Últimos 30 dias')
   const [status, setStatus] = useState('')
   const [categoria, setCategoria] = useState('')
@@ -182,7 +184,7 @@ export function CaixaDespesas() {
                       <td style={{ padding: '12px 16px' }}>{d.vencimentoTxt}</td>
                       <td style={{ padding: '12px 16px' }}><span className={`caixa-badge ${meta.cls}`}>{meta.rotulo}</span></td>
                       <td style={{ padding: '12px 16px' }}>
-                        {d.status === 'pendente' && (
+                        {can('despesa.aprovar') && d.status === 'pendente' && (
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             <button type="button" className="caixa-btn-ghost" style={{ height: 28, padding: '0 10px', fontSize: 12 }} onClick={() => { setAlvoPagamento(d); setDataPagamento(new Date().toISOString().slice(0, 10)) }}>Marcar paga</button>
                             <button type="button" className="caixa-btn-ghost" style={{ height: 28, padding: '0 10px', fontSize: 12 }} onClick={() => cancelar(d)}>Cancelar</button>

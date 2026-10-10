@@ -10,6 +10,7 @@ import {
   statusGlosaMeta, STATUS_GLOSA_TERMINAIS, statusRecursoMeta, STATUS_RECURSO_EDITAVEIS, TIPOS_DOCUMENTO_RECURSO,
 } from './conveniosData'
 import './convenios.css'
+import { usePermissions } from '../../auth/permissions'
 
 const DOSSIE_ITENS = [
   { chave: 'prontuario', rotulo: 'Prontuário' },
@@ -19,6 +20,7 @@ const DOSSIE_ITENS = [
 ]
 
 export default function GlosaDetalhePagina() {
+  const { can } = usePermissions()
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -184,7 +186,7 @@ export default function GlosaDetalhePagina() {
               />
             )}
 
-            {glosa.status !== 'recurso_enviado' && (
+            {can('glosa.aceitar_perda') && glosa.status !== 'recurso_enviado' && (
               <div className="convenios-sub">
                 {!confirmandoPerda ? (
                   <button type="button" className="convenios-btn-ghost" onClick={() => setConfirmandoPerda(true)}>Aceitar perda</button>

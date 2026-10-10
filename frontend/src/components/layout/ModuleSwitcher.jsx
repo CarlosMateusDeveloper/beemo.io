@@ -2,19 +2,25 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ChevronsUpDown, HeartHandshake, LayoutDashboard, Wallet } from 'lucide-react'
 import './ModuleSwitcher.css'
+import { usePermissions } from '../../auth/permissions'
 
 const MODULES = [
-  { id: 'clinicos', label: 'ClinicOS', description: 'Gestão da clínica', to: '/dashboard', icon: LayoutDashboard },
-  { id: 'pos-venda', label: 'Pós-venda', description: 'Pós-atendimento e retenção', to: '/pos-venda', icon: HeartHandshake },
-  { id: 'financeiro', label: 'Financeiro', description: 'Caixa, resultados e despesas', to: '/caixa', icon: Wallet },
+  { id: 'clinicos', label: 'ClinicOS', description: 'Gestão da clínica', to: '/dashboard', icon: LayoutDashboard,
+    permissions: ['dashboard.operacional.visualizar', 'agenda.visualizar', 'paciente.visualizar', 'prontuario.visualizar', 'medico.visualizar'] },
+  { id: 'pos-venda', label: 'Pós-venda', description: 'Pós-atendimento e retenção', to: '/pos-venda', icon: HeartHandshake,
+    permissions: ['oportunidade.visualizar', 'tarefa.visualizar', 'jornada.executar', 'campanha.executar'] },
+  { id: 'financeiro', label: 'Financeiro', description: 'Caixa, resultados e despesas', to: '/caixa', icon: Wallet,
+    permissions: ['caixa.visualizar', 'financeiro.dre.visualizar', 'despesa.visualizar', 'convenio.gerenciar'] },
 ]
 
 export default function ModuleSwitcher({ activeModule }) {
+  const { canAny } = usePermissions()
+  const availableModules = MODULES.filter(module => canAny(module.permissions))
   const [open, setOpen] = useState(false)
   const container = useRef(null)
   const trigger = useRef(null)
   const popoverId = useId()
-  const current = MODULES.find(module => module.id === activeModule) || MODULES[0]
+  const current = availableModules.find(module => module.id === activeModule) || availableModules[0] || MODULES[0]
   const CurrentIcon = current.icon
 
   useEffect(() => {
@@ -48,7 +54,7 @@ export default function ModuleSwitcher({ activeModule }) {
     </button>
     {open && <nav id={popoverId} className="module-switcher-popover" aria-label="Módulos do sistema">
       <p className="module-switcher-heading">Módulos</p>
-      {MODULES.map(({ id, label, description, to, icon: Icon }) => <Link key={id} to={to}
+      {availableModules.map(({ id, label, description, to, icon: Icon }) => <Link key={id} to={to}
         className={`module-switcher-option${id === activeModule ? ' selected' : ''}`}
         aria-current={id === activeModule ? 'true' : undefined} onClick={() => setOpen(false)}>
         <Icon size={19} aria-hidden="true" />

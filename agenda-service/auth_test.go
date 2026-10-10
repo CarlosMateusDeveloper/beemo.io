@@ -22,7 +22,7 @@ func TestSessionProtection(t *testing.T) {
 			return
 		}
 		w.WriteHeader(200)
-		fmt.Fprint(w, `{"tenantAtivo":{"id":7}}`)
+		fmt.Fprint(w, `{"tenantAtivo":{"id":7,"permissoes":["agenda.visualizar","agenda.gerenciar"]}}`)
 	}))
 	defer upstream.Close()
 	t.Setenv("AUTH_API_URL", upstream.URL)

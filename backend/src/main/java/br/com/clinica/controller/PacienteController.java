@@ -10,6 +10,8 @@ import br.com.clinica.service.PacienteBuscaService;
 import br.com.clinica.service.PacienteFilaService;
 import br.com.clinica.service.PacienteKpiService;
 import br.com.clinica.service.PacienteListagemService;
+import br.com.clinica.service.AccessControlService;
+import br.com.clinica.service.ClinicalScopeService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,17 +32,21 @@ public class PacienteController {
     private final PacienteListagemService listagemService;
     private final PacienteFilaService filaService;
     private final PacienteBuscaService buscaService;
+    private final AccessControlService access;
+    private final ClinicalScopeService scope;
 
     public PacienteController(
             PacienteRepository repository, PacienteKpiService kpiService,
             PacienteListagemService listagemService, PacienteFilaService filaService,
-            PacienteBuscaService buscaService
+            PacienteBuscaService buscaService, AccessControlService access, ClinicalScopeService scope
     ) {
         this.repository = repository;
         this.kpiService = kpiService;
         this.listagemService = listagemService;
         this.filaService = filaService;
         this.buscaService = buscaService;
+        this.access = access;
+        this.scope = scope;
     }
 
     // Issue #11: "listar (paginado, com busca por nome/CPF/telefone)" — cpf
@@ -56,6 +62,7 @@ public class PacienteController {
 
     @GetMapping("/kpis")
     public PacientesKpisResponse kpis() {
+        if (access.patientDoctorId() != null) throw AccessControlService.forbidden();
         return kpiService.calcular();
     }
 
@@ -79,16 +86,19 @@ public class PacienteController {
             @RequestParam(defaultValue = "desc") String direcao,
             @PageableDefault(size = 20) Pageable pageable
     ) {
+        if (access.patientDoctorId() != null) throw AccessControlService.forbidden();
         return listagemService.paginar(busca, status, filtroKpi, convenio, ordem, direcao, pageable);
     }
 
     @GetMapping("/fila")
     public List<PacienteFilaItemDto> fila() {
+        if (access.patientDoctorId() != null) throw AccessControlService.forbidden();
         return filaService.listarHoje();
     }
 
     @GetMapping("/{id}")
     public Paciente buscar(@PathVariable Integer id) {
+        scope.patient(id);
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }

@@ -9,6 +9,7 @@ import DashboardNovosRetornos from './DashboardNovosRetornos'
 import { fetchDashboard, fetchMedicos } from './api'
 import { brl, fInt, pct } from './dashboardData'
 import './dashboard.css'
+import { usePermissions } from '../../auth/permissions'
 
 function iniciaisDe(nome) {
   return nome.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
@@ -23,26 +24,25 @@ function mapearResposta(resp) {
   const hoje = resp.hoje ?? HOJE_VAZIO
   if (resp.empty) return { empty: true, hoje }
 
-  const noShowCor = resp.noShow.percentual > 20 ? 'danger' : resp.noShow.percentual >= 10 ? 'warning' : 'neutral'
+  const noShowCor = resp.noShow?.percentual > 20 ? 'danger' : resp.noShow?.percentual >= 10 ? 'warning' : 'neutral'
   const maxFaturamento = Math.max(1, ...resp.ranking.map((r) => r.faturamento || 0))
-
-  const maxTipo = Math.max(1, ...resp.pagador.porTipo.map((t) => t.faturamento || 0))
-  const partPct = 100 - resp.pagador.convenioPercentual
+  const maxTipo = Math.max(1, ...(resp.pagador?.porTipo || []).map((t) => t.faturamento || 0))
+  const partPct = resp.pagador ? 100 - resp.pagador.convenioPercentual : 0
 
   return {
     empty: false,
     hoje,
     kpi: {
-      faturamento: {
+      faturamento: resp.faturamento == null ? null : {
         valorTxt: brl(resp.faturamento),
         apoio: `${resp.totalConsultas} ${resp.totalConsultas === 1 ? 'consulta' : 'consultas'} faturáveis no período`,
       },
-      ocupacao: {
+      ocupacao: resp.ocupacao == null ? null : {
         valorTxt: pct(resp.ocupacao.percentual, 0),
         barraPct: `${Math.min(100, resp.ocupacao.percentual).toFixed(1)}%`,
         apoio: `${fInt(resp.ocupacao.preenchidos)} de ${fInt(resp.ocupacao.totalSlots)} horários preenchidos`,
       },
-      noShow: {
+      noShow: resp.noShow == null ? null : {
         valorTxt: pct(resp.noShow.percentual),
         apoio: `${fInt(resp.noShow.faltas)} faltas no período`,
         cor: noShowCor,
@@ -59,7 +59,7 @@ function mapearResposta(resp) {
       barraPct: `${((r.faturamento || 0) / maxFaturamento * 100).toFixed(0)}%`,
     })),
     novosRetornos: resp.novosRetornos,
-    pagador: {
+    pagador: resp.pagador ? {
       convPct: resp.pagador.convenioPercentual,
       convPctTxt: pct(resp.pagador.convenioPercentual, 0),
       partPct,
@@ -71,7 +71,7 @@ function mapearResposta(resp) {
         valorTxt: brl(t.faturamento),
         barraPct: `${((t.faturamento || 0) / maxTipo * 100).toFixed(0)}%`,
       })),
-    },
+    } : null,
     faturamentoSerie: resp.serieTemporal,
     faturamentoUnidade: resp.serieUnidade,
   }
@@ -86,6 +86,9 @@ function hojeISO() {
 }
 
 export function Dashboard() {
+  const { can } = usePermissions()
+  const showOperational = can('dashboard.operacional.visualizar')
+  const showFinancial = can('dashboard.financeiro.visualizar')
   const [periodo, setPeriodo] = useState('Mês')
   const [profissionalId, setProfissionalId] = useState('todos')
   const [profissionais, setProfissionais] = useState([])
@@ -139,24 +142,25 @@ export function Dashboard() {
       <DashboardKpis
         carregando={carregando} vazio={!carregando && vazio} dados={dados.kpi}
         carregandoHoje={carregando} hoje={dados.hoje}
+        showOperational={showOperational} showFinancial={showFinancial}
       />
 
-      <div className="dashboard-row-full">
+      {showOperational && <div className="dashboard-row-full">
         <DashboardProximas carregando={carregando} proximas={dados.hoje.proximas} />
-      </div>
+      </div>}
 
-      <div className="dashboard-row-mid">
+      {showFinancial && <div className="dashboard-row-mid">
         <DashboardFaturamento
           carregando={carregando} empty={vazio}
           unidade={dados.faturamentoUnidade} serie={dados.faturamentoSerie}
         />
         <DashboardPagador carregando={carregando} empty={vazio} dados={dados.pagador} />
-      </div>
+      </div>}
 
-      <div className="dashboard-row-bottom">
+      {showOperational && <div className="dashboard-row-bottom">
         <DashboardRanking carregando={carregando} empty={vazio} linhas={dados.ranking || []} />
         <DashboardNovosRetornos carregando={carregando} empty={vazio} dados={dados.novosRetornos} />
-      </div>
+      </div>}
     </div>
   )
 }

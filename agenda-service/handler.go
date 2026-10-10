@@ -33,6 +33,13 @@ func (h *agendaHandler) list(w http.ResponseWriter, r *http.Request) {
 		}
 		idMedico = parsed
 	}
+	if own := doctorID(r); own > 0 {
+		if idMedico > 0 && idMedico != own {
+			writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+			return
+		}
+		idMedico = own
+	}
 
 	agendas, err := listAgendas(requestDB(r), idMedico)
 	if err != nil {
@@ -58,6 +65,10 @@ func (h *agendaHandler) get(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if own := doctorID(r); own > 0 && agenda.IDMedico != own {
+		writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+		return
+	}
 	writeJSON(w, http.StatusOK, agenda)
 }
 
@@ -72,6 +83,10 @@ func (h *agendaHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := a.validate(); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if own := doctorID(r); own > 0 && a.IDMedico != own {
+		writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
 		return
 	}
 
@@ -101,6 +116,10 @@ func (h *agendaHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if own := doctorID(r); own > 0 && a.IDMedico != own {
+		writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+		return
+	}
 
 	if err := updateAgenda(requestDB(r), &a); err != nil {
 		if errors.Is(err, errNotFound) {
@@ -120,6 +139,13 @@ func (h *agendaHandler) delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "id inválido")
 		return
+	}
+	if own := doctorID(r); own > 0 {
+		agenda, findErr := getAgenda(requestDB(r), id)
+		if findErr != nil || agenda.IDMedico != own {
+			writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+			return
+		}
 	}
 
 	if err := deleteAgenda(requestDB(r), id); err != nil {

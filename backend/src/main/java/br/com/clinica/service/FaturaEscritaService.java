@@ -21,10 +21,13 @@ public class FaturaEscritaService {
 
     private final FaturaRepository repository;
     private final EntityManager entityManager;
+    private final AccessControlService access;
 
-    public FaturaEscritaService(FaturaRepository repository, EntityManager entityManager) {
+    public FaturaEscritaService(FaturaRepository repository, EntityManager entityManager,
+                                AccessControlService access) {
         this.repository = repository;
         this.entityManager = entityManager;
+        this.access = access;
     }
 
     @Transactional
@@ -36,6 +39,7 @@ public class FaturaEscritaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Essa consulta já tem fatura");
         }
         String status = validarStatus(dados.getStatus() == null ? "pendente" : dados.getStatus());
+        exigirPermissaoEstorno(status);
 
         entityManager.createNativeQuery(
                 "INSERT INTO fatura (id_consulta, valor, status, vencimento) " +
@@ -56,6 +60,7 @@ public class FaturaEscritaService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         String status = validarStatus(dados.getStatus());
+        exigirPermissaoEstorno(status);
 
         entityManager.createNativeQuery(
                 "UPDATE fatura SET valor = :valor, status = CAST(:status AS status_pagamento), vencimento = :vencimento " +
@@ -76,5 +81,9 @@ public class FaturaEscritaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status inválido: " + status);
         }
         return status;
+    }
+
+    private void exigirPermissaoEstorno(String status) {
+        if ("estornado".equals(status)) access.require("pagamento.estornar");
     }
 }

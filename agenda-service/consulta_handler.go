@@ -25,6 +25,13 @@ func (h *agendaHandler) listConsultas(w http.ResponseWriter, r *http.Request) {
 		}
 		idMedico = parsed
 	}
+	if own := doctorID(r); own > 0 {
+		if idMedico > 0 && idMedico != own {
+			writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+			return
+		}
+		idMedico = own
+	}
 
 	consultas, err := queryConsultas(requestDB(r), idMedico)
 	if err != nil {
@@ -50,6 +57,10 @@ func (h *agendaHandler) getConsulta(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if own := doctorID(r); own > 0 && c.IDMedico != own {
+		writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+		return
+	}
 	writeJSON(w, http.StatusOK, c)
 }
 
@@ -72,6 +83,10 @@ func (h *agendaHandler) createConsulta(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if own := doctorID(r); own > 0 && in.IDMedico != own {
+		writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+		return
+	}
 
 	c, err := insertConsulta(requestDB(r), in)
 	if err != nil {
@@ -88,6 +103,13 @@ func (h *agendaHandler) updateConsulta(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "id inválido")
 		return
+	}
+	if own := doctorID(r); own > 0 {
+		current, findErr := queryConsulta(requestDB(r), id)
+		if findErr != nil || current.IDMedico != own {
+			writeError(w, http.StatusForbidden, "Acesso restrito à própria agenda")
+			return
+		}
 	}
 
 	var in updateConsultaInput

@@ -1,7 +1,7 @@
 """Valida sessão e CSRF dos operadores no backend do clinicOS."""
 import os
 import httpx
-from chatbot.tenant import current_tenant
+from chatbot.tenant import current_tenant, current_permissions
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -31,13 +31,21 @@ class SessionMiddleware(BaseHTTPMiddleware):
         except (httpx.HTTPError, ValueError):
             return JSONResponse({'detail': 'Não foi possível validar a sessão.'}, status_code=503)
         try:
-            tenant = response.json().get('tenantAtivo', {}).get('id')
+            active = response.json().get('tenantAtivo', {})
+            tenant = active.get('id')
+            permissions = active.get('permissoes', [])
         except (ValueError, AttributeError):
             tenant = None
         if not isinstance(tenant, int) or isinstance(tenant, bool) or tenant < 1:
             return JSONResponse({'code': 'tenant_required', 'detail': 'Selecione uma clínica autorizada.'}, status_code=403)
+        required = 'whatsapp.configurar' if request.url.path.startswith('/whatsapp/assistente') and request.method not in ('GET', 'HEAD') else (
+            'whatsapp.visualizar' if request.method in ('GET', 'HEAD') else 'whatsapp.enviar')
+        if required not in permissions:
+            return JSONResponse({'code': 'forbidden', 'detail': 'Seu perfil não tem permissão para esta ação.'}, status_code=403)
         marker = current_tenant.set(tenant)
+        permissions_marker = current_permissions.set(frozenset(permissions))
         try:
             return await call_next(request)
         finally:
+            current_permissions.reset(permissions_marker)
             current_tenant.reset(marker)

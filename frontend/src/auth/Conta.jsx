@@ -3,6 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { apiRequest } from '../lib/apiClient'
 import './Conta.css'
+import MembrosTenant from './MembrosTenant'
+import AuditoriaAcesso from './AuditoriaAcesso'
+import { hasPermission } from './permissions'
 
 export default function Conta() {
   const { usuario } = useAuth()
@@ -40,5 +43,8 @@ export default function Conta() {
       <span>{provider.nome}</span>
       {linked.includes(provider.id) ? <strong>Vinculada</strong> : <button disabled={!!busy} onClick={() => vincular(provider.id)}>{busy === provider.id ? 'Conectando…' : 'Vincular conta'}</button>}
     </div>)}
+    {usuario.tenantAtivo && hasPermission(usuario, 'usuario.gerenciar') && <MembrosTenant tenant={usuario.tenantAtivo} />}
+    {usuario.tenantAtivo && hasPermission(usuario, ['auditoria.visualizar', 'auditoria.financeira.visualizar'])
+      && <AuditoriaAcesso tenant={usuario.tenantAtivo} />}
   </section>
 }

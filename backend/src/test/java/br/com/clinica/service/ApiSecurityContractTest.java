@@ -33,7 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.jwt.secret=test-secret-32-bytes-long-123456789", "app.jwt.expiration-minutes=30"
 })
 @Import({SecurityConfig.class, JwtAuthFilter.class, AuthService.class, SessionService.class, JwtService.class,
-    SessionCookies.class, AuthRateLimiter.class, RequestLoggingFilter.class, DashboardErrors.class})
+    SessionCookies.class, AuthRateLimiter.class, RequestLoggingFilter.class, DashboardErrors.class,
+    AccessControlService.class, ClinicalScopeService.class, ClinicalLegacyScopeFilter.class,
+    AccessAuditService.class, AccessAuditFilter.class})
 @ImportAutoConfiguration({MetricsAutoConfiguration.class, SimpleMetricsExportAutoConfiguration.class,
     ObservationAutoConfiguration.class, WebMvcObservationAutoConfiguration.class})
 class ApiSecurityContractTest {
@@ -98,12 +100,14 @@ class ApiSecurityContractTest {
         mvc.perform(get("/api/usuarios").header("Authorization", "Bearer " + token)).andExpect(status().isUnauthorized());
     }
     @Test void medicoNaoPodeAdministrarUsuariosMasPodeConsultarDashboard() throws Exception {
-        when(tenants.resolver(10)).thenReturn(new TenantService.Access(2, "Clínica teste", "medico"));
+        when(tenants.resolver(10)).thenReturn(new TenantService.Access(2, "Clínica teste", "medico",
+                List.of("medico"), PermissionCatalog.defaultsFor(Set.of("medico")), 7));
         String token = jwt.gerar(user);
         mvc.perform(get("/api/usuarios").header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/alergias").header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/dashboard").with(csrf()).header("Authorization", "Bearer " + token))
             .andExpect(status().isOk()).andExpect(header().exists("X-Request-ID"));
-        verify(dashboard).calcular(new DashboardRequest("Mês", null, null, null));
+        verify(dashboard).calcular(new DashboardRequest("Mês", 7, null, null));
     }
     @Test void dashboardRejeitaAnonimoEJsonInvalidoComErroCorrelacionado() throws Exception {
         mvc.perform(post("/api/v1/dashboard").with(csrf())).andExpect(status().isUnauthorized());

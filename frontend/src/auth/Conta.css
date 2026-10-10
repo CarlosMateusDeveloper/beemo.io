@@ -5,3 +5,11 @@
 .conta-provider { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-top: 1px solid #8884; }
 .conta-provider button { padding: 10px 16px; border-radius: 8px; cursor: pointer; }
 .conta-card [role="alert"] { color: #d84a4a; }
+.access-audit-table-wrap { overflow-x: auto; }
+.access-audit table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.access-audit th, .access-audit td { padding: 10px 8px; border-bottom: 1px solid #8883; text-align: left; vertical-align: top; }
+.access-audit th { color: var(--text-secondary, #667085); font-size: 11px; text-transform: uppercase; }
+.access-audit td small { display: block; margin-top: 3px; color: var(--text-secondary, #667085); }
+.audit-ok, .audit-denied { display: inline-flex; padding: 2px 7px; border-radius: 999px; font-weight: 700; }
+.audit-ok { color: #067647; background: #ecfdf3; }
+.audit-denied { color: #b42318; background: #fef3f2; }

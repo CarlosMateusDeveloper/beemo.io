@@ -34,9 +34,11 @@ public class PacienteListagemService {
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     private final EntityManager entityManager;
+    private final AccessControlService access;
 
-    public PacienteListagemService(EntityManager entityManager) {
+    public PacienteListagemService(EntityManager entityManager, AccessControlService access) {
         this.entityManager = entityManager;
+        this.access = access;
     }
 
     public List<PacienteListagemItemDto> listar() {
@@ -102,11 +104,15 @@ public class PacienteListagemService {
         LocalDate hoje = LocalDate.now();
         Map<Integer, Linha> porPaciente = new LinkedHashMap<>();
 
+        Integer medicoId = access.patientDoctorId();
         Query base = entityManager.createNativeQuery(
                 "SELECT p.id_paciente, p.nome, p.cpf, p.ddd, p.numero, p.data_nascimento, cv.nome, " +
                         "  EXISTS(SELECT 1 FROM documento_anexo d WHERE d.id_paciente = p.id_paciente) " +
-                        "FROM paciente p LEFT JOIN convenio cv ON cv.id_convenio = p.id_convenio"
+                        "FROM paciente p LEFT JOIN convenio cv ON cv.id_convenio = p.id_convenio " +
+                        "WHERE (CAST(:medicoId AS INTEGER) IS NULL OR EXISTS(SELECT 1 FROM consulta c " +
+                        "JOIN agenda a ON a.id_agenda=c.id_agenda WHERE c.id_paciente=p.id_paciente AND a.id_medico=:medicoId))"
         );
+        base.setParameter("medicoId", medicoId);
         for (Object[] l : (List<Object[]>) base.getResultList()) {
             Linha linha = new Linha();
             linha.id = ((Number) l[0]).intValue();
@@ -125,11 +131,13 @@ public class PacienteListagemService {
                         "  SELECT DISTINCT ON (c.id_paciente) c.id_paciente, a.data_slot, a.id_medico " +
                         "  FROM consulta c JOIN agenda a ON a.id_agenda = c.id_agenda " +
                         "  WHERE a.data_slot <= :hoje AND c.status_consulta <> 'Cancelada' " +
+                        "    AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico=:medicoId) " +
                         "  ORDER BY c.id_paciente, a.data_slot DESC" +
                         ") ultima JOIN medico m ON m.id_medico = ultima.id_medico " +
                         "JOIN especialidade e ON e.id_especialidade = m.id_especialidade"
         );
         ultima.setParameter("hoje", hoje);
+        ultima.setParameter("medicoId", medicoId);
         for (Object[] l : (List<Object[]>) ultima.getResultList()) {
             Linha linha = porPaciente.get(((Number) l[0]).intValue());
             if (linha == null) continue;
@@ -141,11 +149,13 @@ public class PacienteListagemService {
                 "SELECT DISTINCT ON (c.id_paciente) c.id_paciente, a.data_slot, a.hora_slot " +
                         "FROM consulta c JOIN agenda a ON a.id_agenda = c.id_agenda " +
                         "WHERE c.status_consulta IN ('Agendada', 'Confirmada') " +
+                        "  AND (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico=:medicoId) " +
                         "  AND (a.data_slot > :hoje OR (a.data_slot = :hoje AND a.hora_slot >= :agora)) " +
                         "ORDER BY c.id_paciente, a.data_slot ASC, a.hora_slot ASC"
         );
         proxima.setParameter("hoje", hoje);
         proxima.setParameter("agora", LocalTime.now());
+        proxima.setParameter("medicoId", medicoId);
         for (Object[] l : (List<Object[]>) proxima.getResultList()) {
             Linha linha = porPaciente.get(((Number) l[0]).intValue());
             if (linha == null) continue;

@@ -20,9 +20,11 @@ public class ProntuarioListagemService {
     private static final DateTimeFormatter DIA_MES = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final EntityManager entityManager;
+    private final AccessControlService access;
 
-    public ProntuarioListagemService(EntityManager entityManager) {
+    public ProntuarioListagemService(EntityManager entityManager, AccessControlService access) {
         this.entityManager = entityManager;
+        this.access = access;
     }
 
     @SuppressWarnings("unchecked")
@@ -36,12 +38,14 @@ public class ProntuarioListagemService {
                         "  FROM consulta c " +
                         "  JOIN agenda a ON a.id_agenda = c.id_agenda " +
                         "  JOIN prontuario pron ON pron.id_consulta = c.id_consulta " +
+                        "  WHERE (CAST(:medicoId AS INTEGER) IS NULL OR a.id_medico = :medicoId) " +
                         "  ORDER BY c.id_paciente, a.data_slot DESC, a.hora_slot DESC" +
                         ") ultima " +
                         "JOIN paciente p ON p.id_paciente = ultima.id_paciente " +
                         "JOIN medico m ON m.id_medico = ultima.id_medico " +
                         "JOIN prontuario pr ON pr.id_consulta = ultima.id_consulta"
         );
+        query.setParameter("medicoId", access.clinicalDoctorId());
 
         List<ProntuarioListagemItemDto> resultado = new ArrayList<>();
         for (Object[] l : (List<Object[]>) query.getResultList()) {

@@ -18,6 +18,7 @@ import java.util.Set;
 @Service
 public class PosVendaService {
     private final JdbcTemplate db;
+    private final AccessControlService access;
     @Value("${app.clinic.time-zone:America/Fortaleza}")
     private String clinicTimeZone = "America/Fortaleza";
     private static final Set<String> FECHADOS = Set.of("recuperado", "nao_deseja", "nao_contatar", "registro_corrigido");
@@ -47,7 +48,7 @@ public class PosVendaService {
                 (SELECT count(*) FROM pos_venda_evento ev WHERE ev.id_caso = pv.id AND ev.tipo = 'contato') AS tentativas
             """;
 
-    public PosVendaService(JdbcTemplate db) { this.db = db; }
+    public PosVendaService(JdbcTemplate db, AccessControlService access) { this.db = db; this.access = access; }
 
     public Map<String, Object> listar(String status, String busca, Integer responsavel, int pagina, String fila) {
         if (pagina < 0 || pagina > 100000) throw erro("Página inválida");
@@ -55,7 +56,8 @@ public class PosVendaService {
         String filtro = " WHERE (? = 'todos' OR (? = 'abertos' AND pv.status NOT IN " +
                 "('recuperado','nao_deseja','nao_contatar','registro_corrigido')) OR pv.status = ?) " +
                 "AND (? = '' OR strpos(lower(p.nome), lower(?)) > 0 OR strpos(concat(p.ddd,p.numero), ?) > 0) " +
-                "AND (? = 0 OR pv.id_responsavel = ?) ";
+                "AND (? = 0 OR pv.id_responsavel = ?) " +
+                "AND (CAST(? AS INTEGER) IS NULL OR a.id_medico = ?) ";
         String ativos = "pv.status IN ('pendente','em_contato','sem_resposta','nova_falta','reagendado')";
         filtro += switch (fila) {
             case "todos" -> "";
@@ -66,7 +68,9 @@ public class PosVendaService {
         };
         String termo = busca == null ? "" : busca.trim();
         int dono = responsavel == null ? 0 : responsavel;
-        var params = new java.util.ArrayList<Object>(List.of(status,status,status,termo,termo,termo,dono,dono));
+        Integer medico = access.clinicalDoctorId();
+        var params = new java.util.ArrayList<Object>();
+        java.util.Collections.addAll(params,status,status,status,termo,termo,termo,dono,dono,medico,medico);
         if (fila.equals("conferir_agenda")) params.add(clinicTimeZone);
         Long total = db.queryForObject("SELECT count(*) " + FROM + filtro, Long.class, params.toArray());
         params.add(pagina * 50);
@@ -86,7 +90,9 @@ public class PosVendaService {
     }
 
     public Map<String,Object> detalhe(long id) {
-        Map<String,Object> caso = db.queryForList(SELECT + FROM + " WHERE pv.id = ?", id).stream().findFirst()
+        Integer medico = access.clinicalDoctorId();
+        Map<String,Object> caso = db.queryForList(SELECT + FROM +
+                        " WHERE pv.id = ? AND (CAST(? AS INTEGER) IS NULL OR a.id_medico=?)", id,medico,medico).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Caso não encontrado"));
         List<Map<String,Object>> historico = db.queryForList("""
                 SELECT ev.id, ev.criado_em::text, ev.tipo, ev.canal, ev.descricao, u.nome AS autor
@@ -113,7 +119,10 @@ public class PosVendaService {
     }
 
     public List<Map<String,Object>> responsaveis() {
-        return db.queryForList("SELECT u.id,u.nome FROM usuario u JOIN tenant_membro m ON m.id_usuario=u.id WHERE m.id_clinica=nullif(current_setting('app.tenant_id',true),'')::integer AND m.ativo AND m.perfil='administrador' ORDER BY u.nome");
+        return db.queryForList("SELECT DISTINCT u.id,u.nome FROM usuario u JOIN tenant_membro m ON m.id_usuario=u.id "
+                + "JOIN tenant_membro_papel p USING(id_clinica,id_usuario) "
+                + "WHERE m.id_clinica=nullif(current_setting('app.tenant_id',true),'')::integer AND m.ativo "
+                + "AND p.papel IN ('recepcionista','administrador') ORDER BY u.nome");
     }
 
     @Transactional
@@ -186,7 +195,9 @@ public class PosVendaService {
 
     private void validarResponsavel(Integer id) {
         if (id == null || !Boolean.TRUE.equals(db.queryForObject(
-                "SELECT EXISTS(SELECT 1 FROM tenant_membro WHERE id_usuario=? AND id_clinica=nullif(current_setting('app.tenant_id',true),'')::integer AND ativo AND perfil='administrador')",Boolean.class,id))) {
+                "SELECT EXISTS(SELECT 1 FROM tenant_membro m JOIN tenant_membro_papel p USING(id_clinica,id_usuario) "
+                        + "WHERE m.id_usuario=? AND m.id_clinica=nullif(current_setting('app.tenant_id',true),'')::integer "
+                        + "AND m.ativo AND p.papel IN ('recepcionista','administrador'))",Boolean.class,id))) {
             throw erro("Selecione um responsável administrativo");
         }
     }

@@ -12,8 +12,10 @@ type Paciente struct {
 	Nome string `json:"nome"`
 }
 
-func queryPacientes(db DBTX) ([]Paciente, error) {
-	rows, err := db.Query(`SELECT id_paciente, nome FROM paciente ORDER BY nome`)
+func queryPacientes(db DBTX, idMedico int) ([]Paciente, error) {
+	rows, err := db.Query(`SELECT p.id_paciente, p.nome FROM paciente p
+		WHERE ($1 = 0 OR EXISTS(SELECT 1 FROM consulta c JOIN agenda a ON a.id_agenda=c.id_agenda
+			WHERE c.id_paciente=p.id_paciente AND a.id_medico=$1)) ORDER BY p.nome`, idMedico)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +33,7 @@ func queryPacientes(db DBTX) ([]Paciente, error) {
 }
 
 func (h *agendaHandler) listPacientes(w http.ResponseWriter, r *http.Request) {
-	pacientes, err := queryPacientes(requestDB(r))
+	pacientes, err := queryPacientes(requestDB(r), doctorID(r))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
