@@ -26,11 +26,16 @@ public class PosVendaService {
             "nova_falta", "recuperado", "nao_deseja", "nao_contatar", "registro_corrigido");
     private static final String FROM = """
             FROM pos_venda_caso pv
-            JOIN consulta c ON c.id_consulta = pv.id_consulta_origem
-            JOIN paciente p ON p.id_paciente = c.id_paciente
-            JOIN agenda a ON a.id_agenda = c.id_agenda
-            JOIN medico m ON m.id_medico = a.id_medico
-            JOIN especialidade e ON e.id_especialidade = m.id_especialidade
+            LEFT JOIN consulta c ON c.id_consulta = pv.id_consulta_origem
+            LEFT JOIN paciente p ON p.id_paciente = c.id_paciente
+            LEFT JOIN agenda a ON a.id_agenda = c.id_agenda
+            LEFT JOIN medico m ON m.id_medico = a.id_medico
+            LEFT JOIN especialidade e ON e.id_especialidade = m.id_especialidade
+            LEFT JOIN integracao_atendimento_externo ae
+                ON ae.id_atendimento_externo = pv.id_atendimento_externo_origem
+            LEFT JOIN integracao_paciente_externo pe
+                ON pe.id_paciente_externo = ae.id_paciente_externo
+            LEFT JOIN integracao_fonte_dados fd ON fd.id_fonte = ae.id_fonte
             LEFT JOIN usuario u ON u.id = pv.id_responsavel
             LEFT JOIN consulta cr ON cr.id_consulta = pv.id_consulta_reagendada
             LEFT JOIN agenda ar ON ar.id_agenda = cr.id_agenda
@@ -38,13 +43,17 @@ public class PosVendaService {
             """;
     private static final String SELECT = """
             SELECT pv.id, pv.versao, pv.status, pv.id_responsavel, pv.motivo_falta, pv.recorrente,
-                pv.id_consulta_origem, pv.id_consulta_reagendada,
+                pv.id_consulta_origem, pv.id_consulta_reagendada,pv.id_atendimento_externo_origem,pv.origem,
                 pv.data_falta::text, pv.proxima_acao::text, pv.atualizado_em::text,
-                c.id_paciente, p.nome AS paciente, concat(p.ddd,p.numero) AS telefone,
-                m.nome AS profissional, e.nome AS especialidade, c.tipo::text AS tipo,
+                c.id_paciente,pe.id_paciente_externo,coalesce(p.nome,pe.nome) AS paciente,
+                coalesce(nullif(concat(p.ddd,p.numero),''),pe.telefone) AS telefone,
+                coalesce(m.nome,ae.profissional) AS profissional,
+                coalesce(e.nome,ae.especialidade) AS especialidade,coalesce(c.tipo::text,ae.tipo) AS tipo,
+                fd.codigo AS fonte,ae.identificador_externo AS atendimento_externo,
+                ae.situacao_origem,ae.situacao_normalizada,
                 u.nome AS responsavel, cr.status_consulta::text AS status_consulta,
                 ar.data_slot::text AS data_reagendada, ar.hora_slot::text AS hora_reagendada,
-                coalesce(prs.status = 'nao_contatar',false) AS nao_contatar,
+                coalesce(prs.status = 'nao_contatar',pe.nao_contatar,false) AS nao_contatar,
                 (SELECT count(*) FROM pos_venda_evento ev WHERE ev.id_caso = pv.id AND ev.tipo = 'contato') AS tentativas
             """;
 
@@ -55,7 +64,8 @@ public class PosVendaService {
         if (!status.equals("abertos") && !status.equals("todos") && !STATUS.contains(status)) throw erro("Status inválido");
         String filtro = " WHERE (? = 'todos' OR (? = 'abertos' AND pv.status NOT IN " +
                 "('recuperado','nao_deseja','nao_contatar','registro_corrigido')) OR pv.status = ?) " +
-                "AND (? = '' OR strpos(lower(p.nome), lower(?)) > 0 OR strpos(concat(p.ddd,p.numero), ?) > 0) " +
+                "AND (? = '' OR strpos(lower(coalesce(p.nome,pe.nome)), lower(?)) > 0 " +
+                "OR strpos(coalesce(nullif(concat(p.ddd,p.numero),''),pe.telefone), ?) > 0) " +
                 "AND (? = 0 OR pv.id_responsavel = ?) " +
                 "AND (CAST(? AS INTEGER) IS NULL OR a.id_medico = ?) ";
         String ativos = "pv.status IN ('pendente','em_contato','sem_resposta','nova_falta','reagendado')";
@@ -137,8 +147,20 @@ public class PosVendaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "O caso foi atualizado. Reabra os detalhes antes de salvar.");
         }
         if (FECHADOS.contains(caso.get("status"))) throw erro("Este caso está encerrado");
-        Integer paciente = db.queryForObject("SELECT id_paciente FROM consulta WHERE id_consulta = ?", Integer.class, caso.get("id_consulta_origem"));
-        boolean bloqueado = Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS (SELECT 1 FROM paciente_retorno_status WHERE id_paciente = ? AND status = 'nao_contatar')", Boolean.class, paciente));
+        Integer paciente = null;
+        Long pacienteExterno = null;
+        if (caso.get("id_consulta_origem") != null) {
+            paciente = db.queryForObject("SELECT id_paciente FROM consulta WHERE id_consulta = ?", Integer.class,
+                    caso.get("id_consulta_origem"));
+        } else {
+            pacienteExterno = db.queryForObject("""
+                    SELECT id_paciente_externo FROM integracao_atendimento_externo
+                    WHERE id_atendimento_externo=?
+                    """, Long.class, caso.get("id_atendimento_externo_origem"));
+        }
+        boolean bloqueado = paciente != null
+                ? Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS (SELECT 1 FROM paciente_retorno_status WHERE id_paciente = ? AND status = 'nao_contatar')", Boolean.class, paciente))
+                : Boolean.TRUE.equals(db.queryForObject("SELECT nao_contatar FROM integracao_paciente_externo WHERE id_paciente_externo=?", Boolean.class, pacienteExterno));
         if (bloqueado && !"nao_contatar".equals(r.acao())) throw erro("Paciente marcado como não contatar");
         String descricao;
         String canal = null;
@@ -163,6 +185,9 @@ public class PosVendaService {
                         r.motivoFalta(), Boolean.TRUE.equals(r.recorrente()), id);
             }
             case "reagendar" -> {
+                if (caso.get("id_atendimento_externo_origem") != null) {
+                    throw erro("O reagendamento externo deve ser conciliado pela fonte de dados");
+                }
                 if (r.idConsulta() == null) throw erro("Selecione uma nova consulta da agenda");
                 if ("reagendado".equals(caso.get("status"))) throw erro("Já existe uma consulta em acompanhamento");
                 boolean elegivel = ((List<?>) detalhe(id).get("consultas")).stream()
@@ -180,11 +205,16 @@ public class PosVendaService {
                 descricao = textoObrigatorio(r.observacao());
                 db.update("UPDATE pos_venda_caso SET status = ?, proxima_acao = NULL WHERE id = ?",r.acao(),id);
                 if (r.acao().equals("nao_contatar")) {
-                    db.update("""
-                            INSERT INTO paciente_retorno_status(id_paciente,status,motivo_nao_contatar,atualizado_em)
-                            VALUES (?,'nao_contatar',?,now()) ON CONFLICT (id_paciente) DO UPDATE
-                            SET status = 'nao_contatar', motivo_nao_contatar = excluded.motivo_nao_contatar, atualizado_em = now()
-                            """,paciente,descricao);
+                    if (paciente != null) {
+                        db.update("""
+                                INSERT INTO paciente_retorno_status(id_paciente,status,motivo_nao_contatar,atualizado_em)
+                                VALUES (?,'nao_contatar',?,now()) ON CONFLICT (id_paciente) DO UPDATE
+                                SET status = 'nao_contatar', motivo_nao_contatar = excluded.motivo_nao_contatar, atualizado_em = now()
+                                """,paciente,descricao);
+                    } else {
+                        db.update("UPDATE integracao_paciente_externo SET nao_contatar=true,atualizado_em=now() WHERE id_paciente_externo=?",
+                                pacienteExterno);
+                    }
                 }
             }
             default -> throw erro("Ação inválida");

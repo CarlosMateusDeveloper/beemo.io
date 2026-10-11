@@ -50,6 +50,6 @@ class PosVendaIndicadoresServiceTest {
         String csv=new PosVendaIndicadoresService(db,access).exportar(inicio,inicio,"recuperados");
         assertTrue(csv.contains("\"'=HIPERLINK(malicioso)\""));
         assertTrue(csv.contains("\"'+5585999999999\""));
-        assertTrue(csv.startsWith("caso;paciente_id;paciente;"));
+        assertTrue(csv.startsWith("caso;paciente_id;paciente_externo_id;paciente;"));
     }
 }

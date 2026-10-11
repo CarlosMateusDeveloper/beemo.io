@@ -45,3 +45,29 @@ export function fetchResultados(inicio, fim) {
   const qs = params.toString()
   return apiRequest(`/api/retorno/resultados${qs ? `?${qs}` : ''}`)
 }
+
+export function fetchOportunidades({ status = 'abertos', busca = '', pagina = 0 } = {}) {
+  const params = new URLSearchParams({ status, busca, pagina: String(pagina), fila: 'todos' })
+  return apiRequest(`/api/pos-venda?${params}`)
+}
+
+export function previewImportacaoCsv(arquivo, fuso = 'America/Fortaleza') {
+  const body = new FormData()
+  body.append('arquivo', arquivo)
+  return apiRequest(`/api/pos-venda/importacoes/csv/preview?fuso=${encodeURIComponent(fuso)}`, { method: 'POST', body })
+}
+
+export function importarCsv(arquivo, configuracao) {
+  const body = new FormData()
+  body.append('arquivo', arquivo)
+  body.append('configuracao', new Blob([JSON.stringify(configuracao)], { type: 'application/json' }))
+  return apiRequest('/api/pos-venda/importacoes/csv', { method: 'POST', body })
+}
+
+export function fetchImportacoes() {
+  return apiRequest('/api/pos-venda/importacoes')
+}
+
+export function fetchImportacao(id) {
+  return apiRequest(`/api/pos-venda/importacoes/${id}`)
+}

@@ -26,20 +26,28 @@ public class PosVendaIndicadoresService {
     static final String BASE = """
         WITH base AS (
           SELECT pv.id AS id_caso,pv.status,pv.id_responsavel,pv.motivo_falta,pv.recorrente,
-            pv.id_consulta_origem,pv.id_consulta_reagendada,pv.data_falta,pv.proxima_acao,pv.atualizado_em,
-            c.id_paciente,p.nome AS paciente,concat(p.ddd,p.numero) AS telefone,
-            m.nome AS profissional,e.nome AS especialidade,u.nome AS responsavel,
+            pv.id_consulta_origem,pv.id_consulta_reagendada,pv.id_atendimento_externo_origem,pv.origem,
+            pv.data_falta,pv.proxima_acao,pv.atualizado_em,c.id_paciente,pe.id_paciente_externo,
+            CASE WHEN c.id_paciente IS NOT NULL THEN 'interno:'||c.id_paciente ELSE 'externo:'||pe.id_paciente_externo END AS paciente_chave,
+            coalesce(p.nome,pe.nome) AS paciente,
+            coalesce(nullif(concat(p.ddd,p.numero),''),pe.telefone) AS telefone,
+            coalesce(m.nome,ae.profissional) AS profissional,
+            coalesce(e.nome,ae.especialidade) AS especialidade,u.nome AS responsavel,
+            fd.codigo AS fonte,ae.identificador_externo AS atendimento_externo,
             cr.status_consulta::text AS status_consulta_reagendada,
             ar.data_slot AS data_reagendada,ar.hora_slot AS hora_reagendada,
             ev.primeiro_contato,ev.ultima_interacao,ev.tentativas,
             EXISTS(SELECT 1 FROM pos_venda_consulta v WHERE v.id_caso=pv.id
               AND v.id_consulta<>pv.id_consulta_origem) AS ja_reagendou
           FROM pos_venda_caso pv
-          JOIN consulta c ON c.id_consulta=pv.id_consulta_origem
-          JOIN paciente p ON p.id_paciente=c.id_paciente
-          JOIN agenda a ON a.id_agenda=c.id_agenda
-          JOIN medico m ON m.id_medico=a.id_medico
-          JOIN especialidade e ON e.id_especialidade=m.id_especialidade
+          LEFT JOIN consulta c ON c.id_consulta=pv.id_consulta_origem
+          LEFT JOIN paciente p ON p.id_paciente=c.id_paciente
+          LEFT JOIN agenda a ON a.id_agenda=c.id_agenda
+          LEFT JOIN medico m ON m.id_medico=a.id_medico
+          LEFT JOIN especialidade e ON e.id_especialidade=m.id_especialidade
+          LEFT JOIN integracao_atendimento_externo ae ON ae.id_atendimento_externo=pv.id_atendimento_externo_origem
+          LEFT JOIN integracao_paciente_externo pe ON pe.id_paciente_externo=ae.id_paciente_externo
+          LEFT JOIN integracao_fonte_dados fd ON fd.id_fonte=ae.id_fonte
           LEFT JOIN usuario u ON u.id=pv.id_responsavel
           LEFT JOIN consulta cr ON cr.id_consulta=pv.id_consulta_reagendada
           LEFT JOIN agenda ar ON ar.id_agenda=cr.id_agenda
@@ -82,13 +90,13 @@ public class PosVendaIndicadoresService {
         Periodo periodo = periodo(inicio, fim);
         Object[] params = parametros(periodo);
         var resumo = db.queryForMap(BASE + """
-            SELECT count(*) AS faltas,count(DISTINCT id_paciente) AS pacientes_unicos,
+            SELECT count(*) AS faltas,count(DISTINCT paciente_chave) AS pacientes_unicos,
               count(*) FILTER(WHERE primeiro_contato IS NOT NULL) AS contatados,
-              count(DISTINCT id_paciente) FILTER(WHERE primeiro_contato IS NOT NULL) AS contatados_pacientes,
+              count(DISTINCT paciente_chave) FILTER(WHERE primeiro_contato IS NOT NULL) AS contatados_pacientes,
               count(*) FILTER(WHERE ja_reagendou) AS reagendados,
-              count(DISTINCT id_paciente) FILTER(WHERE ja_reagendou) AS reagendados_pacientes,
+              count(DISTINCT paciente_chave) FILTER(WHERE ja_reagendou) AS reagendados_pacientes,
               count(*) FILTER(WHERE status='recuperado') AS recuperados,
-              count(DISTINCT id_paciente) FILTER(WHERE status='recuperado') AS recuperados_pacientes,
+              count(DISTINCT paciente_chave) FILTER(WHERE status='recuperado') AS recuperados_pacientes,
               count(*) FILTER(WHERE status='reagendado') AS aguardando_comparecimento,
               count(*) FILTER(WHERE status='nova_falta') AS novas_faltas,
               count(*) FILTER(WHERE status='nao_deseja') AS nao_deseja,
@@ -100,8 +108,8 @@ public class PosVendaIndicadoresService {
                 AND id_responsavel IS NULL) AS sem_responsavel,
               coalesce(sum(tentativas),0) AS tentativas,
               round(100.0*count(*) FILTER(WHERE status='recuperado')/nullif(count(*),0),1) AS taxa_recuperacao,
-              round(100.0*count(DISTINCT id_paciente) FILTER(WHERE status='recuperado')
-                /nullif(count(DISTINCT id_paciente),0),1) AS taxa_recuperacao_pacientes,
+              round(100.0*count(DISTINCT paciente_chave) FILTER(WHERE status='recuperado')
+                /nullif(count(DISTINCT paciente_chave),0),1) AS taxa_recuperacao_pacientes,
               round(avg(greatest(0,extract(epoch FROM (primeiro_contato-(data_falta AT TIME ZONE ?)))/3600))
                 FILTER(WHERE primeiro_contato IS NOT NULL),1) AS horas_primeiro_contato,
               max(greatest(atualizado_em,coalesce(ultima_interacao,atualizado_em))) AS ultima_atualizacao
@@ -170,14 +178,15 @@ public class PosVendaIndicadoresService {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
                     "A exportação excede 10.000 casos. Reduza o período.");
         }
-        StringBuilder csv = new StringBuilder("caso;paciente_id;paciente;telefone;status;data_falta;responsavel;proxima_acao;tentativas;consulta_origem;consulta_reagendada\r\n");
+        StringBuilder csv = new StringBuilder("caso;paciente_id;paciente_externo_id;paciente;telefone;status;data_falta;responsavel;proxima_acao;tentativas;origem;consulta_origem;atendimento_externo\r\n");
         for (var item : itens) {
             csv.append(csv(item.get("id"))).append(';').append(csv(item.get("pacienteId"))).append(';')
-                    .append(csv(item.get("paciente"))).append(';').append(csv(item.get("telefone"))).append(';')
+                    .append(csv(item.get("pacienteExternoId"))).append(';').append(csv(item.get("paciente"))).append(';')
+                    .append(csv(item.get("telefone"))).append(';')
                     .append(csv(item.get("status"))).append(';').append(csv(item.get("dataFalta"))).append(';')
                     .append(csv(item.get("responsavel"))).append(';').append(csv(item.get("proximaAcao"))).append(';')
-                    .append(csv(item.get("tentativas"))).append(';').append(csv(item.get("consultaOrigem"))).append(';')
-                    .append(csv(item.get("consultaReagendada"))).append("\r\n");
+                    .append(csv(item.get("tentativas"))).append(';').append(csv(item.get("origem"))).append(';')
+                    .append(csv(item.get("consultaOrigem"))).append(';').append(csv(item.get("atendimentoExterno"))).append("\r\n");
         }
         return csv.toString();
     }
@@ -197,10 +206,11 @@ public class PosVendaIndicadoresService {
 
     private static String selecaoCasos() {
         return """
-            SELECT id_caso AS "id",id_paciente AS "pacienteId",paciente,telefone,status,
+            SELECT id_caso AS "id",id_paciente AS "pacienteId",id_paciente_externo AS "pacienteExternoId",paciente,telefone,status,
               id_responsavel AS "responsavelId",coalesce(responsavel,'Sem responsável') AS responsavel,
               data_falta::text AS "dataFalta",proxima_acao::text AS "proximaAcao",motivo_falta AS "motivoFalta",
-              profissional,especialidade,id_consulta_origem AS "consultaOrigem",
+              profissional,especialidade,origem,fonte,id_consulta_origem AS "consultaOrigem",
+              atendimento_externo AS "atendimentoExterno",
               id_consulta_reagendada AS "consultaReagendada",status_consulta_reagendada AS "statusConsultaReagendada",
               data_reagendada::text AS "dataReagendada",hora_reagendada::text AS "horaReagendada",
               primeiro_contato::text AS "primeiroContato",ultima_interacao::text AS "ultimaInteracao",
@@ -226,8 +236,8 @@ public class PosVendaIndicadoresService {
 
     private static List<Map<String, String>> definicoes() {
         return List.of(
-                definicao("faltas", "Casos de falta", "Casos não corrigidos cuja falta ocorreu no período selecionado.", "pos_venda_caso + agenda"),
-                definicao("pacientes_unicos", "Pacientes únicos", "Pacientes distintos entre os casos de falta; várias faltas da mesma pessoa contam uma vez.", "consulta.id_paciente"),
+                definicao("faltas", "Casos de falta", "Casos não corrigidos cuja falta ocorreu no período selecionado.", "pos_venda_caso + agenda/importação"),
+                definicao("pacientes_unicos", "Pacientes únicos", "Pacientes distintos por identidade interna ou por identificador externo da fonte.", "paciente interno/externo"),
                 definicao("contatados", "Casos contatados", "Casos com pelo menos um evento de contato; tentativas repetidas não duplicam o caso.", "pos_venda_evento.tipo=contato"),
                 definicao("reagendados", "Casos reagendados", "Casos com outra consulta vinculada. Reagendamento não significa comparecimento.", "pos_venda_consulta"),
                 definicao("recuperados", "Casos recuperados", "Casos cuja consulta reagendada foi registrada como realizada pela agenda.", "consulta.status_consulta=Realizada"),
