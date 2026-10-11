@@ -44,6 +44,7 @@ public final class PermissionCatalog {
                 "whatsapp.visualizar", "whatsapp.enviar", "whatsapp.configurar", "medico.visualizar", "medico.indicadores.visualizar", "medico.gerenciar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",
                 "jornada.executar", "jornada.configurar", "campanha.executar", "campanha.configurar",
+                "integracao.gerenciar",
                 "caixa.visualizar", "caixa.receber", "caixa.fechar", "caixa.reabrir", "pagamento.estornar",
                 "financeiro.dre.visualizar", "financeiro.fluxo.visualizar",
                 "despesa.visualizar", "despesa.gerenciar", "despesa.aprovar",
