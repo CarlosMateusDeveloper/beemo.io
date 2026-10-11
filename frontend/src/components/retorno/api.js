@@ -46,9 +46,22 @@ export function fetchResultados(inicio, fim) {
   return apiRequest(`/api/retorno/resultados${qs ? `?${qs}` : ''}`)
 }
 
-export function fetchOportunidades({ status = 'abertos', busca = '', pagina = 0 } = {}) {
-  const params = new URLSearchParams({ status, busca, pagina: String(pagina), fila: 'todos' })
+export function fetchOportunidades({ status = 'abertos', busca = '', pagina = 0, fila = 'prioridades', responsavel = '' } = {}) {
+  const params = new URLSearchParams({ status, busca, pagina: String(pagina), fila })
+  if (responsavel) params.set('responsavel', responsavel)
   return apiRequest(`/api/pos-venda?${params}`)
+}
+
+export function fetchResponsaveisPosVenda() {
+  return apiRequest('/api/pos-venda/responsaveis')
+}
+
+export function fetchOportunidade(id) {
+  return apiRequest(`/api/pos-venda/${id}`)
+}
+
+export function salvarAcaoOportunidade(id, dados) {
+  return apiRequest(`/api/pos-venda/${id}/acoes`, { method: 'POST', body: JSON.stringify(dados) })
 }
 
 export function previewImportacaoCsv(arquivo, fuso = 'America/Fortaleza') {
