@@ -15,7 +15,7 @@ class PosVendaServiceTest {
     private final AccessControlService access = mock(AccessControlService.class);
     private final PosVendaService service = new PosVendaService(db, access);
     private PosVendaAcaoRequest request(int versao, String acao) {
-        return new PosVendaAcaoRequest(versao,acao,null,null,null,false,null,null,null,null);
+        return new PosVendaAcaoRequest(versao,acao,null,null,null,false,null,null,null,null,null);
     }
     private void caso(String status) {
         when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
@@ -52,6 +52,15 @@ class PosVendaServiceTest {
         assertEquals("Selecione uma nova consulta da agenda",e.getReason());
     }
 
+    @Test void exigeAtendimentoDaMesmaFonteParaReagendamentoExterno() {
+        when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
+                .thenReturn(List.of(Map.of("versao",2,"status","pendente",
+                        "id_atendimento_externo_origem",10L)));
+        var e = assertThrows(ResponseStatusException.class,
+                () -> service.agir(1,request(2,"reagendar"),null));
+        assertEquals("Selecione um novo atendimento da mesma fonte externa",e.getReason());
+    }
+
     @Test void respostaRecebidaAbreAlertaSemCriarPrazoArtificialParaReagendado() {
         when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
                 .thenReturn(List.of(Map.of("versao",2,"status","reagendado","id_consulta_origem",10,
@@ -61,7 +70,7 @@ class PosVendaServiceTest {
         when(db.queryForObject("SELECT EXISTS (SELECT 1 FROM paciente_retorno_status WHERE id_paciente = ? AND status = 'nao_contatar')",Boolean.class,30))
                 .thenReturn(false);
         var request = new PosVendaAcaoRequest(2,"resposta_recebida",null,null,null,false,
-                "whatsapp",null,"Paciente pediu confirmação do horário.",null);
+                "whatsapp",null,"Paciente pediu confirmação do horário.",null,null);
 
         service.agir(1,request,99);
 

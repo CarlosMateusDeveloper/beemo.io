@@ -122,15 +122,17 @@ export default function Oportunidades() {
 }
 
 function QueueBadge({ item }) {
-  const labels = { resposta_pendente: 'Responder paciente', conferir_presenca: 'Conferir presença', aguardando_consulta: 'Aguardar consulta', primeira_tentativa: 'Primeira tentativa', nova_tentativa: 'Nova tentativa' }
+  const labels = { resposta_pendente: 'Responder paciente', revisar_recorrencia: 'Revisar recorrência', conferir_presenca: 'Conferir presença', aguardando_consulta: 'Aguardar consulta', primeira_tentativa: 'Primeira tentativa', nova_tentativa: 'Nova tentativa' }
   return <span className={`op-queue-badge ${item.etapa_fila}`}>{labels[item.etapa_fila] || 'Acompanhar'}</span>
 }
 
 function nextStep(item) {
   if (item.alerta_resposta_pendente) return 'Responder paciente agora'
+  if (item.alerta_revisar_recorrencia) return 'Revisar nova falta recorrente'
   if (item.alerta_sem_responsavel) return 'Definir responsável'
   if (item.alerta_sem_proxima_acao) return 'Definir próxima ação'
   if (item.alerta_conferir_presenca) return 'Conferir resultado da consulta'
+  if (item.status === 'reagendado' && item.reagendado_em) return `Atendimento externo: ${formatDateTime(item.reagendado_em)}`
   if (item.status === 'reagendado') return `Consulta: ${formatDateTime(`${item.data_reagendada}T${item.hora_reagendada}`)}`
   return item.proxima_acao ? formatDateTime(item.proxima_acao) : 'Aguardando organização'
 }
@@ -164,6 +166,7 @@ function CaseDetail({ id, responsibles, onClose, onChanged }) {
       recorrente: form.get('recorrente') === 'on', canal: form.get('canal') || null,
       resultado: form.get('resultado') || null, observacao: form.get('observacao')?.trim() || null,
       idConsulta: form.get('idConsulta') ? Number(form.get('idConsulta')) : null,
+      idAtendimentoExterno: form.get('idAtendimentoExterno') ? Number(form.get('idAtendimentoExterno')) : null,
     }
     try { await salvarAcaoOportunidade(id, payload); setNotice('Acompanhamento atualizado.'); await Promise.all([loadDetail(), onChanged()]) }
     catch (reason) { setError(reason.message) } finally { setBusy(false) }
@@ -174,7 +177,7 @@ function CaseDetail({ id, responsibles, onClose, onChanged }) {
     {error && <div className="op-feedback error" role="alert"><AlertCircle size={16} /><span>{error}</span></div>}
     {current && <><span className="op-detail-kicker">Caso #{current.id}</span><h2>{current.paciente}</h2><p>{formatPhone(current.telefone)}</p><div className="op-detail-status"><StatusBadge status={current.status} /><QueueBadge item={current} /></div>
       {details.alertas.length > 0 && <section className="op-alert-list"><strong>Pendências ativas</strong>{details.alertas.map((alert) => <div key={alert.id}><AlertTriangle size={14} /><span>{alert.mensagem}</span></div>)}</section>}
-      <dl><div><dt>Motivo da falta</dt><dd>{current.motivo_falta || 'Ainda não informado'}</dd></div><div><dt>Última interação</dt><dd>{current.ultima_interacao ? formatDateTime(current.ultima_interacao) : 'Nenhuma'}</dd></div><div><dt>Responsável</dt><dd>{current.responsavel || 'Sem responsável'}</dd></div><div><dt>Próximo passo</dt><dd>{nextStep(current)}</dd></div><div><dt>Origem</dt><dd>{current.origem === 'importacao_csv' ? current.fonte : 'Agenda Clinisis'}</dd></div></dl>
+      <dl><div><dt>Motivo da falta</dt><dd>{current.motivo_falta || 'Ainda não informado'}</dd></div><div><dt>Última interação</dt><dd>{current.ultima_interacao ? formatDateTime(current.ultima_interacao) : 'Nenhuma'}</dd></div><div><dt>Responsável</dt><dd>{current.responsavel || 'Sem responsável'}</dd></div><div><dt>Próximo passo</dt><dd>{nextStep(current)}</dd></div><div><dt>Origem</dt><dd>{current.id_atendimento_externo_origem ? current.fonte : 'Agenda Clinisis'}</dd></div>{current.atendimento_externo_reagendado && <div><dt>Reagendamento externo</dt><dd>{current.atendimento_externo_reagendado} · {current.situacao_reagendada_normalizada}</dd></div>}</dl>
       {!CLOSED.includes(current.status) && <CaseActionForm key={current.versao} current={current} details={details} responsibles={responsibles} onSubmit={save} busy={busy} />}
       {notice && <div className="op-feedback success" role="status"><CheckCircle2 size={16} /><span>{notice}</span></div>}
       <section className="op-case-history"><strong>Histórico</strong>{details.historico.slice(0, 8).map((event) => <article key={event.id}><time>{formatDateTime(event.criado_em)}</time><p>{event.descricao}</p><small>{event.autor || 'Sistema'}{event.canal ? ` · ${event.canal}` : ''}</small></article>)}</section>
@@ -183,18 +186,19 @@ function CaseDetail({ id, responsibles, onClose, onChanged }) {
 }
 
 function CaseActionForm({ current, details, responsibles, onSubmit, busy }) {
-  const initial = current.alerta_resposta_pendente ? 'contato' : current.alerta_sem_responsavel || current.alerta_sem_proxima_acao ? 'organizar' : 'contato'
+  const initial = current.alerta_resposta_pendente ? 'contato' : current.alerta_sem_responsavel || current.alerta_sem_proxima_acao || current.alerta_revisar_recorrencia ? 'organizar' : 'contato'
   const [action, setAction] = useState(initial)
   const organized = action === 'organizar' || action === 'contato'
   const contact = action === 'contato'
   const response = action === 'resposta_recebida'
   const closing = action === 'nao_deseja' || action === 'nao_contatar'
-  return <form className="op-case-form" onSubmit={onSubmit}><strong>Registrar próxima ação</strong><label>Ação<select name="acao" value={action} onChange={(event) => setAction(event.target.value)}><option value="organizar">Definir responsável e prazo</option><option value="contato">Registrar contato realizado</option><option value="resposta_recebida">Registrar resposta recebida</option>{!current.id_atendimento_externo_origem && current.status !== 'reagendado' && <option value="reagendar">Vincular reagendamento</option>}<option value="nao_deseja">Encerrar: não deseja</option><option value="nao_contatar">Encerrar: não contatar</option></select></label>
+  return <form className="op-case-form" onSubmit={onSubmit}><strong>Registrar próxima ação</strong><label>Ação<select name="acao" value={action} onChange={(event) => setAction(event.target.value)}><option value="organizar">Definir responsável e prazo</option><option value="contato">Registrar contato realizado</option><option value="resposta_recebida">Registrar resposta recebida</option>{current.status !== 'reagendado' && <option value="reagendar">{current.id_atendimento_externo_origem ? 'Vincular reagendamento externo' : 'Vincular reagendamento'}</option>}<option value="nao_deseja">Encerrar: não deseja</option><option value="nao_contatar">Encerrar: não contatar</option></select></label>
     {(organized || action === 'reagendar') && <label>Responsável<select name="idResponsavel" required defaultValue={current.id_responsavel || ''}><option value="">Selecione</option>{responsibles.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label>}
     {organized && <><label>Próxima ação<input type="datetime-local" name="proximaAcao" required defaultValue={dateInput(current.proxima_acao)} /></label><label>Motivo da falta<input name="motivoFalta" maxLength="500" defaultValue={current.motivo_falta || ''} /></label><label className="op-check"><input type="checkbox" name="recorrente" defaultChecked={current.recorrente} /> Atendimento recorrente</label></>}
     {(contact || response) && <label>Canal<select name="canal" defaultValue="whatsapp"><option value="whatsapp">WhatsApp</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="presencial">Presencial</option></select></label>}
     {contact && <label>Resultado<select name="resultado" defaultValue="em_contato"><option value="em_contato">Conversou / em acompanhamento</option><option value="sem_resposta">Sem resposta</option></select></label>}
-    {action === 'reagendar' && <label>Nova consulta<select name="idConsulta" required defaultValue=""><option value="">Selecione</option>{details.consultas.map((item) => <option key={item.id} value={item.id}>#{item.id} · {formatDateTime(`${item.data}T${item.hora}`)}</option>)}</select></label>}
+    {action === 'reagendar' && !current.id_atendimento_externo_origem && <label>Nova consulta<select name="idConsulta" required defaultValue=""><option value="">Selecione</option>{details.consultas.map((item) => <option key={item.id} value={item.id}>#{item.id} · {formatDateTime(`${item.data}T${item.hora}`)}</option>)}</select></label>}
+    {action === 'reagendar' && current.id_atendimento_externo_origem && <label>Novo atendimento da fonte<select name="idAtendimentoExterno" required defaultValue=""><option value="">Selecione</option>{(details.atendimentosExternos || []).map((item) => <option key={item.id} value={item.id}>{item.identificador} · {formatDateTime(item.agendado_em)} · {item.situacao_normalizada}</option>)}</select><small>Somente horários futuros do mesmo paciente, fonte, tipo e especialidade aparecem aqui.</small></label>}
     {(contact || response || closing) && <label>Registro<textarea name="observacao" required rows="3" maxLength="1500" /></label>}
     <button type="submit" className="op-primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Salvar acompanhamento'}</button></form>
 }

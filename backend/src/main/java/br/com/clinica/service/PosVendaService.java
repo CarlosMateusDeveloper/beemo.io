@@ -40,6 +40,8 @@ public class PosVendaService {
             LEFT JOIN usuario u ON u.id = pv.id_responsavel
             LEFT JOIN consulta cr ON cr.id_consulta = pv.id_consulta_reagendada
             LEFT JOIN agenda ar ON ar.id_agenda = cr.id_agenda
+            LEFT JOIN integracao_atendimento_externo aer
+                ON aer.id_atendimento_externo = pv.id_atendimento_externo_reagendado
             LEFT JOIN paciente_retorno_status prs ON prs.id_paciente = p.id_paciente
             LEFT JOIN LATERAL (
                 SELECT ev.criado_em,ev.tipo,ev.descricao
@@ -49,7 +51,8 @@ public class PosVendaService {
             """;
     private static final String SELECT = """
             SELECT pv.id, pv.versao, pv.status, pv.id_responsavel, pv.motivo_falta, pv.recorrente,
-                pv.id_consulta_origem, pv.id_consulta_reagendada,pv.id_atendimento_externo_origem,pv.origem,
+                pv.id_consulta_origem, pv.id_consulta_reagendada,pv.id_atendimento_externo_origem,
+                pv.id_atendimento_externo_reagendado,pv.origem,
                 pv.data_falta::text, pv.proxima_acao::text, pv.atualizado_em::text,
                 c.id_paciente,pe.id_paciente_externo,coalesce(p.nome,pe.nome) AS paciente,
                 coalesce(nullif(concat(p.ddd,p.numero),''),pe.telefone) AS telefone,
@@ -59,6 +62,10 @@ public class PosVendaService {
                 ae.situacao_origem,ae.situacao_normalizada,
                 u.nome AS responsavel, cr.status_consulta::text AS status_consulta,
                 ar.data_slot::text AS data_reagendada, ar.hora_slot::text AS hora_reagendada,
+                aer.agendado_em::text AS reagendado_em,
+                aer.identificador_externo AS atendimento_externo_reagendado,
+                aer.situacao_origem AS situacao_reagendada_origem,
+                aer.situacao_normalizada AS situacao_reagendada_normalizada,
                 coalesce(prs.status = 'nao_contatar',pe.nao_contatar,false) AS nao_contatar,
                 (SELECT count(*) FROM pos_venda_evento ev WHERE ev.id_caso = pv.id AND ev.tipo = 'contato') AS tentativas,
                 ui.criado_em::text AS ultima_interacao,ui.tipo AS ultima_interacao_tipo,
@@ -69,8 +76,10 @@ public class PosVendaService {
                 EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='prazo_vencido') AS alerta_prazo_vencido,
                 EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='resposta_pendente') AS alerta_resposta_pendente,
                 EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='conferir_presenca') AS alerta_conferir_presenca,
+                EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='revisar_recorrencia') AS alerta_revisar_recorrencia,
                 CASE
                     WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='resposta_pendente') THEN 'resposta_pendente'
+                    WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='revisar_recorrencia') THEN 'revisar_recorrencia'
                     WHEN pv.status='reagendado' AND EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='conferir_presenca') THEN 'conferir_presenca'
                     WHEN pv.status='reagendado' THEN 'aguardando_consulta'
                     WHEN NOT EXISTS(SELECT 1 FROM pos_venda_evento ev WHERE ev.id_caso=pv.id AND ev.tipo='contato') THEN 'primeira_tentativa'
@@ -113,9 +122,10 @@ public class PosVendaService {
         params.add(pagina * 50);
         List<Map<String,Object>> itens = db.queryForList(SELECT + FROM + filtro +
                 " ORDER BY CASE WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='resposta_pendente') THEN 0 " +
-                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo IN ('sem_responsavel','sem_proxima_acao')) THEN 1 " +
-                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='prazo_vencido') THEN 2 " +
-                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='conferir_presenca') THEN 3 ELSE 4 END, " +
+                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='revisar_recorrencia') THEN 1 " +
+                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo IN ('sem_responsavel','sem_proxima_acao')) THEN 2 " +
+                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='prazo_vencido') THEN 3 " +
+                "WHEN EXISTS(SELECT 1 FROM pos_venda_alerta al WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='conferir_presenca') THEN 4 ELSE 5 END, " +
                 "pv.proxima_acao ASC NULLS LAST,pv.data_falta,pv.id LIMIT 50 OFFSET ?", params.toArray());
         Map<String,Object> resumo = resumoFila(medico);
         return Map.of("itens", itens, "total", total, "pagina", pagina, "resumo", resumo);
@@ -154,7 +164,33 @@ public class PosVendaService {
                     AND NOT EXISTS (SELECT 1 FROM pos_venda_consulta v WHERE v.id_consulta = c.id_consulta)
                 ORDER BY a.data_slot, a.hora_slot LIMIT 100
                 """, id, clinicTimeZone);
-        return Map.of("caso",caso,"historico",historico,"consultas",consultas,"alertas",alertas);
+        List<Map<String,Object>> atendimentosExternos = db.queryForList("""
+                SELECT candidato.id_atendimento_externo AS id,
+                    candidato.identificador_externo AS identificador,
+                    candidato.agendado_em::text AS agendado_em,
+                    candidato.profissional,candidato.especialidade,candidato.tipo,
+                    candidato.situacao_origem,candidato.situacao_normalizada,
+                    fd.codigo AS fonte
+                FROM pos_venda_caso pv
+                JOIN integracao_atendimento_externo origem
+                    ON origem.id_atendimento_externo=pv.id_atendimento_externo_origem
+                JOIN integracao_atendimento_externo candidato
+                    ON candidato.id_fonte=origem.id_fonte
+                    AND candidato.id_paciente_externo=origem.id_paciente_externo
+                    AND candidato.tipo=origem.tipo
+                    AND candidato.especialidade=origem.especialidade
+                JOIN integracao_fonte_dados fd ON fd.id_fonte=candidato.id_fonte
+                WHERE pv.id=?
+                    AND candidato.id_atendimento_externo<>origem.id_atendimento_externo
+                    AND candidato.agendado_em>origem.agendado_em
+                    AND candidato.agendado_em>=now()
+                    AND candidato.situacao_normalizada IN ('AGENDADO','CONFIRMADO','DESCONHECIDO')
+                    AND NOT EXISTS(SELECT 1 FROM pos_venda_atendimento_externo v
+                        WHERE v.id_atendimento_externo=candidato.id_atendimento_externo)
+                ORDER BY candidato.agendado_em LIMIT 100
+                """, id);
+        return Map.of("caso",caso,"historico",historico,"consultas",consultas,
+                "atendimentosExternos",atendimentosExternos,"alertas",alertas);
     }
 
     public List<Map<String,Object>> responsaveis() {
@@ -183,6 +219,8 @@ public class PosVendaService {
                     count(*) FILTER(WHERE EXISTS(SELECT 1 FROM pos_venda_alerta al
                         WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='conferir_presenca')) AS conferir_presenca,
                     count(*) FILTER(WHERE EXISTS(SELECT 1 FROM pos_venda_alerta al
+                        WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo='revisar_recorrencia')) AS revisar_recorrencia,
+                    count(*) FILTER(WHERE EXISTS(SELECT 1 FROM pos_venda_alerta al
                         WHERE al.id_caso=pv.id AND al.status='aberto' AND al.tipo IN ('sem_responsavel','sem_proxima_acao'))) AS pendencias_organizacao,
                     count(*) FILTER(WHERE EXISTS(SELECT 1 FROM pos_venda_alerta al
                         WHERE al.id_caso=pv.id AND al.status='aberto')) AS prioridades
@@ -209,11 +247,18 @@ public class PosVendaService {
                         WHERE pv.status IN ('pendente','em_contato','sem_resposta','nova_falta') AND pv.proxima_acao<=now()
                     UNION ALL
                     SELECT 'conferir_presenca', 'O horário reagendado passou; confira o resultado da consulta.'
-                        WHERE pv.status='reagendado' AND EXISTS(
-                            SELECT 1 FROM consulta cr JOIN agenda ar ON ar.id_agenda=cr.id_agenda
-                            WHERE cr.id_consulta=pv.id_consulta_reagendada
-                              AND cr.status_consulta IN ('Agendada','Confirmada')
-                              AND ar.data_slot+ar.hora_slot<=(CURRENT_TIMESTAMP AT TIME ZONE ?)
+                        WHERE pv.status='reagendado' AND (
+                            EXISTS(
+                                SELECT 1 FROM consulta cr JOIN agenda ar ON ar.id_agenda=cr.id_agenda
+                                WHERE cr.id_consulta=pv.id_consulta_reagendada
+                                  AND cr.status_consulta IN ('Agendada','Confirmada')
+                                  AND ar.data_slot+ar.hora_slot<=(CURRENT_TIMESTAMP AT TIME ZONE ?)
+                            ) OR EXISTS(
+                                SELECT 1 FROM integracao_atendimento_externo aer
+                                WHERE aer.id_atendimento_externo=pv.id_atendimento_externo_reagendado
+                                  AND aer.situacao_normalizada IN ('AGENDADO','CONFIRMADO','DESCONHECIDO')
+                                  AND aer.agendado_em<=now()
+                            )
                         )
                 ) pendencia(tipo,mensagem)
                 ON CONFLICT(id_clinica,id_caso,tipo) WHERE status='aberto' DO NOTHING
@@ -225,12 +270,20 @@ public class PosVendaService {
                         WHEN 'sem_responsavel' THEN pv.status IN ('pendente','em_contato','sem_resposta','nova_falta') AND pv.id_responsavel IS NULL
                         WHEN 'sem_proxima_acao' THEN pv.status IN ('pendente','em_contato','sem_resposta','nova_falta') AND pv.proxima_acao IS NULL
                         WHEN 'prazo_vencido' THEN pv.status IN ('pendente','em_contato','sem_resposta','nova_falta') AND pv.proxima_acao<=now()
-                        WHEN 'conferir_presenca' THEN pv.status='reagendado' AND EXISTS(
-                            SELECT 1 FROM consulta cr JOIN agenda ar ON ar.id_agenda=cr.id_agenda
-                            WHERE cr.id_consulta=pv.id_consulta_reagendada
-                              AND cr.status_consulta IN ('Agendada','Confirmada')
-                              AND ar.data_slot+ar.hora_slot<=(CURRENT_TIMESTAMP AT TIME ZONE ?)
+                        WHEN 'conferir_presenca' THEN pv.status='reagendado' AND (
+                            EXISTS(
+                                SELECT 1 FROM consulta cr JOIN agenda ar ON ar.id_agenda=cr.id_agenda
+                                WHERE cr.id_consulta=pv.id_consulta_reagendada
+                                  AND cr.status_consulta IN ('Agendada','Confirmada')
+                                  AND ar.data_slot+ar.hora_slot<=(CURRENT_TIMESTAMP AT TIME ZONE ?)
+                            ) OR EXISTS(
+                                SELECT 1 FROM integracao_atendimento_externo aer
+                                WHERE aer.id_atendimento_externo=pv.id_atendimento_externo_reagendado
+                                  AND aer.situacao_normalizada IN ('AGENDADO','CONFIRMADO','DESCONHECIDO')
+                                  AND aer.agendado_em<=now()
+                            )
                         )
+                        WHEN 'revisar_recorrencia' THEN pv.status='nova_falta' AND pv.recorrente
                         ELSE false END
                 )
                 """, clinicTimeZone);
@@ -238,9 +291,13 @@ public class PosVendaService {
 
     @Transactional
     public void agir(long id, PosVendaAcaoRequest r, Integer autor) {
-        // Mesma ordem de locks do gatilho da agenda: consulta, depois caso.
+        // Mesma ordem de locks dos gatilhos: atendimento/consulta, depois caso.
         if ("reagendar".equals(r.acao()) && r.idConsulta() != null) {
             db.queryForList("SELECT id_consulta FROM consulta WHERE id_consulta = ? FOR UPDATE", r.idConsulta());
+        }
+        if ("reagendar".equals(r.acao()) && r.idAtendimentoExterno() != null) {
+            db.queryForList("SELECT id_atendimento_externo FROM integracao_atendimento_externo "
+                    + "WHERE id_atendimento_externo=? FOR UPDATE", r.idAtendimentoExterno());
         }
         Map<String,Object> caso = db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE", id)
                 .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Caso não encontrado"));
@@ -248,6 +305,15 @@ public class PosVendaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "O caso foi atualizado. Reabra os detalhes antes de salvar.");
         }
         if (FECHADOS.contains(caso.get("status"))) throw erro("Este caso está encerrado");
+        if ("reagendar".equals(r.acao())) {
+            boolean externo = caso.get("id_atendimento_externo_origem") != null;
+            if (externo && (r.idAtendimentoExterno() == null || r.idConsulta() != null)) {
+                throw erro("Selecione um novo atendimento da mesma fonte externa");
+            }
+            if (!externo && (r.idConsulta() == null || r.idAtendimentoExterno() != null)) {
+                throw erro("Selecione uma nova consulta da agenda");
+            }
+        }
         Integer paciente = null;
         Long pacienteExterno = null;
         if (caso.get("id_consulta_origem") != null) {
@@ -288,22 +354,45 @@ public class PosVendaService {
                         r.motivoFalta(), Boolean.TRUE.equals(r.recorrente()), id);
             }
             case "reagendar" -> {
-                if (caso.get("id_atendimento_externo_origem") != null) {
-                    throw erro("O reagendamento externo deve ser conciliado pela fonte de dados");
-                }
-                if (r.idConsulta() == null) throw erro("Selecione uma nova consulta da agenda");
                 if ("reagendado".equals(caso.get("status"))) throw erro("Já existe uma consulta em acompanhamento");
-                boolean elegivel = ((List<?>) detalhe(id).get("consultas")).stream()
-                        .anyMatch(c -> Objects.equals(((Map<?,?>) c).get("id"),r.idConsulta()));
-                if (!elegivel) throw erro("Escolha uma consulta futura do mesmo paciente, tipo e especialidade, ainda não vinculada");
-                // Serializa concorrência entre dois casos tentando usar a mesma consulta.
-                int vinculado = db.update("INSERT INTO pos_venda_consulta(id_consulta,id_caso) VALUES (?,?) ON CONFLICT DO NOTHING",r.idConsulta(),id);
-                if (vinculado == 0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Consulta já vinculada a outro caso");
                 validarResponsavel(r.idResponsavel());
-                db.update("UPDATE pos_venda_caso SET status = 'reagendado', id_consulta_reagendada = ?, id_responsavel = ?, proxima_acao = NULL WHERE id = ?",
-                        r.idConsulta(),r.idResponsavel(),id);
-                descricao = "Reagendado na consulta #" + r.idConsulta() + ". Aguardando atendimento realizado na agenda. "
-                        + auditoriaOrganizacao(caso, r.idResponsavel(), null);
+                Map<String,Object> detalhes = detalhe(id);
+                if (caso.get("id_atendimento_externo_origem") != null) {
+                    Map<?,?> candidato = ((List<?>) detalhes.get("atendimentosExternos")).stream()
+                            .map(Map.class::cast)
+                            .filter(item -> Objects.equals(((Number) item.get("id")).longValue(), r.idAtendimentoExterno()))
+                            .findFirst().orElseThrow(() -> erro(
+                                    "Escolha um atendimento futuro do mesmo paciente, fonte, tipo e especialidade, ainda não vinculado"));
+                    int vinculado = db.update("""
+                            INSERT INTO pos_venda_atendimento_externo(id_atendimento_externo,id_caso)
+                            VALUES (?,?) ON CONFLICT DO NOTHING
+                            """, r.idAtendimentoExterno(), id);
+                    if (vinculado == 0) throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Atendimento externo já vinculado a outro caso");
+                    db.update("""
+                            UPDATE pos_venda_caso SET status='reagendado',
+                                id_consulta_reagendada=NULL,id_atendimento_externo_reagendado=?,
+                                id_responsavel=?,proxima_acao=NULL WHERE id=?
+                            """, r.idAtendimentoExterno(), r.idResponsavel(), id);
+                    descricao = "Reagendado no atendimento externo " + candidato.get("identificador")
+                            + " da fonte " + candidato.get("fonte")
+                            + ". Aguardando presença confirmada pela fonte. "
+                            + auditoriaOrganizacao(caso, r.idResponsavel(), null);
+                } else {
+                    boolean elegivel = ((List<?>) detalhes.get("consultas")).stream()
+                            .anyMatch(c -> Objects.equals(((Map<?,?>) c).get("id"),r.idConsulta()));
+                    if (!elegivel) throw erro("Escolha uma consulta futura do mesmo paciente, tipo e especialidade, ainda não vinculada");
+                    // Serializa concorrência entre dois casos tentando usar a mesma consulta.
+                    int vinculado = db.update("INSERT INTO pos_venda_consulta(id_consulta,id_caso) VALUES (?,?) ON CONFLICT DO NOTHING",r.idConsulta(),id);
+                    if (vinculado == 0) throw new ResponseStatusException(HttpStatus.CONFLICT,"Consulta já vinculada a outro caso");
+                    db.update("""
+                            UPDATE pos_venda_caso SET status='reagendado',id_consulta_reagendada=?,
+                                id_atendimento_externo_reagendado=NULL,id_responsavel=?,proxima_acao=NULL WHERE id=?
+                            """, r.idConsulta(),r.idResponsavel(),id);
+                    descricao = "Reagendado na consulta #" + r.idConsulta()
+                            + ". Aguardando atendimento realizado na agenda. "
+                            + auditoriaOrganizacao(caso, r.idResponsavel(), null);
+                }
             }
             case "nao_deseja", "nao_contatar" -> {
                 descricao = textoObrigatorio(r.observacao());
@@ -348,6 +437,12 @@ public class PosVendaService {
             db.update("""
                     UPDATE pos_venda_alerta SET status='resolvido',resolvido_em=now(),atualizado_em=now()
                     WHERE id_caso=? AND tipo='resposta_pendente' AND status='aberto'
+                    """, id);
+        }
+        if (Set.of("organizar","contato","reagendar","nao_deseja","nao_contatar").contains(r.acao())) {
+            db.update("""
+                    UPDATE pos_venda_alerta SET status='resolvido',resolvido_em=now(),atualizado_em=now()
+                    WHERE id_caso=? AND tipo='revisar_recorrencia' AND status='aberto'
                     """, id);
         }
         sincronizarAlertas();

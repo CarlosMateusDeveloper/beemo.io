@@ -33,6 +33,16 @@ try:
                 proxima_acao TIMESTAMPTZ,atualizado_em TIMESTAMPTZ);
             CREATE TABLE pos_venda_consulta(id_consulta INT PRIMARY KEY,id_caso INT);
             CREATE TABLE pos_venda_evento(id_caso INT,tipo TEXT,criado_em TIMESTAMPTZ);
+            CREATE TABLE integracao_fonte_dados(id_fonte BIGINT PRIMARY KEY,codigo TEXT);
+            CREATE TABLE integracao_paciente_externo(
+                id_paciente_externo BIGINT PRIMARY KEY,nome TEXT,telefone TEXT
+            );
+            CREATE TABLE integracao_atendimento_externo(
+                id_atendimento_externo BIGINT PRIMARY KEY,id_fonte BIGINT,id_paciente_externo BIGINT,
+                identificador_externo TEXT,profissional TEXT,especialidade TEXT,
+                situacao_normalizada TEXT,agendado_em TIMESTAMPTZ
+            );
+            CREATE TABLE pos_venda_atendimento_externo(id_atendimento_externo BIGINT PRIMARY KEY,id_caso INT);
 
             INSERT INTO usuario VALUES (1,'Equipe de teste');
             INSERT INTO especialidade VALUES (1,'Clínica geral');
@@ -66,6 +76,10 @@ try:
                 (1,'contato','2026-09-02 14:00+00'),(1,'contato','2026-09-01 14:00+00'),
                 (3,'contato','2026-09-10 16:00+00'),(3,'contato','2026-09-10 13:30+00'),
                 (4,'contato','2026-09-15 15:00+00'),(4,'agenda','2026-09-22 13:00+00');
+            ALTER TABLE pos_venda_caso
+                ADD COLUMN id_atendimento_externo_origem BIGINT,
+                ADD COLUMN id_atendimento_externo_reagendado BIGINT,
+                ADD COLUMN origem TEXT NOT NULL DEFAULT 'agenda_interna';
         ''')
 
         def run(query, extra=None, de='2026-09-01', ate='2026-10-01'):
@@ -80,7 +94,7 @@ try:
         assert result['reagendados'] == 4 and result['recuperados'] == 1, result
         assert result['recuperados_pacientes'] == 1 and result['taxa_recuperacao_pacientes'] == Decimal('33.3'), result
         assert result['aguardando_comparecimento'] == 1 and result['novas_faltas'] == 1, result
-        assert result['abertos'] == 4 and result['pendencias_vencidas'] == 2 and result['sem_responsavel'] == 2, result
+        assert result['abertos'] == 4 and result['pendencias_vencidas'] == 3 and result['sem_responsavel'] == 2, result
         assert result['taxa_recuperacao'] == Decimal('20.0'), result
         assert result['horas_primeiro_contato'] == Decimal('1.2'), result
         assert result['ultima_atualizacao'] is not None, result
