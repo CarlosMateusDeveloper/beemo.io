@@ -14,7 +14,7 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
-from chatbot.services import comunicacao_policy_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_service
 
 # tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
@@ -145,6 +145,7 @@ def listar_mensagens_conversa(db: Session, conversa_id: int) -> list[dict] | Non
             "agente": conversa.agente_nome if remetente == "agente" else None,
             "texto": m.conteudo,
             "horario": _hora(m.criado_em),
+            "statusEntrega": m.status_entrega,
         })
     return resultado
 
@@ -267,38 +268,33 @@ def devolver_conversa(db: Session, conversa_id: int) -> Conversa | None:
     return conversa
 
 
-def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | None:
-    """Envia a resposta do atendente pelo WhatsApp e registra no historico.
-
-    Envia antes de gravar de propósito — uma bolha no histórico de algo que
-    nunca chegou ao paciente é pior do que um erro na tela. WhatsAppError
-    sobe para o controller virar 502/503.
-    """
+def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str, idempotency_key: str) -> dict | None:
+    """Valida a política e enfileira a resposta sem bloquear a requisição."""
     conversa = _buscar_conversa(db, conversa_id)
     if conversa is None:
         return None
     if conversa.estado != EstadoConversaBot.com_agente:
         raise ValueError("Assuma a conversa antes de enviar uma mensagem.")
+    existente = mensageria_service.existing_message(db, idempotency_key, conversa.telefone, texto)
+    if existente is not None:
+        return {
+            "id": existente.id_mensagem, "tipo": "mensagem", "remetente": "agente",
+            "agente": conversa.agente_nome, "texto": existente.conteudo,
+            "horario": _hora(existente.criado_em), "statusEntrega": existente.status_entrega,
+        }
     decisao = comunicacao_policy_service.avaliar_e_registrar(
         db, paciente_id=conversa.id_paciente, telefone=conversa.telefone,
         canal="whatsapp", finalidade="atendimento", essencial=True,
         modelo_id=None, origem="whatsapp_agente",
     )
-    whatsapp_service.send_message_sync(conversa.telefone, texto)
-    nova = Mensagem(
-        id_paciente=conversa.id_paciente,
-        telefone=conversa.telefone,
-        direcao=DirecaoMensagem.saida,
-        tipo=TipoMensagem.texto,
-        conteudo=texto,
-        remetente=RemetenteMensagem.agente,
-        id_tentativa_comunicacao=decisao.tentativa_id,
-        finalidade_comunicacao="atendimento",
-        id_consentimento=decisao.consentimento_id,
-        id_modelo_comunicacao=decisao.modelo_id,
-        modelo_versao=decisao.modelo_versao,
+    nova, _created = mensageria_service.enqueue_text(
+        db, idempotency_key=idempotency_key, telefone=conversa.telefone,
+        texto_mensagem=texto, paciente_id=conversa.id_paciente,
+        remetente=RemetenteMensagem.agente, tentativa_id=decisao.tentativa_id,
+        consentimento_id=decisao.consentimento_id, modelo_id=decisao.modelo_id,
+        modelo_versao=decisao.modelo_versao, finalidade="atendimento",
+        origem="whatsapp_agente",
     )
-    db.add(nova)
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(nova)
@@ -309,6 +305,7 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | 
         "agente": conversa.agente_nome,
         "texto": nova.conteudo,
         "horario": _hora(nova.criado_em),
+        "statusEntrega": nova.status_entrega,
     }
 
 

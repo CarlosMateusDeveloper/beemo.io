@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from chatbot.db import get_db
-from chatbot.services import whatsapp_painel_service as service
-from chatbot.services.whatsapp_service import WhatsAppError, WhatsAppNaoConfiguradoError
-from chatbot.views.whatsapp import AssumirIn, AtualizarMensagensIn, EnviarMensagemIn, TogglecapacidadeIn
+from chatbot.services import mensageria_service, whatsapp_painel_service as service
+from chatbot.tenant import current_user
+from chatbot.views.whatsapp import AssumirIn, AtualizarMensagensIn, EnviarMensagemIn, LimiteMensageriaIn, TogglecapacidadeIn
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -53,13 +53,9 @@ def devolver(conversa_id: int, db: Session = Depends(get_db)):
 @router.post("/conversas/{conversa_id}/mensagens")
 def enviar_mensagem(conversa_id: int, body: EnviarMensagemIn, db: Session = Depends(get_db)):
     try:
-        mensagem = service.enviar_mensagem_agente(db, conversa_id, body.texto)
+        mensagem = service.enviar_mensagem_agente(db, conversa_id, body.texto, body.idempotencyKey)
     except ValueError as erro:
         raise HTTPException(status_code=409, detail=str(erro)) from erro
-    except WhatsAppNaoConfiguradoError as erro:
-        raise HTTPException(status_code=503, detail=str(erro)) from erro
-    except WhatsAppError as erro:
-        raise HTTPException(status_code=502, detail=str(erro)) from erro
     if mensagem is None:
         raise HTTPException(status_code=404, detail="Conversa não encontrada")
     return mensagem
@@ -91,3 +87,35 @@ def atualizar_regras(regras: dict, db: Session = Depends(get_db)):
 @router.get("/desempenho")
 def desempenho(periodo: str = "Últimos 30 dias", db: Session = Depends(get_db)):
     return service.calcular_desempenho(db, periodo)
+
+
+@router.get("/operacao/mensageria/resumo")
+def resumo_mensageria(db: Session = Depends(get_db)):
+    return mensageria_service.operation_summary(db)
+
+
+@router.get("/operacao/mensageria")
+def listar_mensageria(status: str | None = None, limite: int = 100, db: Session = Depends(get_db)):
+    permitidos = {"pendente", "processando", "retentativa", "enviada", "morta", "cancelada"}
+    if status is not None and status not in permitidos:
+        raise HTTPException(status_code=422, detail="Status de mensageria inválido")
+    return mensageria_service.list_outbox(db, status, limite)
+
+
+@router.post("/operacao/mensageria/{outbox_id}/reprocessar")
+def reprocessar_mensagem(outbox_id: int, db: Session = Depends(get_db)):
+    if not mensageria_service.reprocess(db, outbox_id, current_user.get()):
+        raise HTTPException(status_code=409, detail="Somente mensagens na fila de falhas podem ser reprocessadas.")
+    return {"status": "reprocessada"}
+
+
+@router.get("/operacao/mensageria/limites")
+def listar_limites_mensageria(db: Session = Depends(get_db)):
+    return mensageria_service.list_limits(db)
+
+
+@router.put("/operacao/mensageria/limites")
+def salvar_limite_mensageria(body: LimiteMensageriaIn, db: Session = Depends(get_db)):
+    return mensageria_service.upsert_limit(
+        db, body.escopo, body.chave, body.janelaSegundos, body.maxEnvios, body.ativo
+    )

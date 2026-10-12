@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -40,10 +40,24 @@ class AssumirIn(BaseModel):
 
 class EnviarMensagemIn(BaseModel):
     texto: str = Field(min_length=1, max_length=4096)
+    idempotencyKey: str = Field(min_length=8, max_length=160)
 
     @field_validator("texto", mode="before")
     @classmethod
     def limpar_texto(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
+
+
+class LimiteMensageriaIn(BaseModel):
+    escopo: Literal["clinica", "numero", "campanha", "provedor"]
+    chave: str = Field(default="*", min_length=1, max_length=160)
+    janelaSegundos: int = Field(ge=1, le=86400)
+    maxEnvios: int = Field(ge=1, le=100000)
+    ativo: bool = True
+
+    @field_validator("chave", mode="before")
+    @classmethod
+    def limpar_chave(cls, valor):
         return valor.strip() if isinstance(valor, str) else valor
 
 

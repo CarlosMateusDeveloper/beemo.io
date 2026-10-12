@@ -21,12 +21,12 @@ class ValidacaoTest(unittest.TestCase):
         for modelo, dados in [(EnviarMensagemIn, {"texto": "  "}), (AssumirIn, {"agenteNome": "  "})]:
             with self.assertRaises(ValidationError):
                 modelo(**dados)
-        self.assertEqual(EnviarMensagemIn(texto=" Oi ").texto, "Oi")
+        self.assertEqual(EnviarMensagemIn(texto=" Oi ", idempotencyKey="request-123").texto, "Oi")
 
     def test_nao_envia_sem_assumir(self):
         with patch.object(painel, "_buscar_conversa", return_value=SimpleNamespace(estado=EstadoConversaBot.bot)), patch.object(painel.whatsapp_service, "send_message_sync") as enviar:
             with self.assertRaises(ValueError):
-                painel.enviar_mensagem_agente(MagicMock(), 1, "Olá")
+                painel.enviar_mensagem_agente(MagicMock(), 1, "Olá", "request-123")
             enviar.assert_not_called()
 
     def test_assistente_sem_regras_tem_campos_completos(self):

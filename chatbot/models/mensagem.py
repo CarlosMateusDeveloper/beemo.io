@@ -50,3 +50,6 @@ class Mensagem(Base):
     id_consentimento = Column(BigInteger, nullable=True)
     id_modelo_comunicacao = Column(BigInteger, nullable=True)
     modelo_versao = Column(Integer, nullable=True)
+    id_outbox = Column(BigInteger, nullable=True)
+    id_mensagem_provedor = Column(String(200), nullable=True)
+    status_entrega = Column(String(16), nullable=False, server_default="enviada")

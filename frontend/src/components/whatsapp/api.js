@@ -32,10 +32,10 @@ export function devolverConversa(conversaId) {
   return request(`/whatsapp/conversas/${conversaId}/devolver`, { method: 'POST' })
 }
 
-export function enviarMensagem(conversaId, texto) {
+export function enviarMensagem(conversaId, texto, idempotencyKey) {
   return request(`/whatsapp/conversas/${conversaId}/mensagens`, {
     method: 'POST',
-    body: JSON.stringify({ texto }),
+    body: JSON.stringify({ texto, idempotencyKey }),
   })
 }
 
@@ -66,4 +66,17 @@ export function salvarRegras(regras) {
 
 export function fetchDesempenho(periodo) {
   return request(`/whatsapp/desempenho?periodo=${encodeURIComponent(periodo)}`)
+}
+
+export function fetchMensageriaResumo() {
+  return request('/whatsapp/operacao/mensageria/resumo')
+}
+
+export function fetchMensageria(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  return request(`/whatsapp/operacao/mensageria${query}`)
+}
+
+export function reprocessarMensagem(outboxId) {
+  return request(`/whatsapp/operacao/mensageria/${outboxId}/reprocessar`, { method: 'POST' })
 }

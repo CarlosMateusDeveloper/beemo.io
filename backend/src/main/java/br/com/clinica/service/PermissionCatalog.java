@@ -25,6 +25,7 @@ public final class PermissionCatalog {
                 "dashboard.operacional.visualizar", "agenda.visualizar", "agenda.gerenciar",
                 "paciente.visualizar", "paciente.cadastrar", "paciente.editar",
                 "whatsapp.visualizar", "whatsapp.enviar", "medico.visualizar",
+                "mensageria.visualizar",
                 "comunicacao.consentimento.visualizar", "comunicacao.consentimento.gerenciar", "comunicacao.modelo.visualizar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",
                 "jornada.executar", "campanha.executar", "caixa.visualizar", "caixa.receber", "caixa.fechar"));
@@ -44,6 +45,7 @@ public final class PermissionCatalog {
                 "dashboard.operacional.visualizar", "dashboard.financeiro.visualizar",
                 "agenda.visualizar", "agenda.gerenciar", "paciente.visualizar", "paciente.cadastrar", "paciente.editar",
                 "whatsapp.visualizar", "whatsapp.enviar", "whatsapp.configurar", "medico.visualizar", "medico.indicadores.visualizar", "medico.gerenciar",
+                "mensageria.visualizar", "mensageria.operar",
                 "comunicacao.consentimento.visualizar", "comunicacao.consentimento.gerenciar",
                 "comunicacao.modelo.visualizar", "comunicacao.modelo.gerenciar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",

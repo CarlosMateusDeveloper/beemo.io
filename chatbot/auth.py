@@ -1,7 +1,7 @@
 """Valida sessão e CSRF dos operadores no backend do clinicOS."""
 import os
 import httpx
-from chatbot.tenant import current_tenant, current_permissions
+from chatbot.tenant import current_tenant, current_permissions, current_user
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -31,21 +31,28 @@ class SessionMiddleware(BaseHTTPMiddleware):
         except (httpx.HTTPError, ValueError):
             return JSONResponse({'detail': 'Não foi possível validar a sessão.'}, status_code=503)
         try:
-            active = response.json().get('tenantAtivo', {})
+            session_data = response.json()
+            active = session_data.get('tenantAtivo', {})
             tenant = active.get('id')
             permissions = active.get('permissoes', [])
+            user = session_data.get('id') or (session_data.get('usuario') or {}).get('id')
         except (ValueError, AttributeError):
             tenant = None
         if not isinstance(tenant, int) or isinstance(tenant, bool) or tenant < 1:
             return JSONResponse({'code': 'tenant_required', 'detail': 'Selecione uma clínica autorizada.'}, status_code=403)
-        required = 'whatsapp.configurar' if request.url.path.startswith('/whatsapp/assistente') and request.method not in ('GET', 'HEAD') else (
-            'whatsapp.visualizar' if request.method in ('GET', 'HEAD') else 'whatsapp.enviar')
+        if request.url.path.startswith('/whatsapp/operacao'):
+            required = 'mensageria.visualizar' if request.method in ('GET', 'HEAD') else 'mensageria.operar'
+        else:
+            required = 'whatsapp.configurar' if request.url.path.startswith('/whatsapp/assistente') and request.method not in ('GET', 'HEAD') else (
+                'whatsapp.visualizar' if request.method in ('GET', 'HEAD') else 'whatsapp.enviar')
         if required not in permissions:
             return JSONResponse({'code': 'forbidden', 'detail': 'Seu perfil não tem permissão para esta ação.'}, status_code=403)
         marker = current_tenant.set(tenant)
         permissions_marker = current_permissions.set(frozenset(permissions))
+        user_marker = current_user.set(user if isinstance(user, int) else None)
         try:
             return await call_next(request)
         finally:
             current_permissions.reset(permissions_marker)
+            current_user.reset(user_marker)
             current_tenant.reset(marker)

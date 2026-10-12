@@ -152,7 +152,11 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
                   <span key={i}>{i > 0 && <br />}{destacarTexto(linha, m.destaque)}</span>
                 ))}
               </span>
-              <span className="whatsapp-bubble-hora">{m.horario}</span>
+              <span className="whatsapp-bubble-hora">
+                {m.statusEntrega === 'pendente' && 'enfileirada · '}
+                {m.statusEntrega === 'falha' && 'falha no envio · '}
+                {m.horario}
+              </span>
             </div>
           )
         })}
@@ -299,6 +303,7 @@ function Atendimento({ conversa, onAtualizar }) {
   const versao = useRef(0)
   const mensagensRef = useRef(null)
   const pertoDoFim = useRef(true)
+  const envioPendente = useRef(null)
   const id = conversa.id
 
   useEffect(() => {
@@ -368,11 +373,15 @@ function Atendimento({ conversa, onAtualizar }) {
     const texto = resposta.trim()
     if (!texto) return
     executar(async () => {
-      const nova = await enviarMensagem(id, texto)
+      if (!envioPendente.current || envioPendente.current.texto !== texto || envioPendente.current.conversaId !== id) {
+        envioPendente.current = { conversaId: id, texto, key: crypto.randomUUID() }
+      }
+      const nova = await enviarMensagem(id, texto, envioPendente.current.key)
       if (!ativo.current) return
       pertoDoFim.current = true
       setMensagens((prev) => prev.some((m) => m.id === nova.id) ? prev : [...prev, nova])
       setResposta('')
+      envioPendente.current = null
     })
   }
 
