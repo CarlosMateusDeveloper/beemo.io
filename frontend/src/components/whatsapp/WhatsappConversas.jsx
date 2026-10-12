@@ -202,10 +202,14 @@ function PainelContexto({ conversa, contexto, contextoCarregado }) {
 
   if (!contexto) return <div className="whatsapp-contexto" />
 
-  const { paciente, proximaConsulta, ultimasVisitas, pendencias, assistente } = contexto
+  const { paciente, proximaConsulta, ultimasVisitas, pendencias, assistente, comunicacao } = contexto
 
   return (
     <div className="whatsapp-contexto">
+      <div className="whatsapp-contexto-card">
+        <span className="whatsapp-contexto-titulo">preferências de comunicação</span>
+        {comunicacao?.whatsapp?.length ? comunicacao.whatsapp.map(item => <span key={item.finalidade} className={`whatsapp-contexto-pendencia${item.decisao === 'revogado' ? ' critico' : ''}`}><span className="whatsapp-contexto-dot" /><span className="whatsapp-contexto-pendencia-label">{item.finalidade.replace('_', ' ')}</span><span className="whatsapp-contexto-pendencia-valor">{item.decisao === 'concedido' ? 'permitido' : 'bloqueado'}</span></span>) : <span className="whatsapp-contexto-alerta">Sem consentimento registrado para WhatsApp</span>}
+      </div>
       <div className="whatsapp-contexto-card">
         <span className="whatsapp-contexto-titulo">paciente</span>
         <span className="whatsapp-contexto-nome">{paciente.nome}</span>

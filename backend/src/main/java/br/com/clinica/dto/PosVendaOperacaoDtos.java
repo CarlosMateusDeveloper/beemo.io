@@ -52,6 +52,7 @@ public final class PosVendaOperacaoDtos {
             OffsetDateTime programadoPara,
             Integer responsavelId,
             List<@Positive Integer> pacientes,
+            @Positive Long modeloId,
             @Min(0) Integer versao
     ) {}
 }
