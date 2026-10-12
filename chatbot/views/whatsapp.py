@@ -61,6 +61,27 @@ class LimiteMensageriaIn(BaseModel):
         return valor.strip() if isinstance(valor, str) else valor
 
 
+class WhatsAppConfigurationIn(BaseModel):
+    phoneNumberId: str = Field(min_length=1, max_length=80)
+    businessAccountId: str | None = Field(default=None, max_length=80)
+    displayPhoneNumber: str | None = Field(default=None, max_length=30)
+    accessToken: str | None = Field(default=None, max_length=4096)
+    appSecret: str | None = Field(default=None, max_length=512)
+    verifyToken: str | None = Field(default=None, max_length=512)
+    active: bool = True
+
+
+class PosVendaWhatsAppIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4096)
+    modelId: int = Field(gt=0)
+    idempotencyKey: str = Field(min_length=8, max_length=160)
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def limpar_texto(cls, valor):
+        return valor.strip() if isinstance(valor, str) else valor
+
+
 class CapacidadeOut(BaseModel):
     id: str
     nome: str

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
@@ -14,7 +15,7 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
-from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_integracao_service, whatsapp_service
 
 # tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
@@ -55,15 +56,37 @@ def _data_curta(d) -> str:
     return d.strftime("%d/%m")
 
 
-def obter_status() -> dict:
+def obter_status(db: Session) -> dict:
     """conectado=True só quando a Cloud API responde de fato pelo número.
 
     Não basta ter credencial preenchida: token vencido ou número errado
     também é "desconectado" — é justamente o caso em que o painel não pode
     dizer que está no ar.
     """
-    numero = whatsapp_service.consultar_numero()
-    return {"conectado": numero is not None, "numero": numero, "configurado": whatsapp_service.esta_configurado()}
+    configured = whatsapp_integracao_service.get_configuration(db)
+    try:
+        numero = whatsapp_integracao_service.provider(db).number()
+    except (ValueError, whatsapp_service.WhatsAppError):
+        numero = None
+    return {"conectado": numero is not None, "numero": numero or configured.get("displayPhoneNumber"),
+            "configurado": configured.get("configured", False)}
+
+
+async def wait_for_updates(db: Session, after: str | None, timeout_seconds: int = 20) -> dict:
+    """Long polling compartilhado pelo painel; funciona entre processos via PostgreSQL."""
+    for attempt in range(timeout_seconds * 2 + 1):
+        row = db.execute(text("""
+            SELECT coalesce((SELECT max(id_mensagem) FROM mensagem),0) AS messages,
+              coalesce((SELECT max(id_evento) FROM whatsapp_status_evento),0) AS statuses,
+              coalesce((SELECT max(id_evento) FROM mensageria_evento),0) AS outbox,
+              coalesce((SELECT floor(extract(epoch FROM max(atualizado_em))*1000)::bigint FROM conversa),0) AS conversations
+        """)).mappings().one()
+        cursor = f"{row['messages']}:{row['statuses']}:{row['outbox']}:{row['conversations']}"
+        if after is None or cursor != after:
+            return {"cursor": cursor, "changed": after is not None}
+        if attempt < timeout_seconds * 2:
+            await asyncio.sleep(.5)
+    return {"cursor": after, "changed": False}
 
 
 def listar_conversas(db: Session) -> list[dict]:

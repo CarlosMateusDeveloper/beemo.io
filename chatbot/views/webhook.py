@@ -35,6 +35,20 @@ class MensagemRecebida(BaseModel):
     nome_perfil: str | None = None
 
 
+class ErroStatus(BaseModel):
+    code: int | None = None
+    title: str | None = None
+    message: str | None = None
+
+
+class StatusRecebido(BaseModel):
+    id: str
+    status: str
+    timestamp: str | None = None
+    recipient_id: str | None = None
+    errors: list[ErroStatus] = []
+
+
 class _Texto(BaseModel):
     body: str = ""
 
@@ -120,6 +134,7 @@ class _Valor(BaseModel):
     messaging_product: str | None = None
     contacts: list[_Contato] = []
     messages: list[_Mensagem] = []
+    statuses: list[StatusRecebido] = []
 
 
 class _Mudanca(BaseModel):
@@ -160,3 +175,7 @@ class WebhookPayload(BaseModel):
                         nome_perfil=nomes.get(mensagem.remetente),
                     ))
         return recebidas
+
+    def extrair_status(self) -> list[StatusRecebido]:
+        return [status for entrada in self.entry for mudanca in entrada.changes
+                if mudanca.value for status in mudanca.value.statuses]

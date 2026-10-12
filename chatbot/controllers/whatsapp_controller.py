@@ -2,16 +2,53 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from chatbot.db import get_db
-from chatbot.services import mensageria_service, whatsapp_painel_service as service
+from chatbot.services import mensageria_service, whatsapp_integracao_service, whatsapp_painel_service as service, whatsapp_pos_venda_service
 from chatbot.tenant import current_user
-from chatbot.views.whatsapp import AssumirIn, AtualizarMensagensIn, EnviarMensagemIn, LimiteMensageriaIn, TogglecapacidadeIn
+from chatbot.views.whatsapp import AssumirIn, AtualizarMensagensIn, EnviarMensagemIn, LimiteMensageriaIn, PosVendaWhatsAppIn, TogglecapacidadeIn, WhatsAppConfigurationIn
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
 
 @router.get("/status")
-def status():
-    return service.obter_status()
+def status(db: Session = Depends(get_db)):
+    return service.obter_status(db)
+
+
+@router.get("/atualizacoes")
+async def atualizacoes(after: str | None = None, db: Session = Depends(get_db)):
+    return await service.wait_for_updates(db, after)
+
+
+@router.get("/configuracao")
+def obter_configuracao(db: Session = Depends(get_db)):
+    return whatsapp_integracao_service.get_configuration(db)
+
+
+@router.put("/configuracao")
+def salvar_configuracao(body: WhatsAppConfigurationIn, db: Session = Depends(get_db)):
+    try:
+        return whatsapp_integracao_service.save_configuration(db, body.model_dump(), current_user.get())
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@router.get("/pos-venda/casos/{case_id}")
+def preparar_mensagem_pos_venda(case_id: int, db: Session = Depends(get_db)):
+    result = whatsapp_pos_venda_service.prepare(db, case_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Caso não encontrado")
+    return result
+
+
+@router.post("/pos-venda/casos/{case_id}/mensagens")
+def enviar_mensagem_pos_venda(case_id: int, body: PosVendaWhatsAppIn, db: Session = Depends(get_db)):
+    try:
+        result = whatsapp_pos_venda_service.send(db, case_id, body)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if result is None:
+        raise HTTPException(status_code=404, detail="Caso não encontrado")
+    return result
 
 
 @router.get("/conversas")

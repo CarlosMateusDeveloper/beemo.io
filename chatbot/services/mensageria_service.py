@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem, TipoMensagem
-from chatbot.services import whatsapp_service
+from chatbot.services import whatsapp_integracao_service, whatsapp_service
 from chatbot.tenant import tenant_id
 
 logger = logging.getLogger(__name__)
@@ -52,27 +52,35 @@ def enqueue_text(
     paciente_id: int | None, remetente: RemetenteMensagem, tentativa_id: int,
     consentimento_id: int | None, modelo_id: int | None, modelo_versao: int | None,
     finalidade: str, origem: str, id_campanha: int | None = None,
+    id_pos_venda_caso: int | None = None, id_jornada_inscricao: int | None = None,
+    payload_override: dict | None = None,
 ) -> tuple[Mensagem, bool]:
     key = idempotency_key.strip()
     if not key or len(key) > 160:
         raise ValueError("Chave de idempotência inválida.")
     telefone = whatsapp_service.normalizar_telefone(telefone)
-    payload = json.dumps({"texto": texto_mensagem}, ensure_ascii=False)
+    provider_payload = payload_override or {"texto": texto_mensagem}
+    payload = json.dumps(provider_payload, ensure_ascii=False)
+    message_type = "template" if payload_override and payload_override.get("template") else "texto"
     inserted = db.execute(text("""
         INSERT INTO mensageria_outbox(
-            idempotency_key,canal,provedor,destino,tipo,payload,origem,id_campanha
-        ) VALUES (:key,'whatsapp','meta',:destino,'texto',CAST(:payload AS jsonb),:origem,:campanha)
+            idempotency_key,canal,provedor,destino,tipo,payload,origem,id_campanha,
+            id_pos_venda_caso,id_jornada_inscricao
+        ) VALUES (:key,'whatsapp','meta',:destino,:tipo,CAST(:payload AS jsonb),:origem,:campanha,:caso,:jornada)
         ON CONFLICT(id_clinica,idempotency_key) DO NOTHING
         RETURNING id_outbox
-    """), {"key": key, "destino": telefone, "payload": payload, "origem": origem, "campanha": id_campanha}).scalar_one_or_none()
+    """), {"key": key, "destino": telefone, "tipo": message_type, "payload": payload,
+           "origem": origem, "campanha": id_campanha, "caso": id_pos_venda_caso,
+           "jornada": id_jornada_inscricao}).scalar_one_or_none()
     created = inserted is not None
     outbox_id = inserted
     if outbox_id is None:
         row = db.execute(text("""
-            SELECT id_outbox,destino,payload->>'texto' AS texto
+            SELECT id_outbox,destino,coalesce(payload->>'texto',payload->>'template') AS texto
             FROM mensageria_outbox WHERE idempotency_key=:key
         """), {"key": key}).mappings().one()
-        if row["destino"] != telefone or row["texto"] != texto_mensagem:
+        expected = provider_payload.get("texto") or provider_payload.get("template")
+        if row["destino"] != telefone or row["texto"] != expected:
             db.rollback()
             raise ValueError("A chave de idempotência já foi usada em outra mensagem.")
         outbox_id = row["id_outbox"]
@@ -87,6 +95,8 @@ def enqueue_text(
             id_tentativa_comunicacao=tentativa_id, finalidade_comunicacao=finalidade,
             id_consentimento=consentimento_id, id_modelo_comunicacao=modelo_id,
             modelo_versao=modelo_versao, id_outbox=outbox_id, status_entrega="pendente",
+            id_pos_venda_caso=id_pos_venda_caso, id_campanha=id_campanha,
+            id_jornada_inscricao=id_jornada_inscricao,
         )
         db.add(nova)
         db.flush()
@@ -140,9 +150,8 @@ def process_one(db: Session, sender: Callable[[str, str], str] | None = None) ->
     _event(db, outbox_id, "adquirida", {"worker": WORKER_ID})
     db.commit()
 
-    send = sender or whatsapp_service.send_message_sync
     try:
-        provider_id = send(row["destino"], row["payload"]["texto"])
+        provider_id = sender(row["destino"], row["payload"]["texto"]) if sender else whatsapp_integracao_service.send_outbox(db, row)
     except Exception as error:  # classificacao abaixo decide retry versus DLQ
         _record_failure(db, row, error)
         return True
@@ -157,10 +166,62 @@ def process_one(db: Session, sender: Callable[[str, str], str] | None = None) ->
         UPDATE mensagem SET status_entrega='enviada',id_mensagem_provedor=:provider
         WHERE id_outbox=:id
     """), {"provider": provider_id, "id": outbox_id})
+    _apply_early_provider_status(db, outbox_id, provider_id)
     _event(db, outbox_id, "enviada", {"idMensagemProvedor": provider_id})
+    _register_case_send(db, row, provider_id)
+    _register_campaign_send(db, row)
     _close_circuit(db, row["provedor"])
     db.commit()
     return True
+
+
+def _apply_early_provider_status(db: Session, outbox_id: int, provider_id: str) -> None:
+    status = db.execute(text("""
+        SELECT status FROM whatsapp_status_evento WHERE id_mensagem_provedor=:provider
+        ORDER BY CASE status WHEN 'falha' THEN 4 WHEN 'lida' THEN 3 WHEN 'entregue' THEN 2 ELSE 1 END DESC,
+          ocorrido_em DESC LIMIT 1
+    """), {"provider": provider_id}).scalar_one_or_none()
+    if status:
+        db.execute(text("UPDATE mensagem SET status_entrega=:status WHERE id_outbox=:outbox"),
+                   {"status": status, "outbox": outbox_id})
+
+
+def _register_case_send(db: Session, row, provider_id: str) -> None:
+    case_id = row.get("id_pos_venda_caso")
+    if not case_id:
+        return
+    db.execute(text("""
+        INSERT INTO pos_venda_evento(id_caso,id_usuario,tipo,canal,descricao)
+        SELECT :case,NULL,'contato','whatsapp','Mensagem aceita pelo WhatsApp (' || :provider || ').'
+        WHERE NOT EXISTS(
+          SELECT 1 FROM pos_venda_evento
+          WHERE id_caso=:case AND tipo='contato' AND canal='whatsapp'
+            AND descricao LIKE '%' || :provider || '%'
+        )
+    """), {"case": case_id, "provider": provider_id})
+    db.execute(text("""
+        UPDATE pos_venda_caso SET status=CASE WHEN status IN ('pendente','sem_resposta','nova_falta')
+          THEN 'em_contato' ELSE status END,
+          proxima_acao=coalesce(proxima_acao,now()+interval '1 day') WHERE id=:case
+    """), {"case": case_id})
+
+
+def _register_campaign_send(db: Session, row) -> None:
+    campaign_id = row.get("id_campanha")
+    if not campaign_id:
+        return
+    changed = db.execute(text("""
+        UPDATE pos_venda_campanha_publico p SET status='enviado'
+        FROM mensagem m WHERE m.id_outbox=:outbox AND p.id_campanha=:campaign
+          AND p.id_paciente=m.id_paciente AND p.status='incluido'
+        RETURNING p.id_paciente
+    """), {"outbox": row["id_outbox"], "campaign": campaign_id}).scalar_one_or_none()
+    if changed:
+        db.execute(text("""
+            UPDATE pos_venda_campanha SET enviados=(SELECT count(*) FROM pos_venda_campanha_publico
+              WHERE id_campanha=:campaign AND status IN ('enviado','entregue','respondido','convertido'))
+            WHERE id_campanha=:campaign
+        """), {"campaign": campaign_id})
 
 
 def _record_failure(db: Session, row, error: Exception) -> None:

@@ -11,7 +11,7 @@ from chatbot.models.clinica import Clinica  # noqa: F401 — registra `clinica` 
 from chatbot.models.conversa import Conversa, EstadoConversaBot
 from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem, TipoMensagem
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica
-from chatbot.services import comunicacao_policy_service, contato_service, mensageria_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, contato_service, mensageria_service, whatsapp_event_service, whatsapp_service
 from chatbot.views.webhook import MensagemRecebida
 
 logger = logging.getLogger(__name__)
@@ -116,15 +116,23 @@ async def _processar(db: Session, mensagem: MensagemRecebida) -> None:
     # contato desse numero".
     primeiro_contato = db.query(Mensagem).filter(Mensagem.telefone == telefone).count() == 0
 
-    db.add(Mensagem(
-        id_paciente=id_paciente,
-        telefone=telefone,
-        direcao=DirecaoMensagem.entrada,
-        tipo=TIPOS_WHATSAPP.get(mensagem.tipo_whatsapp, TipoMensagem.texto),
-        conteudo=mensagem.conteudo,
-        remetente=RemetenteMensagem.paciente,
-        status_entrega="recebida",
-    ))
+    # Se uma etapa posterior falhar, o registro de idempotencia permite nova
+    # tentativa. Nesse caso a mensagem ja pode ter sido persistida: reutiliza-la
+    # evita duplicidade e deixa o processamento retomar da correlacao.
+    received = db.query(Mensagem).filter(Mensagem.id_mensagem_provedor == mensagem.wamid).first()
+    if received is None:
+        received = Mensagem(
+            id_paciente=id_paciente,
+            telefone=telefone,
+            direcao=DirecaoMensagem.entrada,
+            tipo=TIPOS_WHATSAPP.get(mensagem.tipo_whatsapp, TipoMensagem.texto),
+            conteudo=mensagem.conteudo,
+            remetente=RemetenteMensagem.paciente,
+            id_mensagem_provedor=mensagem.wamid,
+            status_entrega="recebida",
+        )
+        db.add(received)
+        db.flush()
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
 
@@ -133,11 +141,14 @@ async def _processar(db: Session, mensagem: MensagemRecebida) -> None:
             db, paciente_id=id_paciente, telefone=telefone,
             evidencia=f"whatsapp:{mensagem.wamid}",
         )
+        whatsapp_event_service.close_contact_after_optout(db, telefone)
         conversa.estado = EstadoConversaBot.aguardando
         conversa.agente_nome = None
         conversa.atualizado_em = datetime.now(timezone.utc)
         db.commit()
         return
+
+    whatsapp_event_service.correlate_incoming(db, received.id_mensagem, telefone, mensagem.wamid)
 
     if conversa.estado in (EstadoConversaBot.com_agente, EstadoConversaBot.aguardando):
         # Atendente humano conduzindo: o bot nao responde por cima dele.

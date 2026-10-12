@@ -7,6 +7,7 @@ import {
   fetchImportacoes, fetchOportunidade, fetchOportunidades, fetchResponsaveisPosVenda,
   importarCsv, previewImportacaoCsv, salvarAcaoOportunidade,
 } from '../../components/retorno/api'
+import { enviarWhatsappPosVenda, prepararWhatsappPosVenda } from '../../components/whatsapp/api'
 import './Oportunidades.css'
 
 const STATUS_LABELS = {
@@ -178,11 +179,43 @@ function CaseDetail({ id, responsibles, onClose, onChanged }) {
     {current && <><span className="op-detail-kicker">Caso #{current.id}</span><h2>{current.paciente}</h2><p>{formatPhone(current.telefone)}</p><div className="op-detail-status"><StatusBadge status={current.status} /><QueueBadge item={current} /></div>
       {details.alertas.length > 0 && <section className="op-alert-list"><strong>Pendências ativas</strong>{details.alertas.map((alert) => <div key={alert.id}><AlertTriangle size={14} /><span>{alert.mensagem}</span></div>)}</section>}
       <dl><div><dt>Motivo da falta</dt><dd>{current.motivo_falta || 'Ainda não informado'}</dd></div><div><dt>Última interação</dt><dd>{current.ultima_interacao ? formatDateTime(current.ultima_interacao) : 'Nenhuma'}</dd></div><div><dt>Responsável</dt><dd>{current.responsavel || 'Sem responsável'}</dd></div><div><dt>Próximo passo</dt><dd>{nextStep(current)}</dd></div><div><dt>Origem</dt><dd>{current.id_atendimento_externo_origem ? current.fonte : 'Agenda Clinisis'}</dd></div>{current.atendimento_externo_reagendado && <div><dt>Reagendamento externo</dt><dd>{current.atendimento_externo_reagendado} · {current.situacao_reagendada_normalizada}</dd></div>}</dl>
+      {!CLOSED.includes(current.status) && <WhatsAppCaseComposer caseId={id} onSent={async () => { setNotice('Mensagem colocada na fila. O contato será registrado quando o WhatsApp aceitar o envio.'); await Promise.all([loadDetail(), onChanged()]) }} />}
       {!CLOSED.includes(current.status) && <CaseActionForm key={current.versao} current={current} details={details} responsibles={responsibles} onSubmit={save} busy={busy} />}
       {notice && <div className="op-feedback success" role="status"><CheckCircle2 size={16} /><span>{notice}</span></div>}
       <section className="op-case-history"><strong>Histórico</strong>{details.historico.slice(0, 8).map((event) => <article key={event.id}><time>{formatDateTime(event.criado_em)}</time><p>{event.descricao}</p><small>{event.autor || 'Sistema'}{event.canal ? ` · ${event.canal}` : ''}</small></article>)}</section>
     </>}
   </aside>
+}
+
+function WhatsAppCaseComposer({ caseId, onSent }) {
+  const [data, setData] = useState(null)
+  const [text, setText] = useState('')
+  const [modelId, setModelId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    prepararWhatsappPosVenda(caseId).then((result) => { if (active) { setData(result); setText(result.suggestedText); setModelId(result.models[0]?.id ? String(result.models[0].id) : '') } }).catch((reason) => { if (active) setError(reason.message) })
+    return () => { active = false }
+  }, [caseId])
+  async function send() {
+    setBusy(true); setError('')
+    try {
+      await enviarWhatsappPosVenda(caseId, { text, modelId: Number(modelId), idempotencyKey: `pos-venda:${caseId}:${crypto.randomUUID()}` })
+      await onSent()
+    } catch (reason) { setError(reason.message) } finally { setBusy(false) }
+  }
+  if (error && !data) return <div className="op-feedback error"><AlertCircle size={15} /><span>{error}</span></div>
+  if (!data) return <div className="op-whatsapp-composer loading">Preparando WhatsApp…</div>
+  return <section className="op-whatsapp-composer">
+    <header><MessageCircle size={16} /><div><strong>Enviar pelo WhatsApp</strong><small>{data.sessionOpen ? 'Janela de conversa aberta: o texto pode ser editado.' : 'Fora da janela de 24h: será usado o template aprovado pela Meta.'}</small></div></header>
+    {!data.configured && <p className="op-whatsapp-warning">Configure o número oficial na área WhatsApp antes do envio.</p>}
+    <label>Modelo aprovado<select value={modelId} onChange={(event) => { const value = event.target.value; setModelId(value); const selected = data.models.find((item) => String(item.id) === value); if (selected?.conteudo) setText(selected.conteudo) }}><option value="">Selecione</option>{data.models.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+    <label>Mensagem<textarea rows="4" maxLength="4096" value={text} onChange={(event) => setText(event.target.value)} disabled={!data.sessionOpen} /></label>
+    {!data.sessionOpen && <small>O conteúdo mostrado é uma referência. A Meta envia a versão aprovada do template.</small>}
+    {error && <p className="op-whatsapp-error">{error}</p>}
+    <button type="button" className="op-primary-button" disabled={busy || !data.configured || !modelId || !text.trim()} onClick={send}>{busy ? 'Enfileirando…' : 'Enviar mensagem'}</button>
+  </section>
 }
 
 function CaseActionForm({ current, details, responsibles, onSubmit, busy }) {
