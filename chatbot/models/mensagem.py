@@ -53,3 +53,6 @@ class Mensagem(Base):
     id_outbox = Column(BigInteger, nullable=True)
     id_mensagem_provedor = Column(String(200), nullable=True)
     status_entrega = Column(String(16), nullable=False, server_default="enviada")
+    id_pos_venda_caso = Column(BigInteger, nullable=True)
+    id_campanha = Column(BigInteger, nullable=True)
+    id_jornada_inscricao = Column(BigInteger, nullable=True)

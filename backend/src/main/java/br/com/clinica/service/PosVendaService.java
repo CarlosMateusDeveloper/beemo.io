@@ -425,6 +425,18 @@ public class PosVendaService {
             }
             default -> throw erro("Ação inválida");
         }
+        if (Set.of("resposta_recebida","reagendar","nao_deseja","nao_contatar").contains(r.acao())) {
+            db.update("""
+                    UPDATE mensageria_outbox SET status='cancelada',atualizado_em=now(),erro_categoria='fluxo',
+                        erro_codigo=?,erro_mensagem='Envio cancelado após atualização do caso de pós-venda.'
+                    WHERE id_pos_venda_caso=? AND status IN ('pendente','retentativa')
+                    """, r.acao(),id);
+            db.update("""
+                    UPDATE mensagem m SET status_entrega='cancelada' FROM mensageria_outbox o
+                    WHERE m.id_outbox=o.id_outbox AND o.id_pos_venda_caso=? AND o.status='cancelada'
+                        AND m.status_entrega='pendente'
+                    """, id);
+        }
         db.update("INSERT INTO pos_venda_evento(id_caso,id_usuario,tipo,canal,descricao) VALUES (?,?,?,?,?)",
                 id,autor,r.acao(),canal,descricao);
         if ("resposta_recebida".equals(r.acao())) {

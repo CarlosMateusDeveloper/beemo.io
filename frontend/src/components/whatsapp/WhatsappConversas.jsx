@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, AlertTriangle, UserPlus } from 'lucide-react'
 import { ordenarConversas } from './whatsappData'
-import { fetchConversas, fetchMensagens, fetchContexto, assumirConversa, devolverConversa, enviarMensagem } from './api'
+import { fetchConversas, fetchMensagens, fetchContexto, fetchWhatsappAtualizacoes, assumirConversa, devolverConversa, enviarMensagem } from './api'
 
 import { useAuth } from '../../auth/AuthContext'
 
@@ -287,7 +287,7 @@ function PainelContexto({ conversa, contexto, contextoCarregado }) {
   )
 }
 
-function Atendimento({ conversa, onAtualizar }) {
+function Atendimento({ conversa, onAtualizar, updateSignal }) {
   const { usuario } = useAuth()
   const [mensagens, setMensagens] = useState([])
   const [contexto, setContexto] = useState(null)
@@ -335,7 +335,7 @@ function Atendimento({ conversa, onAtualizar }) {
     }
     atualizar()
     return () => { cancelado = true; clearTimeout(timer) }
-  }, [id])
+  }, [id, updateSignal])
 
   useEffect(() => {
     if (pertoDoFim.current && mensagensRef.current) {
@@ -409,6 +409,25 @@ export default function WhatsappConversas({ onConversasAtualizadas }) {
   const [revisao, setRevisao] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
+    let cursor = null
+    async function listen() {
+      while (!cancelled) {
+        try {
+          const update = await fetchWhatsappAtualizacoes(cursor)
+          if (cancelled) return
+          cursor = update.cursor
+          if (update.changed) setRevisao((value) => value + 1)
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 3000))
+        }
+      }
+    }
+    listen()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     let cancelado = false
     let timer
     async function atualizar() {
@@ -445,7 +464,7 @@ export default function WhatsappConversas({ onConversasAtualizadas }) {
             selecionadoId={selecionadoId} onSelecionar={setSelecionadoId} contadorAguardando={contadorAguardando}
           />
         )}
-        {conversa ? <Atendimento key={conversa.id} conversa={conversa} onAtualizar={() => setRevisao((n) => n + 1)} />
+        {conversa ? <Atendimento key={conversa.id} conversa={conversa} updateSignal={revisao} onAtualizar={() => setRevisao((n) => n + 1)} />
           : <div className="whatsapp-thread whatsapp-thread-vazia">Selecione uma conversa</div>}
       </div>
     </>

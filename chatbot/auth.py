@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 class SessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        if request.method == 'OPTIONS' or request.url.path.rstrip('/') in ('/health', '/webhook'):
+        if request.method == 'OPTIONS' or request.url.path.rstrip('/') == '/health' or request.url.path.startswith('/webhook'):
             return await call_next(request)
         token = request.headers.get('authorization', '')
         cookie = request.cookies.get('clinicos_session', '')
@@ -40,7 +40,9 @@ class SessionMiddleware(BaseHTTPMiddleware):
             tenant = None
         if not isinstance(tenant, int) or isinstance(tenant, bool) or tenant < 1:
             return JSONResponse({'code': 'tenant_required', 'detail': 'Selecione uma clínica autorizada.'}, status_code=403)
-        if request.url.path.startswith('/whatsapp/operacao'):
+        if request.url.path.startswith('/whatsapp/configuracao'):
+            required = 'whatsapp.configurar'
+        elif request.url.path.startswith('/whatsapp/operacao'):
             required = 'mensageria.visualizar' if request.method in ('GET', 'HEAD') else 'mensageria.operar'
         else:
             required = 'whatsapp.configurar' if request.url.path.startswith('/whatsapp/assistente') and request.method not in ('GET', 'HEAD') else (

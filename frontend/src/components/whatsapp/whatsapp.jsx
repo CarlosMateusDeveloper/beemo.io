@@ -4,6 +4,7 @@ import WhatsappConversas from './WhatsappConversas'
 import WhatsappAssistente from './WhatsappAssistente'
 import WhatsappDesempenho from './WhatsappDesempenho'
 import WhatsappOperacao from './WhatsappOperacao'
+import WhatsappConfiguracao from './WhatsappConfiguracao'
 import { usePermissions } from '../../auth/permissions'
 import { fetchStatus, fetchConversas } from './api'
 import './whatsapp.css'
@@ -65,7 +66,7 @@ export function Whatsapp() {
         </div>
 
         <nav className="whatsapp-tabs" aria-label="Seções do WhatsApp">
-          {[...ABAS, ...(can('mensageria.visualizar') ? [{ id: 'operacao', label: 'Operação' }] : [])].map((t) => (
+          {[...ABAS, ...(can('mensageria.visualizar') ? [{ id: 'operacao', label: 'Operação' }] : []), ...(can('whatsapp.configurar') ? [{ id: 'configuracao', label: 'Configuração' }] : [])].map((t) => (
             <button
               key={t.id} type="button"
               className={`whatsapp-tab${aba === t.id ? ' active' : ''}`}
@@ -82,6 +83,7 @@ export function Whatsapp() {
       {aba === 'assistente' && <WhatsappAssistente />}
       {aba === 'desempenho' && <WhatsappDesempenho />}
       {aba === 'operacao' && <WhatsappOperacao />}
+      {aba === 'configuracao' && <WhatsappConfiguracao />}
     </div>
   )
 }

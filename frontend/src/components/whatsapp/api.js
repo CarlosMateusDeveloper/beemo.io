@@ -68,6 +68,11 @@ export function fetchDesempenho(periodo) {
   return request(`/whatsapp/desempenho?periodo=${encodeURIComponent(periodo)}`)
 }
 
+export function fetchWhatsappAtualizacoes(after) {
+  const query = after ? `?after=${encodeURIComponent(after)}` : ''
+  return request(`/whatsapp/atualizacoes${query}`)
+}
+
 export function fetchMensageriaResumo() {
   return request('/whatsapp/operacao/mensageria/resumo')
 }
@@ -79,4 +84,20 @@ export function fetchMensageria(status) {
 
 export function reprocessarMensagem(outboxId) {
   return request(`/whatsapp/operacao/mensageria/${outboxId}/reprocessar`, { method: 'POST' })
+}
+
+export function fetchWhatsappConfiguracao() {
+  return request('/whatsapp/configuracao')
+}
+
+export function salvarWhatsappConfiguracao(data) {
+  return request('/whatsapp/configuracao', { method: 'PUT', body: JSON.stringify(data) })
+}
+
+export function prepararWhatsappPosVenda(caseId) {
+  return request(`/whatsapp/pos-venda/casos/${caseId}`)
+}
+
+export function enviarWhatsappPosVenda(caseId, data) {
+  return request(`/whatsapp/pos-venda/casos/${caseId}/mensagens`, { method: 'POST', body: JSON.stringify(data) })
 }
