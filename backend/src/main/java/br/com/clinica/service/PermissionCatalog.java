@@ -25,11 +25,14 @@ public final class PermissionCatalog {
                 "dashboard.operacional.visualizar", "agenda.visualizar", "agenda.gerenciar",
                 "paciente.visualizar", "paciente.cadastrar", "paciente.editar",
                 "whatsapp.visualizar", "whatsapp.enviar", "medico.visualizar",
+                "mensageria.visualizar",
+                "comunicacao.consentimento.visualizar", "comunicacao.consentimento.gerenciar", "comunicacao.modelo.visualizar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",
                 "jornada.executar", "campanha.executar", "caixa.visualizar", "caixa.receber", "caixa.fechar"));
         roles.put(MEDICO, set(
                 "dashboard.operacional.visualizar", "agenda.visualizar", "agenda.gerenciar",
                 "paciente.visualizar", "prontuario.visualizar", "prontuario.editar", "medico.visualizar", "medico.indicadores.visualizar",
+                "comunicacao.consentimento.visualizar",
                 "oportunidade.visualizar", "tarefa.visualizar", "tarefa.gerenciar", "repasse.proprio.visualizar"));
         roles.put(FINANCEIRO, set(
                 "dashboard.financeiro.visualizar", "paciente.financeiro.visualizar",
@@ -42,8 +45,12 @@ public final class PermissionCatalog {
                 "dashboard.operacional.visualizar", "dashboard.financeiro.visualizar",
                 "agenda.visualizar", "agenda.gerenciar", "paciente.visualizar", "paciente.cadastrar", "paciente.editar",
                 "whatsapp.visualizar", "whatsapp.enviar", "whatsapp.configurar", "medico.visualizar", "medico.indicadores.visualizar", "medico.gerenciar",
+                "mensageria.visualizar", "mensageria.operar",
+                "comunicacao.consentimento.visualizar", "comunicacao.consentimento.gerenciar",
+                "comunicacao.modelo.visualizar", "comunicacao.modelo.gerenciar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",
                 "jornada.executar", "jornada.configurar", "campanha.executar", "campanha.configurar",
+                "integracao.gerenciar",
                 "caixa.visualizar", "caixa.receber", "caixa.fechar", "caixa.reabrir", "pagamento.estornar",
                 "financeiro.dre.visualizar", "financeiro.fluxo.visualizar",
                 "despesa.visualizar", "despesa.gerenciar", "despesa.aprovar",

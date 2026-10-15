@@ -32,10 +32,10 @@ export function devolverConversa(conversaId) {
   return request(`/whatsapp/conversas/${conversaId}/devolver`, { method: 'POST' })
 }
 
-export function enviarMensagem(conversaId, texto) {
+export function enviarMensagem(conversaId, texto, idempotencyKey) {
   return request(`/whatsapp/conversas/${conversaId}/mensagens`, {
     method: 'POST',
-    body: JSON.stringify({ texto }),
+    body: JSON.stringify({ texto, idempotencyKey }),
   })
 }
 
@@ -66,4 +66,38 @@ export function salvarRegras(regras) {
 
 export function fetchDesempenho(periodo) {
   return request(`/whatsapp/desempenho?periodo=${encodeURIComponent(periodo)}`)
+}
+
+export function fetchWhatsappAtualizacoes(after) {
+  const query = after ? `?after=${encodeURIComponent(after)}` : ''
+  return request(`/whatsapp/atualizacoes${query}`)
+}
+
+export function fetchMensageriaResumo() {
+  return request('/whatsapp/operacao/mensageria/resumo')
+}
+
+export function fetchMensageria(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  return request(`/whatsapp/operacao/mensageria${query}`)
+}
+
+export function reprocessarMensagem(outboxId) {
+  return request(`/whatsapp/operacao/mensageria/${outboxId}/reprocessar`, { method: 'POST' })
+}
+
+export function fetchWhatsappConfiguracao() {
+  return request('/whatsapp/configuracao')
+}
+
+export function salvarWhatsappConfiguracao(data) {
+  return request('/whatsapp/configuracao', { method: 'PUT', body: JSON.stringify(data) })
+}
+
+export function prepararWhatsappPosVenda(caseId) {
+  return request(`/whatsapp/pos-venda/casos/${caseId}`)
+}
+
+export function enviarWhatsappPosVenda(caseId, data) {
+  return request(`/whatsapp/pos-venda/casos/${caseId}/mensagens`, { method: 'POST', body: JSON.stringify(data) })
 }

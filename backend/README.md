@@ -16,6 +16,7 @@ DB_USER=seu_usuario
 DB_PASSWORD=sua_senha
 JWT_SECRET=gere_um_segredo_aleatorio_com_pelo_menos_32_bytes
 JWT_EXPIRATION_MINUTES=30
+IMPORT_FILE_ENCRYPTION_KEY=gere_32_bytes_aleatorios_em_base64
 APP_TIME_ZONE=America/Fortaleza
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
@@ -23,8 +24,10 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 Em produção use HTTPS e `AUTH_SECURE_COOKIES=true`. O pool Hikari tem limite padrão de 10 conexões,
 configurável por `DB_POOL_MAX_SIZE`, com espera máxima de 30 segundos por conexão.
 Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard, a 015 cria
-os quatro papéis, permissões por membro, vínculo médico e log de auditoria, e a 016 persiste
-tarefas, jornadas e campanhas do pós-venda. Elas dependem da 012/013.
+os quatro papéis, permissões por membro, vínculo médico e log de auditoria, a 016 persiste
+tarefas, jornadas e campanhas do pós-venda, a 017 indexa as métricas rastreáveis e as migrações
+018 a 025 completam importação, integração, consentimento, mensageria, WhatsApp e automação clínica.
+Elas dependem da 012/013 e devem ser aplicadas em ordem.
 Confira o procedimento de provisionamento do banco em `database/` antes de usar dados existentes.
 
 ```powershell

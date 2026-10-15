@@ -45,12 +45,20 @@ Tarefas, jornadas e campanhas usam `database/migrations/016_pos_venda_operacao.s
 As tabelas possuem `id_clinica`, RLS forçada, autoria, histórico e versão otimista. Escritas com
 versão antiga recebem HTTP 409, evitando que duas pessoas sobrescrevam alterações silenciosamente.
 
+A migração `025_automacao_eventos_clinicos.sql` substitui o acompanhamento isolado por um catálogo
+versionado de eventos da Agenda e do prontuário. Regras por clínica criam oportunidades, tarefas e
+inscrições em jornadas com trilha e reprocessamento idempotente. O contrato está documentado em
+[`automacao-eventos-clinicos.md`](automacao-eventos-clinicos.md).
+
 Endpoints: `GET /api/pos-venda`, `GET /api/pos-venda/{id}`, `GET /api/pos-venda/responsaveis`, `POST /api/pos-venda/{id}/acoes`.
 
 Recursos operacionais: `GET|POST /api/pos-venda/tarefas`, `PUT /api/pos-venda/tarefas/{id}`,
 `PATCH /api/pos-venda/tarefas/{id}/status`; os mesmos endpoints de consulta, criação, atualização
 e status existem em `/jornadas` e `/campanhas`. Jornadas aceitam inscrições em
 `POST /api/pos-venda/jornadas/{id}/inscricoes`. Listagens usam `pagina` e `tamanho` (máximo 100).
+
+As fórmulas, fontes de verdade, recorte temporal e rastreabilidade dos indicadores estão em
+[`pos-venda-metricas.md`](pos-venda-metricas.md).
 
 Ações: `organizar`, `contato`, `reagendar`, `nao_deseja`, `nao_contatar`. Todas exigem `versao`. Recuperação não é uma ação manual da API: vem do status Realizada na consulta vinculada.
 

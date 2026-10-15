@@ -11,7 +11,7 @@ from chatbot.models.clinica import Clinica  # noqa: F401 — registra `clinica` 
 from chatbot.models.conversa import Conversa, EstadoConversaBot
 from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem, TipoMensagem
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica
-from chatbot.services import contato_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, contato_service, mensageria_service, whatsapp_event_service, whatsapp_service
 from chatbot.views.webhook import MensagemRecebida
 
 logger = logging.getLogger(__name__)
@@ -43,10 +43,9 @@ TIPOS_WHATSAPP = {
 }
 
 # A Meta reenvia o mesmo evento quando nao recebe 200 rapido o bastante, e
-# reenvio duplicaria a mensagem no historico (e a boas-vindas). O certo
-# seria uma coluna com o wamid em `mensagem` e um UNIQUE, mas schema nao e
-# decisao deste modulo (ver README) — entao guardamos os ids recentes em
-# memoria. Limitacao conhecida: reiniciar o processo zera a protecao.
+# reenvio duplicaria a mensagem no histórico. A tabela
+# `mensageria_evento_recebido` é a garantia persistente; este cache reduz
+# consultas repetidas no mesmo processo.
 _LIMITE_WAMIDS = 2000
 _wamids_processados: OrderedDict[str, None] = OrderedDict()
 
@@ -61,12 +60,17 @@ async def processar_mensagens_recebidas(db: Session, mensagens: list[MensagemRec
         if mensagem.wamid in _wamids_processados:
             logger.info("Evento repetido do WhatsApp ignorado (wamid=%s).", mensagem.wamid)
             continue
+        if not mensageria_service.register_incoming(db, mensagem.wamid):
+            logger.info("Evento persistente repetido do WhatsApp ignorado (wamid=%s).", mensagem.wamid)
+            continue
         try:
             await _processar(db, mensagem)
-        except Exception:
+        except Exception as error:
             db.rollback()
+            mensageria_service.finish_incoming(db, mensagem.wamid, str(error))
             logger.exception("Falha ao processar mensagem do WhatsApp (wamid=%s).", mensagem.wamid)
         else:
+            mensageria_service.finish_incoming(db, mensagem.wamid)
             _marcar_processada(mensagem.wamid)
 
 
@@ -88,9 +92,9 @@ async def process_incoming_message(telefone: str, conteudo: str) -> None:
         db.close()
 
 
-async def send_welcome_message(db: Session, telefone: str, id_paciente: int | None = None) -> None:
+async def send_welcome_message(db: Session, telefone: str, id_paciente: int | None = None, idempotency_key: str | None = None) -> None:
     """Envia a mensagem de boas-vindas para um contato novo e registra no historico."""
-    await _responder(db, telefone, WELCOME_MESSAGE, id_paciente)
+    await _responder(db, telefone, WELCOME_MESSAGE, id_paciente, idempotency_key or f"welcome:{telefone}")
 
 
 def listar_por_telefone(db: Session, telefone: str) -> list[Mensagem]:
@@ -112,23 +116,46 @@ async def _processar(db: Session, mensagem: MensagemRecebida) -> None:
     # contato desse numero".
     primeiro_contato = db.query(Mensagem).filter(Mensagem.telefone == telefone).count() == 0
 
-    db.add(Mensagem(
-        id_paciente=id_paciente,
-        telefone=telefone,
-        direcao=DirecaoMensagem.entrada,
-        tipo=TIPOS_WHATSAPP.get(mensagem.tipo_whatsapp, TipoMensagem.texto),
-        conteudo=mensagem.conteudo,
-        remetente=RemetenteMensagem.paciente,
-    ))
+    # Se uma etapa posterior falhar, o registro de idempotencia permite nova
+    # tentativa. Nesse caso a mensagem ja pode ter sido persistida: reutiliza-la
+    # evita duplicidade e deixa o processamento retomar da correlacao.
+    received = db.query(Mensagem).filter(Mensagem.id_mensagem_provedor == mensagem.wamid).first()
+    if received is None:
+        received = Mensagem(
+            id_paciente=id_paciente,
+            telefone=telefone,
+            direcao=DirecaoMensagem.entrada,
+            tipo=TIPOS_WHATSAPP.get(mensagem.tipo_whatsapp, TipoMensagem.texto),
+            conteudo=mensagem.conteudo,
+            remetente=RemetenteMensagem.paciente,
+            id_mensagem_provedor=mensagem.wamid,
+            status_entrega="recebida",
+        )
+        db.add(received)
+        db.flush()
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
+
+    if comunicacao_policy_service.texto_solicita_descadastro(mensagem.conteudo):
+        comunicacao_policy_service.registrar_descadastro(
+            db, paciente_id=id_paciente, telefone=telefone,
+            evidencia=f"whatsapp:{mensagem.wamid}",
+        )
+        whatsapp_event_service.close_contact_after_optout(db, telefone)
+        conversa.estado = EstadoConversaBot.aguardando
+        conversa.agente_nome = None
+        conversa.atualizado_em = datetime.now(timezone.utc)
+        db.commit()
+        return
+
+    whatsapp_event_service.correlate_incoming(db, received.id_mensagem, telefone, mensagem.wamid)
 
     if conversa.estado in (EstadoConversaBot.com_agente, EstadoConversaBot.aguardando):
         # Atendente humano conduzindo: o bot nao responde por cima dele.
         return
 
     if primeiro_contato:
-        await send_welcome_message(db, telefone, id_paciente)
+        await send_welcome_message(db, telefone, id_paciente, f"welcome:{mensagem.wamid}")
         return
 
     # Enquanto o motor de opções não estiver implementado, encaminha à recepção.
@@ -155,28 +182,25 @@ def _obter_ou_criar_conversa(db: Session, telefone: str, id_paciente: int | None
     return conversa
 
 
-async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | None) -> None:
-    """Manda pelo WhatsApp e so entao grava — historico nao registra o que nao saiu.
-
-    Falha de envio nao propaga: o webhook precisa devolver 200 mesmo quando
-    a resposta automatica nao sai, senao a Meta reenvia a mensagem do
-    paciente e ele receberia tudo duplicado quando a API voltar.
-    """
+async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | None, idempotency_key: str) -> None:
+    """Valida a política e coloca a resposta automática na outbox."""
     try:
-        await whatsapp_service.send_message(to=telefone, message=texto)
-    except whatsapp_service.WhatsAppError as erro:
+        decisao = comunicacao_policy_service.avaliar_e_registrar(
+            db, paciente_id=id_paciente, telefone=telefone, canal="whatsapp",
+            finalidade="atendimento", essencial=True, modelo_id=None,
+            origem="whatsapp_bot",
+        )
+        mensageria_service.enqueue_text(
+            db, idempotency_key=idempotency_key, telefone=telefone,
+            texto_mensagem=texto, paciente_id=id_paciente,
+            remetente=RemetenteMensagem.bot, tentativa_id=decisao.tentativa_id,
+            consentimento_id=decisao.consentimento_id, modelo_id=decisao.modelo_id,
+            modelo_versao=decisao.modelo_versao, finalidade="atendimento",
+            origem="whatsapp_bot",
+        )
+    except (ValueError, comunicacao_policy_service.ComunicacaoBloqueadaError) as erro:
         logger.error("Resposta automatica nao enviada para %s: %s", telefone, erro)
         return
-
-    db.add(Mensagem(
-        id_paciente=id_paciente,
-        telefone=telefone,
-        direcao=DirecaoMensagem.saida,
-        tipo=TipoMensagem.texto,
-        conteudo=texto,
-        remetente=RemetenteMensagem.bot,
-    ))
-    db.commit()
 
 
 def _marcar_processada(wamid: str) -> None:

@@ -4,6 +4,11 @@ spring:
   application:
     name: clinica
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:clinica}
     username: ${DB_USER}
@@ -64,3 +69,5 @@ app:
   resend:
     api-key: ${RESEND_API_KEY:}
     from: ${RESEND_FROM:}
+  import-file:
+    encryption-key: ${IMPORT_FILE_ENCRYPTION_KEY:}

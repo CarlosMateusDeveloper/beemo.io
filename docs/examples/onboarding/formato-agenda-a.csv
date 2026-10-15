@@ -1,0 +1,3 @@
+ID Paciente,Nome Paciente,Telefone,ID Atendimento,Data Hora,Médico,Especialidade,Procedimento,Situação
+P-1001,Paciente Exemplo A,85999990001,A-2001,10/10/2026 09:00,Dra. Exemplo,Clínica Médica,Consulta,Faltou
+P-1002,Paciente Exemplo B,85999990002,A-2002,10/10/2026 10:00,Dra. Exemplo,Clínica Médica,Retorno,Realizado

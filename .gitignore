@@ -3,3 +3,5 @@ node_modules/
 .env.local
 .env.*.local
 application-local.yml
+__pycache__/
+*.py[cod]

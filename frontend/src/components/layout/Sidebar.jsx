@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet,
   HeartHandshake, Target, Workflow, Megaphone, CheckSquare, ChevronLeft, ChevronRight,
-  BarChart3, ArrowUpDown, Receipt,
+  BarChart3, ArrowUpDown, Receipt, ClipboardCheck,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
 import ModuleSwitcher from './ModuleSwitcher'
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/prontuario', label: 'Prontuários', icon: FileText, permissions: ['prontuario.visualizar'] },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope, permissions: ['medico.visualizar'] },
+  { to: '/onboarding', label: 'Implantação', icon: ClipboardCheck, permissions: ['integracao.gerenciar'] },
 ]
 
 const POS_VENDA_NAV_ITEMS = [

@@ -18,7 +18,7 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthFilter jwt) { this.jwt=jwt; }
 
     @Bean
-    @org.springframework.core.annotation.Order(2)
+    @org.springframework.core.annotation.Order(3)
     public SecurityFilterChain apiSecurity(HttpSecurity http, TenantDatabaseFilter tenantDatabase,
             ClinicalLegacyScopeFilter clinicalScope, AccessAuditFilter accessAudit,
             @org.springframework.beans.factory.annotation.Value("${app.auth.secure-cookies:false}") boolean secureCookies) throws Exception {
@@ -98,6 +98,20 @@ public class SecurityConfig {
 
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/reguas/**").hasAuthority("PERM_jornada.configurar")
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/modelos/**").hasAuthority("PERM_campanha.configurar")
+                .requestMatchers("/api/onboarding/**","/api/pos-venda/importacoes/**")
+                    .hasAuthority("PERM_integracao.gerenciar")
+                .requestMatchers("/api/pos-venda/integracoes/**").hasAuthority("PERM_integracao.gerenciar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/comunicacao/modelos/**")
+                    .hasAuthority("PERM_comunicacao.modelo.visualizar")
+                .requestMatchers("/api/pos-venda/comunicacao/modelos/**")
+                    .hasAuthority("PERM_comunicacao.modelo.gerenciar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/comunicacao/pacientes/**")
+                    .hasAuthority("PERM_comunicacao.consentimento.visualizar")
+                .requestMatchers("/api/pos-venda/comunicacao/consentimentos/**")
+                    .hasAuthority("PERM_comunicacao.consentimento.gerenciar")
+                .requestMatchers(HttpMethod.GET,"/api/pos-venda/automacoes/**")
+                    .hasAuthority("PERM_oportunidade.visualizar")
+                .requestMatchers("/api/pos-venda/automacoes/**").hasAuthority("PERM_jornada.configurar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/tarefas/**").hasAuthority("PERM_tarefa.visualizar")
                 .requestMatchers("/api/pos-venda/tarefas/**").hasAuthority("PERM_tarefa.gerenciar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/jornadas/**")

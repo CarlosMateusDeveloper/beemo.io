@@ -37,6 +37,18 @@ public class EnvioRetorno {
     @Column(name = "id_mensagem")
     private Long idMensagem;
 
+    @Column(name = "id_tentativa_comunicacao")
+    private Long idTentativaComunicacao;
+
+    @Column(name = "id_consentimento")
+    private Long idConsentimento;
+
+    @Column(name = "id_modelo_comunicacao")
+    private Long idModeloComunicacao;
+
+    @Column(name = "modelo_versao")
+    private Integer modeloVersao;
+
     // NULL = disparo automático (régua); preenchido = alguém clicou "enviar".
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario_disparou")

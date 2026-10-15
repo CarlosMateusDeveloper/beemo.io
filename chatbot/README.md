@@ -36,7 +36,13 @@ verdade não saiu.
 
 ## Configurar o WhatsApp de verdade
 
-Tudo em `chatbot/.env` (ver `.env.example`). Os valores saem de
+O modo recomendado é por clínica: defina apenas `WHATSAPP_CREDENTIAL_ENCRYPTION_KEY`
+no ambiente e use **WhatsApp > Configuração** no Clinisis. A tela guarda token,
+App Secret e número criptografados e mostra a URL exclusiva do webhook. O guia
+completo está em `docs/runbooks/whatsapp-meta.md`.
+
+As variáveis antigas abaixo continuam como fallback para desenvolvimento com
+uma única clínica. Os valores saem de
 [developers.facebook.com](https://developers.facebook.com) → seu app →
 WhatsApp:
 
@@ -48,11 +54,9 @@ WhatsApp:
 | `WHATSAPP_APP_SECRET` | Configurações > Básico > Chave secreta do app. |
 | `WHATSAPP_API_VERSION` | Opcional (padrão `v23.0`). A Meta descontinua versões antigas — dá pra subir só trocando isto. |
 
-**Cadastrando o webhook:** a Meta precisa alcançar `POST /webhook` por
-HTTPS público. Em desenvolvimento, exponha o serviço (`ngrok http 8082`) e
-cadastre `https://<sua-url>/webhook` em WhatsApp > Configuração > Webhook,
-assinando o campo **messages**. A Meta chama primeiro um `GET /webhook` com
-um desafio; o módulo responde sozinho se o `WHATSAPP_VERIFY_TOKEN` bater.
+**Cadastrando o webhook:** a Meta precisa alcançar por HTTPS público a URL
+exclusiva mostrada pelo Clinisis. Em desenvolvimento, exponha o serviço na
+porta 8082 com um túnel HTTPS. Assine o campo **messages**.
 
 **Janela de 24 horas:** a Meta só aceita texto livre nas 24h seguintes à
 última mensagem do paciente. Fora disso o envio precisa ser por *template*
@@ -82,8 +86,8 @@ Os serviços, em uma linha cada:
 ## O que já está implementado
 
 - `GET /webhook` — handshake de verificação da Meta.
-- `POST /webhook` — recebe mensagens, **valida a assinatura
-  `X-Hub-Signature-256`**, ignora eventos de status de entrega, e sempre
+- `POST /webhook/{tenant}/{chave}` — recebe mensagens, **valida a assinatura
+  `X-Hub-Signature-256`**, processa eventos de entrega e sempre
   responde 200 quando a origem é legítima (sem 200 a Meta reenvia o evento
   em loop e acaba desativando o webhook).
 - Texto, botão/lista interativa, imagem, áudio, documento e localização
@@ -92,8 +96,10 @@ Os serviços, em uma linha cada:
   seguintes são gravadas e encaminhadas à fila de atendente enquanto o motor de opções não está implementado.
 - Conversa assumida por um atendente (`estado = com_agente`) → o bot fica
   calado e não responde por cima dele.
-- Envio pelo painel do atendente vai pelo WhatsApp de verdade; se a Meta
-  recusar, o atendente vê o erro em vez de uma bolha que nunca chegou.
+- Envio pelo painel e pelas oportunidades de pós-venda passa pela outbox;
+  falhas são retentadas e ficam visíveis em **WhatsApp > Operação**.
+- Respostas são correlacionadas ao caso de pós-venda pelo telefone. Um vínculo
+  inequívoco cria alerta e tarefa; casos ambíguos aguardam revisão humana.
 - `GET /contatos/{telefone}` e `GET /mensagens/{telefone}`.
 - Telefone é casado com o cadastro tentando as duas formas do nono dígito
   (`8488887777` e `84988887777`), porque cadastro antigo e WhatsApp
@@ -108,14 +114,8 @@ Os serviços, em uma linha cada:
    "Assistente" já salva textos e liga/desliga capacidades no banco
    (`capacidade_bot_config`, `mensagem_template_bot`), mas o bot ainda não
    lê essas configurações — a boas-vindas é a constante `WELCOME_MESSAGE`.
-3. **Idempotência de verdade.** A Meta reenvia eventos; hoje os `wamid` já
-   processados ficam num cache em memória (some ao reiniciar). O certo é
-   uma coluna com o `wamid` em `mensagem` e um `UNIQUE` — mas mudança de
-   schema não é decisão deste módulo.
-4. **Disparos proativos** (lembrete de véspera, aviso de exame pronto) via
+3. **Disparos proativos** (lembrete de véspera, aviso de exame pronto) via
    `send_template`. O envio já existe; falta quem o agende.
-5. **Multiempresa.** `ID_CLINICA_ATUAL` (em `config.py`) ainda é uma
-   clínica só — depende da Fase 0 do roadmap.
 
 ## O que não fazer
 

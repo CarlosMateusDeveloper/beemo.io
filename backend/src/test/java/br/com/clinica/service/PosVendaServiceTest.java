@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
+import java.time.OffsetDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -14,7 +15,7 @@ class PosVendaServiceTest {
     private final AccessControlService access = mock(AccessControlService.class);
     private final PosVendaService service = new PosVendaService(db, access);
     private PosVendaAcaoRequest request(int versao, String acao) {
-        return new PosVendaAcaoRequest(versao,acao,null,null,null,false,null,null,null,null);
+        return new PosVendaAcaoRequest(versao,acao,null,null,null,false,null,null,null,null,null);
     }
     private void caso(String status) {
         when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
@@ -49,5 +50,38 @@ class PosVendaServiceTest {
         caso("pendente");
         var e = assertThrows(ResponseStatusException.class, () -> service.agir(1,request(2,"reagendar"),null));
         assertEquals("Selecione uma nova consulta da agenda",e.getReason());
+    }
+
+    @Test void exigeAtendimentoDaMesmaFonteParaReagendamentoExterno() {
+        when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
+                .thenReturn(List.of(Map.of("versao",2,"status","pendente",
+                        "id_atendimento_externo_origem",10L)));
+        var e = assertThrows(ResponseStatusException.class,
+                () -> service.agir(1,request(2,"reagendar"),null));
+        assertEquals("Selecione um novo atendimento da mesma fonte externa",e.getReason());
+    }
+
+    @Test void respostaRecebidaAbreAlertaSemCriarPrazoArtificialParaReagendado() {
+        when(db.queryForList("SELECT * FROM pos_venda_caso WHERE id = ? FOR UPDATE",1L))
+                .thenReturn(List.of(Map.of("versao",2,"status","reagendado","id_consulta_origem",10,
+                        "id_responsavel",20)));
+        when(db.queryForObject("SELECT id_paciente FROM consulta WHERE id_consulta = ?",Integer.class,10))
+                .thenReturn(30);
+        when(db.queryForObject("SELECT EXISTS (SELECT 1 FROM paciente_retorno_status WHERE id_paciente = ? AND status = 'nao_contatar')",Boolean.class,30))
+                .thenReturn(false);
+        var request = new PosVendaAcaoRequest(2,"resposta_recebida",null,null,null,false,
+                "whatsapp",null,"Paciente pediu confirmação do horário.",null,null);
+
+        service.agir(1,request,99);
+
+        verify(db).update(contains("proxima_acao=CASE WHEN status='reagendado' THEN NULL"),eq(1L));
+        verify(db).update(contains("INSERT INTO pos_venda_alerta"),eq(1L));
+        verify(db).update(contains("INSERT INTO pos_venda_evento"),eq(1L),eq(99),
+                eq("resposta_recebida"),eq("whatsapp"),contains("Paciente pediu confirmação"));
+    }
+
+    @Test void dataDeAuditoriaPreservaInstanteComOffset() {
+        assertEquals("2026-10-11T09:30:00-03:00",
+                PosVendaService.dataAuditoria(OffsetDateTime.parse("2026-10-11T09:30:00-03:00")));
     }
 }

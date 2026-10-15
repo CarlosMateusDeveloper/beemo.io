@@ -2,6 +2,7 @@ package br.com.clinica.service;
 
 import br.com.clinica.dto.ModeloMensagemDto;
 import br.com.clinica.dto.ModeloMensagemRequest;
+import br.com.clinica.dto.ComunicacaoDtos;
 import br.com.clinica.model.GrupoRetorno;
 import br.com.clinica.model.MensagemModeloRetorno;
 import br.com.clinica.repository.MensagemModeloRetornoRepository;
@@ -16,9 +17,12 @@ import java.util.List;
 public class MensagemModeloRetornoService {
 
     private final MensagemModeloRetornoRepository repository;
+    private final ComunicacaoPolicyService comunicacao;
 
-    public MensagemModeloRetornoService(MensagemModeloRetornoRepository repository) {
+    public MensagemModeloRetornoService(MensagemModeloRetornoRepository repository,
+                                        ComunicacaoPolicyService comunicacao) {
         this.repository = repository;
+        this.comunicacao = comunicacao;
     }
 
     public List<ModeloMensagemDto> listar() {
@@ -34,12 +38,15 @@ public class MensagemModeloRetornoService {
     }
 
     @Transactional
-    public ModeloMensagemDto atualizar(String grupoStr, ModeloMensagemRequest request) {
+    public ModeloMensagemDto atualizar(String grupoStr, ModeloMensagemRequest request, int actor) {
         GrupoRetorno grupo = converter(grupoStr);
         MensagemModeloRetorno modelo = repository.findByGrupo(grupo)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Modelo não encontrado"));
         modelo.setTexto(request.texto());
         repository.save(modelo);
+        comunicacao.criarModelo(new ComunicacaoDtos.Modelo(
+                "retorno_" + grupo.name().toLowerCase(), "Retorno: " + grupo.name().toLowerCase().replace('_', ' '),
+                "whatsapp", "pos_venda", "utilidade", "pt_BR", request.texto()), actor);
         return new ModeloMensagemDto(grupo.name(), modelo.getTexto());
     }
 

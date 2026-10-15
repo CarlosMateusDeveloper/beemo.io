@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
@@ -14,7 +15,7 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
-from chatbot.services import whatsapp_service
+from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_integracao_service, whatsapp_service
 
 # tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
@@ -55,15 +56,37 @@ def _data_curta(d) -> str:
     return d.strftime("%d/%m")
 
 
-def obter_status() -> dict:
+def obter_status(db: Session) -> dict:
     """conectado=True só quando a Cloud API responde de fato pelo número.
 
     Não basta ter credencial preenchida: token vencido ou número errado
     também é "desconectado" — é justamente o caso em que o painel não pode
     dizer que está no ar.
     """
-    numero = whatsapp_service.consultar_numero()
-    return {"conectado": numero is not None, "numero": numero, "configurado": whatsapp_service.esta_configurado()}
+    configured = whatsapp_integracao_service.get_configuration(db)
+    try:
+        numero = whatsapp_integracao_service.provider(db).number()
+    except (ValueError, whatsapp_service.WhatsAppError):
+        numero = None
+    return {"conectado": numero is not None, "numero": numero or configured.get("displayPhoneNumber"),
+            "configurado": configured.get("configured", False)}
+
+
+async def wait_for_updates(db: Session, after: str | None, timeout_seconds: int = 20) -> dict:
+    """Long polling compartilhado pelo painel; funciona entre processos via PostgreSQL."""
+    for attempt in range(timeout_seconds * 2 + 1):
+        row = db.execute(text("""
+            SELECT coalesce((SELECT max(id_mensagem) FROM mensagem),0) AS messages,
+              coalesce((SELECT max(id_evento) FROM whatsapp_status_evento),0) AS statuses,
+              coalesce((SELECT max(id_evento) FROM mensageria_evento),0) AS outbox,
+              coalesce((SELECT floor(extract(epoch FROM max(atualizado_em))*1000)::bigint FROM conversa),0) AS conversations
+        """)).mappings().one()
+        cursor = f"{row['messages']}:{row['statuses']}:{row['outbox']}:{row['conversations']}"
+        if after is None or cursor != after:
+            return {"cursor": cursor, "changed": after is not None}
+        if attempt < timeout_seconds * 2:
+            await asyncio.sleep(.5)
+    return {"cursor": after, "changed": False}
 
 
 def listar_conversas(db: Session) -> list[dict]:
@@ -145,6 +168,7 @@ def listar_mensagens_conversa(db: Session, conversa_id: int) -> list[dict] | Non
             "agente": conversa.agente_nome if remetente == "agente" else None,
             "texto": m.conteudo,
             "horario": _hora(m.criado_em),
+            "statusEntrega": m.status_entrega,
         })
     return resultado
 
@@ -204,6 +228,13 @@ def obter_contexto_conversa(db: Session, conversa_id: int) -> dict | None:
         {"id": conversa.id_paciente},
     ).mappings().all()
 
+    consentimentos = db.execute(text("""
+        SELECT DISTINCT ON (finalidade) finalidade,decisao,origem,ocorrido_em
+        FROM comunicacao_consentimento_evento
+        WHERE id_paciente=:id AND canal IN ('whatsapp','todos')
+        ORDER BY finalidade,ocorrido_em DESC,id_consentimento DESC
+    """), {"id": conversa.id_paciente}).mappings().all()
+
     return {
         "paciente": {
             "nome": paciente["nome"],
@@ -227,6 +258,12 @@ def obter_contexto_conversa(db: Session, conversa_id: int) -> dict | None:
         ],
         "pendencias": [],
         "assistente": None,
+        "comunicacao": {
+            "whatsapp": [{
+                "finalidade": item["finalidade"], "decisao": item["decisao"],
+                "origem": item["origem"], "ocorridoEm": item["ocorrido_em"].isoformat(),
+            } for item in consentimentos],
+        },
     }
 
 
@@ -254,28 +291,33 @@ def devolver_conversa(db: Session, conversa_id: int) -> Conversa | None:
     return conversa
 
 
-def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | None:
-    """Envia a resposta do atendente pelo WhatsApp e registra no historico.
-
-    Envia antes de gravar de propósito — uma bolha no histórico de algo que
-    nunca chegou ao paciente é pior do que um erro na tela. WhatsAppError
-    sobe para o controller virar 502/503.
-    """
+def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str, idempotency_key: str) -> dict | None:
+    """Valida a política e enfileira a resposta sem bloquear a requisição."""
     conversa = _buscar_conversa(db, conversa_id)
     if conversa is None:
         return None
     if conversa.estado != EstadoConversaBot.com_agente:
         raise ValueError("Assuma a conversa antes de enviar uma mensagem.")
-    whatsapp_service.send_message_sync(conversa.telefone, texto)
-    nova = Mensagem(
-        id_paciente=conversa.id_paciente,
-        telefone=conversa.telefone,
-        direcao=DirecaoMensagem.saida,
-        tipo=TipoMensagem.texto,
-        conteudo=texto,
-        remetente=RemetenteMensagem.agente,
+    existente = mensageria_service.existing_message(db, idempotency_key, conversa.telefone, texto)
+    if existente is not None:
+        return {
+            "id": existente.id_mensagem, "tipo": "mensagem", "remetente": "agente",
+            "agente": conversa.agente_nome, "texto": existente.conteudo,
+            "horario": _hora(existente.criado_em), "statusEntrega": existente.status_entrega,
+        }
+    decisao = comunicacao_policy_service.avaliar_e_registrar(
+        db, paciente_id=conversa.id_paciente, telefone=conversa.telefone,
+        canal="whatsapp", finalidade="atendimento", essencial=True,
+        modelo_id=None, origem="whatsapp_agente",
     )
-    db.add(nova)
+    nova, _created = mensageria_service.enqueue_text(
+        db, idempotency_key=idempotency_key, telefone=conversa.telefone,
+        texto_mensagem=texto, paciente_id=conversa.id_paciente,
+        remetente=RemetenteMensagem.agente, tentativa_id=decisao.tentativa_id,
+        consentimento_id=decisao.consentimento_id, modelo_id=decisao.modelo_id,
+        modelo_versao=decisao.modelo_versao, finalidade="atendimento",
+        origem="whatsapp_agente",
+    )
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(nova)
@@ -286,6 +328,7 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | 
         "agente": conversa.agente_nome,
         "texto": nova.conteudo,
         "horario": _hora(nova.criado_em),
+        "statusEntrega": nova.status_entrega,
     }
 
 
