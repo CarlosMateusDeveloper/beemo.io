@@ -19,11 +19,8 @@ import java.util.List;
 
 // Ações em lote da Aba Pendentes (docs/specs/retorno.md, Aba 1). "Enviar
 // mensagem" grava em `mensagem` (Fase 10, compartilhada com /whatsapp) e em
-// `envio_retorno` (histórico/conversão da Aba Resultados) — mas não entrega
-// de verdade: não existe integração real com WhatsApp em lugar nenhum do
-// sistema (chatbot/services/whatsapp_service.py.send_message() é um
-// NotImplementedError explícito). Mesma limitação honesta que o painel
-// /whatsapp já tem hoje.
+// `envio_retorno` (histórico/conversão da Aba Resultados). Este serviço
+// prepara a saída; a entrega real continua pertencendo ao adaptador de canal.
 @Service
 public class RetornoAcaoService {
 
@@ -38,17 +35,19 @@ public class RetornoAcaoService {
     private final EnvioRetornoRepository envioRepository;
     private final PacienteRepository pacienteRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ComunicacaoPolicyService communication;
 
     public RetornoAcaoService(
             EntityManager entityManager, PacienteRetornoStatusRepository statusRepository,
             EnvioRetornoRepository envioRepository, PacienteRepository pacienteRepository,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository, ComunicacaoPolicyService communication
     ) {
         this.entityManager = entityManager;
         this.statusRepository = statusRepository;
         this.envioRepository = envioRepository;
         this.pacienteRepository = pacienteRepository;
         this.usuarioRepository = usuarioRepository;
+        this.communication = communication;
     }
 
     @Transactional
@@ -63,13 +62,9 @@ public class RetornoAcaoService {
     }
 
     @Transactional
-    public void marcarNaoContatar(List<Integer> idsPaciente, String motivo) {
+    public void marcarNaoContatar(List<Integer> idsPaciente, String motivo, int actor) {
         for (Integer id : idsPaciente) {
-            PacienteRetornoStatus status = statusFor(id);
-            status.setStatus("nao_contatar");
-            status.setMotivoNaoContatar(motivo);
-            status.setAtualizadoEm(OffsetDateTime.now());
-            statusRepository.save(status);
+            communication.revogarTodos(id, actor, motivo);
         }
     }
 
@@ -78,6 +73,7 @@ public class RetornoAcaoService {
         OffsetDateTime desde = OffsetDateTime.now().minusDays(LIMITE_FREQUENCIA_DIAS);
         int enviados = 0;
         int pulados = 0;
+        Long model = communication.modeloAprovado("retorno_" + grupo.name(), texto);
 
         for (Integer idPaciente : idsPaciente) {
             if (statusRepository.findById(idPaciente)
@@ -97,13 +93,24 @@ public class RetornoAcaoService {
             }
             String telefone = (String) contato[0];
 
-            Long idMensagem = gravarMensagem(idPaciente, telefone, texto);
+            var decision = communication.avaliar(idPaciente, telefone, "whatsapp", "pos_venda",
+                    false, model, "retorno_manual", idUsuario, true);
+            if (!decision.permitido()) {
+                pulados++;
+                continue;
+            }
+
+            Long idMensagem = gravarMensagem(idPaciente, telefone, texto, decision);
 
             EnvioRetorno envio = new EnvioRetorno();
             envio.setPaciente(pacienteRepository.getReferenceById(idPaciente));
             envio.setGrupo(grupo);
             envio.setTexto(texto);
             envio.setIdMensagem(idMensagem);
+            envio.setIdTentativaComunicacao(decision.tentativaId());
+            envio.setIdConsentimento(decision.consentimentoId());
+            envio.setIdModeloComunicacao(decision.modeloId());
+            envio.setModeloVersao(decision.modeloVersao());
             if (idUsuario != null) {
                 envio.setUsuarioDisparou(usuarioRepository.getReferenceById(idUsuario));
             }
@@ -135,16 +142,23 @@ public class RetornoAcaoService {
     // Grava em `mensagem` (schema Fase 10) igual o painel /whatsapp grava
     // quando um agente responde — direcao='saida', remetente='agente'.
     // Não passa por nenhum provedor real (ver comentário da classe).
-    private Long gravarMensagem(Integer idPaciente, String telefone, String texto) {
+    private Long gravarMensagem(Integer idPaciente, String telefone, String texto,
+                                ComunicacaoPolicyService.Decision decision) {
         Query insert = entityManager.createNativeQuery(
-                "INSERT INTO mensagem (id_paciente, telefone, direcao, tipo, conteudo, remetente) " +
+                "INSERT INTO mensagem (id_paciente, telefone, direcao, tipo, conteudo, remetente, " +
+                        "id_tentativa_comunicacao,finalidade_comunicacao,id_consentimento,id_modelo_comunicacao,modelo_versao) " +
                         "VALUES (:idPaciente, :telefone, CAST('saida' AS direcao_mensagem), " +
-                        "CAST('texto' AS tipo_mensagem), :conteudo, CAST('agente' AS remetente_mensagem)) " +
+                        "CAST('texto' AS tipo_mensagem), :conteudo, CAST('agente' AS remetente_mensagem), " +
+                        ":tentativa,'pos_venda',:consentimento,:modelo,:versao) " +
                         "RETURNING id_mensagem"
         );
         insert.setParameter("idPaciente", idPaciente);
         insert.setParameter("telefone", telefone);
         insert.setParameter("conteudo", texto);
+        insert.setParameter("tentativa", decision.tentativaId());
+        insert.setParameter("consentimento", decision.consentimentoId());
+        insert.setParameter("modelo", decision.modeloId());
+        insert.setParameter("versao", decision.modeloVersao());
         Object id = insert.getSingleResult();
         return ((Number) id).longValue();
     }

@@ -24,11 +24,14 @@ public class PosVendaOperacaoService {
 
     private final JdbcTemplate db;
     private final ObjectMapper json;
+    private final ComunicacaoPolicyService communication;
 
-    public PosVendaOperacaoService(JdbcTemplate db, ObjectMapper json) {
+    public PosVendaOperacaoService(JdbcTemplate db, ObjectMapper json, ComunicacaoPolicyService communication) {
         this.db = db;
         this.json = json;
+        this.communication = communication;
     }
+    PosVendaOperacaoService(JdbcTemplate db, ObjectMapper json) { this(db,json,new ComunicacaoPolicyService(db)); }
 
     public Map<String,Object> tarefas(int actor, String status, String busca, int pagina, int tamanho) {
         page(pagina, tamanho);
@@ -216,10 +219,12 @@ public class PosVendaOperacaoService {
         long total=db.queryForObject("SELECT count(*) FROM pos_venda_campanha c"+where,Long.class,state,state,term,term);
         var items=db.queryForList("""
                 SELECT c.id_campanha AS "id",c.nome,c.objetivo,c.publico::text AS publico,c.canal,c.conteudo,
+                       c.id_modelo_comunicacao AS "modeloId",m.codigo AS "modeloCodigo",m.versao AS "modeloVersao",
                        c.programado_para AS "programadoPara",c.status,c.id_responsavel AS "responsavelId",u.nome AS responsavel,
                        c.destinatarios,c.enviados,c.entregues,c.respostas,c.conversoes,c.criado_em AS "criadoEm",
                        c.atualizado_em AS "atualizadoEm",c.versao
                 FROM pos_venda_campanha c LEFT JOIN usuario u ON u.id=c.id_responsavel
+                LEFT JOIN comunicacao_modelo m ON m.id_modelo=c.id_modelo_comunicacao
                 """+where+" ORDER BY c.atualizado_em DESC,c.id_campanha DESC LIMIT ? OFFSET ?",
                 state,state,term,term,tamanho,pagina*tamanho);
         return page(items,total,pagina,tamanho);
@@ -230,10 +235,11 @@ public class PosVendaOperacaoService {
         validateCampaign(input,false); memberNullable(input.responsavelId()); patients(input.pacientes());
         long id=db.queryForObject("""
                 INSERT INTO pos_venda_campanha(nome,objetivo,publico,canal,conteudo,programado_para,status,id_responsavel,
-                    criado_por,atualizado_por) VALUES (?,?,CAST(? AS jsonb),?,?,?,? ,?,?,?) RETURNING id_campanha
+                    id_modelo_comunicacao,criado_por,atualizado_por) VALUES (?,?,CAST(? AS jsonb),?,?,?,? ,?,?,?,?) RETURNING id_campanha
                 """,Long.class,input.nome().strip(),input.objetivo().strip(),json(input.publico()),input.canal(),input.conteudo().strip(),
-                timestamp(input.programadoPara()),input.programadoPara()==null?"rascunho":"agendada",input.responsavelId(),actor,actor);
+                timestamp(input.programadoPara()),input.programadoPara()==null?"rascunho":"agendada",input.responsavelId(),input.modeloId(),actor,actor);
         replaceAudience(id,input.pacientes());
+        if(input.programadoPara()!=null) prepararCampanha(id);
         history("campanha",id,"criada",actor,Map.of("nome",input.nome().strip()));
         return campanha(id);
     }
@@ -243,17 +249,19 @@ public class PosVendaOperacaoService {
         validateCampaign(input,true); memberNullable(input.responsavelId()); patients(input.pacientes());
         int changed=db.update("UPDATE pos_venda_campanha SET nome=?,objetivo=?,publico=CAST(? AS jsonb),canal=?,conteudo=?,"
                 +"programado_para=?,status=CASE WHEN status='rascunho' AND ? IS NOT NULL THEN 'agendada' "
-                +"WHEN status='agendada' AND ? IS NULL THEN 'rascunho' ELSE status END,id_responsavel=?,atualizado_por=? "
+                +"WHEN status='agendada' AND ? IS NULL THEN 'rascunho' ELSE status END,id_responsavel=?,id_modelo_comunicacao=?,atualizado_por=? "
                 +"WHERE id_campanha=? AND versao=?",input.nome().strip(),input.objetivo().strip(),json(input.publico()),
                 input.canal(),input.conteudo().strip(),timestamp(input.programadoPara()),timestamp(input.programadoPara()),
-                timestamp(input.programadoPara()),input.responsavelId(),actor,id,input.versao()); changed(changed);
+                timestamp(input.programadoPara()),input.responsavelId(),input.modeloId(),actor,id,input.versao()); changed(changed);
         replaceAudience(id,input.pacientes());
+        if(input.programadoPara()!=null) prepararCampanha(id);
         history("campanha",id,"atualizada",actor,Map.of("versaoAnterior",input.versao())); return campanha(id);
     }
 
     @Transactional
     public Map<String,Object> statusCampanha(long id,int actor,Status input) {
         if(!STATUS_CAMPANHA.contains(input.status())) bad("Status de campanha inválido.");
+        if(Set.of("agendada","em_andamento").contains(input.status())) prepararCampanha(id);
         int changed=db.update("UPDATE pos_venda_campanha SET status=?,atualizado_por=? WHERE id_campanha=? AND versao=?",
                 input.status(),actor,id,input.versao()); changed(changed);
         history("campanha",id,"status_alterado",actor,Map.of("status",input.status(),"versaoAnterior",input.versao()));
@@ -263,10 +271,12 @@ public class PosVendaOperacaoService {
     private Map<String,Object> campanha(long id) {
         return db.queryForList("""
                 SELECT c.id_campanha AS "id",c.nome,c.objetivo,c.publico::text AS publico,c.canal,c.conteudo,
+                       c.id_modelo_comunicacao AS "modeloId",m.codigo AS "modeloCodigo",m.versao AS "modeloVersao",
                        c.programado_para AS "programadoPara",c.status,c.id_responsavel AS "responsavelId",u.nome AS responsavel,
                        c.destinatarios,c.enviados,c.entregues,c.respostas,c.conversoes,c.criado_em AS "criadoEm",
                        c.atualizado_em AS "atualizadoEm",c.versao
-                FROM pos_venda_campanha c LEFT JOIN usuario u ON u.id=c.id_responsavel WHERE c.id_campanha=?
+                FROM pos_venda_campanha c LEFT JOIN usuario u ON u.id=c.id_responsavel
+                LEFT JOIN comunicacao_modelo m ON m.id_modelo=c.id_modelo_comunicacao WHERE c.id_campanha=?
                 """,id).stream().findFirst().orElseThrow(PosVendaOperacaoService::notFound);
     }
 
@@ -276,6 +286,27 @@ public class PosVendaOperacaoService {
         patients.stream().distinct().forEach(patient->db.update(
                 "INSERT INTO pos_venda_campanha_publico(id_campanha,id_paciente) VALUES (?,?)",id,patient));
         db.update("UPDATE pos_venda_campanha SET destinatarios=? WHERE id_campanha=?",patients.stream().distinct().count(),id);
+    }
+
+    private void prepararCampanha(long id) {
+        var campaign=db.queryForMap("""
+                SELECT canal,finalidade,id_modelo_comunicacao FROM pos_venda_campanha WHERE id_campanha=?
+                """,id);
+        String channel=Objects.toString(campaign.get("canal"));
+        if(channel.equals("multicanal")) bad("Defina um canal específico antes de iniciar a campanha.");
+        Long model=campaign.get("id_modelo_comunicacao")==null?null:
+                ((Number)campaign.get("id_modelo_comunicacao")).longValue();
+        var audience=db.queryForList("SELECT id_paciente FROM pos_venda_campanha_publico WHERE id_campanha=?",id);
+        int eligible=0;
+        for(var row:audience) {
+            int patient=((Number)row.get("id_paciente")).intValue();
+            var decision=communication.avaliar(patient,null,channel,Objects.toString(campaign.get("finalidade")),
+                    false,model,"campanha_preparacao",null,false);
+            db.update("UPDATE pos_venda_campanha_publico SET status=?,motivo_exclusao=? WHERE id_campanha=? AND id_paciente=?",
+                    decision.permitido()?"incluido":"excluido",decision.permitido()?null:decision.motivo(),id,patient);
+            if(decision.permitido()) eligible++;
+        }
+        if(eligible==0) bad("A campanha não possui destinatários elegíveis pela política de comunicação.");
     }
 
     private boolean broadOperationalScope() {

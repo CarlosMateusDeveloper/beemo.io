@@ -11,7 +11,7 @@ from chatbot.models.clinica import Clinica  # noqa: F401 — registra `clinica` 
 from chatbot.models.conversa import Conversa, EstadoConversaBot
 from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem, TipoMensagem
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica
-from chatbot.services import contato_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, contato_service, whatsapp_service
 from chatbot.views.webhook import MensagemRecebida
 
 logger = logging.getLogger(__name__)
@@ -123,6 +123,17 @@ async def _processar(db: Session, mensagem: MensagemRecebida) -> None:
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
 
+    if comunicacao_policy_service.texto_solicita_descadastro(mensagem.conteudo):
+        comunicacao_policy_service.registrar_descadastro(
+            db, paciente_id=id_paciente, telefone=telefone,
+            evidencia=f"whatsapp:{mensagem.wamid}",
+        )
+        conversa.estado = EstadoConversaBot.aguardando
+        conversa.agente_nome = None
+        conversa.atualizado_em = datetime.now(timezone.utc)
+        db.commit()
+        return
+
     if conversa.estado in (EstadoConversaBot.com_agente, EstadoConversaBot.aguardando):
         # Atendente humano conduzindo: o bot nao responde por cima dele.
         return
@@ -163,8 +174,13 @@ async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | 
     paciente e ele receberia tudo duplicado quando a API voltar.
     """
     try:
+        decisao = comunicacao_policy_service.avaliar_e_registrar(
+            db, paciente_id=id_paciente, telefone=telefone, canal="whatsapp",
+            finalidade="atendimento", essencial=True, modelo_id=None,
+            origem="whatsapp_bot",
+        )
         await whatsapp_service.send_message(to=telefone, message=texto)
-    except whatsapp_service.WhatsAppError as erro:
+    except (whatsapp_service.WhatsAppError, comunicacao_policy_service.ComunicacaoBloqueadaError) as erro:
         logger.error("Resposta automatica nao enviada para %s: %s", telefone, erro)
         return
 
@@ -175,6 +191,11 @@ async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | 
         tipo=TipoMensagem.texto,
         conteudo=texto,
         remetente=RemetenteMensagem.bot,
+        id_tentativa_comunicacao=decisao.tentativa_id,
+        finalidade_comunicacao="atendimento",
+        id_consentimento=decisao.consentimento_id,
+        id_modelo_comunicacao=decisao.modelo_id,
+        modelo_versao=decisao.modelo_versao,
     ))
     db.commit()
 
