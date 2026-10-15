@@ -26,6 +26,7 @@ public class PosVendaOperacaoService {
     private final ObjectMapper json;
     private final ComunicacaoPolicyService communication;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PosVendaOperacaoService(JdbcTemplate db, ObjectMapper json, ComunicacaoPolicyService communication) {
         this.db = db;
         this.json = json;

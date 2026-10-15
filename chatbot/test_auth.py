@@ -13,6 +13,12 @@ class SessionTest(unittest.TestCase):
         def status(): return {'ok': True}
         @app.post('/whatsapp/send')
         def send(): return {'ok': True}
+        @app.get('/whatsapp/operacao/mensageria')
+        def operation(): return {'ok': True}
+        @app.post('/whatsapp/operacao/mensageria/1/reprocessar')
+        def retry(): return {'ok': True}
+        @app.get('/whatsapp/configuracao')
+        def configuration(): return {'ok': True}
         @app.get('/health')
         def health(): return {'ok': True}
         self.client = TestClient(app)
@@ -45,5 +51,25 @@ class SessionTest(unittest.TestCase):
             self.assertTrue(args[1].endswith('/api/auth/session/check'))
             self.assertEqual(kwargs['headers']['X-CSRF-TOKEN'], 'test-csrf')
             self.assertIn('clinicos_session=test-session', kwargs['headers']['Cookie'])
+
+    def test_operacao_separa_visualizacao_de_reprocessamento(self):
+        self.client.cookies.set('clinicos_session', 'test-session')
+        self.client.cookies.set('clinicos_csrf', 'test-csrf')
+        with patch('chatbot.auth.httpx.AsyncClient') as mock:
+            upstream = AsyncMock(return_value=httpx.Response(200, json={
+                'id': 9, 'tenantAtivo': {'id': 7, 'permissoes': ['mensageria.visualizar']}
+            }))
+            mock.return_value.__aenter__.return_value.request = upstream
+            self.assertEqual(self.client.get('/whatsapp/operacao/mensageria').status_code, 200)
+            self.assertEqual(self.client.post('/whatsapp/operacao/mensageria/1/reprocessar', headers={'X-CSRF-TOKEN': 'test-csrf'}).status_code, 403)
+
+    def test_configuracao_exige_permissao_especifica(self):
+        self.client.cookies.set('clinicos_session', 'test-session')
+        with patch('chatbot.auth.httpx.AsyncClient') as mock:
+            upstream = AsyncMock(return_value=httpx.Response(200, json={
+                'id': 9, 'tenantAtivo': {'id': 7, 'permissoes': ['whatsapp.visualizar']}
+            }))
+            mock.return_value.__aenter__.return_value.request = upstream
+            self.assertEqual(self.client.get('/whatsapp/configuracao').status_code, 403)
 
 if __name__ == '__main__': unittest.main()

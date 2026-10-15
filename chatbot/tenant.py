@@ -3,6 +3,7 @@ from contextvars import ContextVar
 
 current_tenant = ContextVar('clinicos_tenant', default=None)
 current_permissions = ContextVar('clinicos_permissions', default=frozenset())
+current_user = ContextVar('clinicos_user', default=None)
 
 def tenant_id() -> int:
     value = current_tenant.get()

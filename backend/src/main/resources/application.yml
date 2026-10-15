@@ -69,3 +69,5 @@ app:
   resend:
     api-key: ${RESEND_API_KEY:}
     from: ${RESEND_FROM:}
+  import-file:
+    encryption-key: ${IMPORT_FILE_ENCRYPTION_KEY:}

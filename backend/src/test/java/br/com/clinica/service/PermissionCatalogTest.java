@@ -15,6 +15,8 @@ class PermissionCatalogTest {
         assertTrue(reception.contains("agenda.gerenciar"));
         assertFalse(reception.contains("prontuario.visualizar"));
         assertFalse(reception.contains("financeiro.dre.visualizar"));
+        assertTrue(reception.contains("mensageria.visualizar"));
+        assertFalse(reception.contains("mensageria.operar"));
 
         var combined = PermissionCatalog.defaultsFor(Set.of("recepcionista", "financeiro"));
         assertTrue(combined.contains("agenda.gerenciar"));
@@ -31,6 +33,7 @@ class PermissionCatalogTest {
         var permissions = PermissionCatalog.defaultsFor(Set.of("administrador"));
         assertTrue(permissions.contains("permissao.gerenciar"));
         assertTrue(permissions.contains("glosa.aceitar_perda"));
+        assertTrue(permissions.contains("mensageria.operar"));
         assertFalse(permissions.contains("prontuario.visualizar"));
         assertFalse(permissions.contains("prontuario.editar"));
     }

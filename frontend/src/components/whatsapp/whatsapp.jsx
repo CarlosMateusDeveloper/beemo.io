@@ -3,6 +3,9 @@ import { AlertTriangle } from 'lucide-react'
 import WhatsappConversas from './WhatsappConversas'
 import WhatsappAssistente from './WhatsappAssistente'
 import WhatsappDesempenho from './WhatsappDesempenho'
+import WhatsappOperacao from './WhatsappOperacao'
+import WhatsappConfiguracao from './WhatsappConfiguracao'
+import { usePermissions } from '../../auth/permissions'
 import { fetchStatus, fetchConversas } from './api'
 import './whatsapp.css'
 
@@ -13,6 +16,7 @@ const ABAS = [
 ]
 
 export function Whatsapp() {
+  const { can } = usePermissions()
   const [aba, setAba] = useState('conversas')
   const [status, setStatus] = useState(null)
   const [aguardando, setAguardando] = useState(0)
@@ -62,7 +66,7 @@ export function Whatsapp() {
         </div>
 
         <nav className="whatsapp-tabs" aria-label="Seções do WhatsApp">
-          {ABAS.map((t) => (
+          {[...ABAS, ...(can('mensageria.visualizar') ? [{ id: 'operacao', label: 'Operação' }] : []), ...(can('whatsapp.configurar') ? [{ id: 'configuracao', label: 'Configuração' }] : [])].map((t) => (
             <button
               key={t.id} type="button"
               className={`whatsapp-tab${aba === t.id ? ' active' : ''}`}
@@ -78,6 +82,8 @@ export function Whatsapp() {
       {aba === 'conversas' && <WhatsappConversas onConversasAtualizadas={atualizarContador} />}
       {aba === 'assistente' && <WhatsappAssistente />}
       {aba === 'desempenho' && <WhatsappDesempenho />}
+      {aba === 'operacao' && <WhatsappOperacao />}
+      {aba === 'configuracao' && <WhatsappConfiguracao />}
     </div>
   )
 }

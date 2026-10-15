@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, AlertTriangle, UserPlus } from 'lucide-react'
 import { ordenarConversas } from './whatsappData'
-import { fetchConversas, fetchMensagens, fetchContexto, assumirConversa, devolverConversa, enviarMensagem } from './api'
+import { fetchConversas, fetchMensagens, fetchContexto, fetchWhatsappAtualizacoes, assumirConversa, devolverConversa, enviarMensagem } from './api'
 
 import { useAuth } from '../../auth/AuthContext'
 
@@ -152,7 +152,11 @@ function ConversaThread({ conversa, mensagens, resposta, onRespostaChange, onEnv
                   <span key={i}>{i > 0 && <br />}{destacarTexto(linha, m.destaque)}</span>
                 ))}
               </span>
-              <span className="whatsapp-bubble-hora">{m.horario}</span>
+              <span className="whatsapp-bubble-hora">
+                {m.statusEntrega === 'pendente' && 'enfileirada · '}
+                {m.statusEntrega === 'falha' && 'falha no envio · '}
+                {m.horario}
+              </span>
             </div>
           )
         })}
@@ -283,7 +287,7 @@ function PainelContexto({ conversa, contexto, contextoCarregado }) {
   )
 }
 
-function Atendimento({ conversa, onAtualizar }) {
+function Atendimento({ conversa, onAtualizar, updateSignal }) {
   const { usuario } = useAuth()
   const [mensagens, setMensagens] = useState([])
   const [contexto, setContexto] = useState(null)
@@ -299,6 +303,7 @@ function Atendimento({ conversa, onAtualizar }) {
   const versao = useRef(0)
   const mensagensRef = useRef(null)
   const pertoDoFim = useRef(true)
+  const envioPendente = useRef(null)
   const id = conversa.id
 
   useEffect(() => {
@@ -330,7 +335,7 @@ function Atendimento({ conversa, onAtualizar }) {
     }
     atualizar()
     return () => { cancelado = true; clearTimeout(timer) }
-  }, [id])
+  }, [id, updateSignal])
 
   useEffect(() => {
     if (pertoDoFim.current && mensagensRef.current) {
@@ -368,11 +373,15 @@ function Atendimento({ conversa, onAtualizar }) {
     const texto = resposta.trim()
     if (!texto) return
     executar(async () => {
-      const nova = await enviarMensagem(id, texto)
+      if (!envioPendente.current || envioPendente.current.texto !== texto || envioPendente.current.conversaId !== id) {
+        envioPendente.current = { conversaId: id, texto, key: crypto.randomUUID() }
+      }
+      const nova = await enviarMensagem(id, texto, envioPendente.current.key)
       if (!ativo.current) return
       pertoDoFim.current = true
       setMensagens((prev) => prev.some((m) => m.id === nova.id) ? prev : [...prev, nova])
       setResposta('')
+      envioPendente.current = null
     })
   }
 
@@ -398,6 +407,25 @@ export default function WhatsappConversas({ onConversasAtualizadas }) {
   const [busca, setBusca] = useState('')
   const [selecionadoId, setSelecionadoId] = useState(null)
   const [revisao, setRevisao] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    let cursor = null
+    async function listen() {
+      while (!cancelled) {
+        try {
+          const update = await fetchWhatsappAtualizacoes(cursor)
+          if (cancelled) return
+          cursor = update.cursor
+          if (update.changed) setRevisao((value) => value + 1)
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 3000))
+        }
+      }
+    }
+    listen()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelado = false
@@ -436,7 +464,7 @@ export default function WhatsappConversas({ onConversasAtualizadas }) {
             selecionadoId={selecionadoId} onSelecionar={setSelecionadoId} contadorAguardando={contadorAguardando}
           />
         )}
-        {conversa ? <Atendimento key={conversa.id} conversa={conversa} onAtualizar={() => setRevisao((n) => n + 1)} />
+        {conversa ? <Atendimento key={conversa.id} conversa={conversa} updateSignal={revisao} onAtualizar={() => setRevisao((n) => n + 1)} />
           : <div className="whatsapp-thread whatsapp-thread-vazia">Selecione uma conversa</div>}
       </div>
     </>

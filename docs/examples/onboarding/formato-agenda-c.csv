@@ -1,0 +1,3 @@
+patient_id,patient_name,phone,appointment_id,scheduled_at,provider,specialty,procedure,status
+EXT-501,Paciente Exemplo E,85999990005,EVT-601,2026-10-12 08:30,Dra. Exemplo,Cardiologia,Consulta,no-show
+EXT-502,Paciente Exemplo F,85999990006,EVT-602,2026-10-12 09:30,Dra. Exemplo,Cardiologia,Retorno,completed

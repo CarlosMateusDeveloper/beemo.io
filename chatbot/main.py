@@ -1,12 +1,28 @@
 import os
+import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from chatbot.auth import SessionMiddleware
 
 from chatbot.controllers import contato_controller, mensagem_controller, webhook_controller, whatsapp_controller
+from chatbot.db import engine
+from chatbot.services import mensageria_worker
 
-app = FastAPI(title="ChatBot")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    stop = asyncio.Event()
+    task = asyncio.create_task(mensageria_worker.run_forever(stop)) if engine is not None else None
+    try:
+        yield
+    finally:
+        stop.set()
+        if task:
+            await task
+
+app = FastAPI(title="ChatBot", lifespan=lifespan)
 app.add_middleware(SessionMiddleware)
 
 allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
