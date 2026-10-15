@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  AlertCircle, CheckCircle2, Clock3, Database, FileSpreadsheet, History,
-  RefreshCw, Search, Target, Upload, X,
+  AlertCircle, AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Database, FileSpreadsheet, History,
+  MessageCircleReply, Phone, RefreshCw, Search, Target, Upload, UserRoundPlus, X,
 } from 'lucide-react'
-import { fetchImportacoes, fetchOportunidades, importarCsv, previewImportacaoCsv } from '../../components/retorno/api'
+import {
+  fetchImportacoes, fetchOportunidade, fetchOportunidades, fetchResponsaveisPosVenda,
+  importarCsv, previewImportacaoCsv, salvarAcaoOportunidade,
+} from '../../components/retorno/api'
 import './Oportunidades.css'
 
 const STATUS_LABELS = {
@@ -21,12 +24,21 @@ const SITUACOES = [
   ['REALIZADO', 'Realizado/compareceu'], ['CANCELADO', 'Cancelado'],
   ['DESCONHECIDO', 'Não representa situação clínica'],
 ]
+const CLOSED = ['recuperado', 'nao_deseja', 'nao_contatar', 'registro_corrigido']
+const QUEUES = [
+  ['prioridades', 'Prioridades'], ['organizar', 'Organizar'], ['primeira_tentativa', 'Primeira tentativa'],
+  ['nova_tentativa', 'Nova tentativa'], ['respostas', 'Respostas'], ['conferir_agenda', 'Conferir presença'],
+  ['todos', 'Todos os casos'],
+]
 
 export default function Oportunidades() {
   const [data, setData] = useState(null)
   const [imports, setImports] = useState([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('abertos')
+  const [queue, setQueue] = useState('prioridades')
+  const [responsible, setResponsible] = useState('')
+  const [responsibles, setResponsibles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
@@ -37,17 +49,22 @@ export default function Oportunidades() {
     setLoading(true); setError('')
     try {
       const [cases, history] = await Promise.all([
-        fetchOportunidades({ status, busca: search }), fetchImportacoes(),
+        fetchOportunidades({ status, busca: search, fila: queue, responsavel: responsible }), fetchImportacoes(),
       ])
       setData(cases); setImports(history)
     } catch (requestError) { setError(requestError.message) }
     finally { setLoading(false) }
-  }, [search, status])
+  }, [queue, responsible, search, status])
 
   useEffect(() => {
     const timeout = window.setTimeout(load, 250)
     return () => window.clearTimeout(timeout)
   }, [load])
+  useEffect(() => {
+    let active = true
+    fetchResponsaveisPosVenda().then((items) => { if (active) setResponsibles(items) }).catch(() => {})
+    return () => { active = false }
+  }, [])
 
   const summary = data?.resumo || {}
   const items = data?.itens || []
@@ -66,40 +83,120 @@ export default function Oportunidades() {
       {lastImport && <div className="op-source-strip"><Database size={15} /><span><strong>{lastImport.fonte}</strong> atualizada em {formatDateTime(lastImport.ultimaSincronizacao)}</span><span className={`op-import-status ${lastImport.status.toLowerCase()}`}>{importStatus(lastImport.status)}</span></div>}
       {showHistory && <ImportHistory items={imports} />}
 
-      <section className="op-kpis" aria-label="Resumo das oportunidades">
-        <Kpi label="Casos abertos" value={summary.abertos ?? '—'} note="Precisam de acompanhamento" tone="teal" icon={<Target size={17} />} />
-        <Kpi label="A contatar" value={summary.a_contatar ?? '—'} note="Ação vencida ou ainda não definida" tone="warning" icon={<Clock3 size={17} />} />
-        <Kpi label="Reagendados" value={summary.reagendados ?? '—'} note="Aguardando resultado da consulta" icon={<RefreshCw size={17} />} />
-        <Kpi label="Recuperados" value={summary.recuperados ?? '—'} note="Comparecimento confirmado pela fonte" tone="teal" icon={<CheckCircle2 size={17} />} />
+      <section className="op-kpis op-daily-kpis" aria-label="Prioridades da fila diária">
+        <Kpi label="Organizar" value={summary.pendencias_organizacao ?? '—'} note="Sem responsável ou próximo passo" tone="warning" icon={<UserRoundPlus size={17} />} active={queue === 'organizar'} onClick={() => setQueue('organizar')} />
+        <Kpi label="Primeira tentativa" value={summary.primeira_tentativa ?? '—'} note="Pacientes ainda não contatados" icon={<Phone size={17} />} active={queue === 'primeira_tentativa'} onClick={() => setQueue('primeira_tentativa')} />
+        <Kpi label="Nova tentativa" value={summary.nova_tentativa ?? '—'} note="Prazo de contato vencido" tone="warning" icon={<Clock3 size={17} />} active={queue === 'nova_tentativa'} onClick={() => setQueue('nova_tentativa')} />
+        <Kpi label="Respostas" value={summary.respostas_pendentes ?? '—'} note="Paciente aguarda a equipe" tone="teal" icon={<MessageCircleReply size={17} />} active={queue === 'respostas'} onClick={() => setQueue('respostas')} />
+        <Kpi label="Conferir presença" value={summary.conferir_presenca ?? '—'} note="Consulta reagendada já ocorreu" icon={<CalendarCheck2 size={17} />} active={queue === 'conferir_agenda'} onClick={() => setQueue('conferir_agenda')} />
       </section>
 
       <section className="op-card op-list" aria-label="Lista de oportunidades">
+        <nav className="op-queue-tabs" aria-label="Etapas da fila diária">{QUEUES.map(([value, label]) => <button type="button" key={value} className={queue === value ? 'active' : ''} onClick={() => { setQueue(value); setSelected(null) }}>{label}</button>)}</nav>
         <div className="op-filter-bar">
           <label className="op-search"><Search size={16} aria-hidden="true" /><span className="op-sr-only">Buscar</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar paciente ou telefone" /></label>
           <label className="op-select"><span className="op-sr-only">Filtrar por status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="abertos">Casos abertos</option><option value="todos">Todos os casos</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="op-select"><span className="op-sr-only">Filtrar por responsável</span><select value={responsible} onChange={(event) => setResponsible(event.target.value)}><option value="">Toda a equipe</option>{responsibles.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label>
           <button type="button" className="op-icon-button" onClick={load} aria-label="Atualizar lista"><RefreshCw size={15} /></button>
         </div>
 
         {error && <div className="op-feedback error" role="alert"><AlertCircle size={18} /><div><strong>Não foi possível carregar as oportunidades</strong><span>{error}</span></div><button type="button" onClick={load}>Tentar novamente</button></div>}
         {loading && <div className="op-loading"><span className="op-spinner" /> Carregando oportunidades…</div>}
         {!loading && !error && <div className="op-table-wrap">
-          <table className="op-table"><thead><tr><th>Paciente / origem</th><th>Falta</th><th>Atendimento</th><th>Status</th><th>Responsável</th><th>Próxima ação</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => setSelected(item)} className={selected?.id === item.id ? 'selected' : ''}>
+          <table className="op-table"><thead><tr><th>Paciente / origem</th><th>Atendimento</th><th>Etapa da fila</th><th>Última interação</th><th>Responsável / próximo passo</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => setSelected(item.id)} className={selected === item.id ? 'selected' : ''}>
             <td><div className="op-patient"><span className="op-avatar">{initials(item.paciente)}</span><div><button type="button" className="op-patient-name">{item.paciente}</button><span>{formatPhone(item.telefone)}</span><small>{item.origem === 'importacao_csv' ? `CSV · ${item.fonte || 'fonte externa'}` : 'Agenda Clinisis'}</small></div></div></td>
-            <td><strong>{formatDateTime(item.data_falta)}</strong><span className="op-cell-sub">Caso #{item.id}</span></td>
-            <td><strong>{item.tipo || 'Não informado'}</strong><span className="op-cell-sub">{item.profissional} · {item.especialidade}</span></td>
-            <td><StatusBadge status={item.status} /></td>
-            <td><strong>{item.responsavel || 'Sem responsável'}</strong><span className="op-cell-sub">{item.tentativas || 0} tentativa(s)</span></td>
-            <td><strong className={!item.proxima_acao ? 'op-overdue' : ''}>{item.proxima_acao ? formatDateTime(item.proxima_acao) : 'Não definida'}</strong></td>
+            <td><strong>{formatDateTime(item.data_falta)}</strong><span className="op-cell-sub">{item.tipo || 'Atendimento'} · {item.profissional}</span><span className="op-cell-sub">{item.especialidade}</span></td>
+            <td><QueueBadge item={item} /><span className="op-cell-sub"><StatusBadge status={item.status} /></span></td>
+            <td><strong>{item.ultima_interacao ? formatDateTime(item.ultima_interacao) : 'Nenhuma interação'}</strong><span className="op-cell-sub">{item.ultima_interacao_descricao || `${item.tentativas || 0} tentativa(s)`}</span></td>
+            <td><strong className={item.alerta_sem_responsavel ? 'op-overdue' : ''}>{item.responsavel || 'Sem responsável'}</strong><span className={`op-cell-sub ${item.alerta_prazo_vencido || item.alerta_sem_proxima_acao ? 'op-overdue' : ''}`}>{nextStep(item)}</span></td>
           </tr>)}</tbody></table>
           {items.length === 0 && <div className="op-empty"><Target size={26} /><strong>Nenhuma oportunidade encontrada</strong><span>Importe o CSV da agenda da clínica ou ajuste os filtros.</span><button type="button" className="op-primary-button" onClick={() => setShowImport(true)}><Upload size={15} /> Importar CSV</button></div>}
         </div>}
         <footer className="op-list-footer"><span>{data?.total ?? 0} caso(s) encontrado(s)</span><span>Até 50 casos por página</span></footer>
       </section>
 
-      {selected && <aside className="op-case-detail" aria-label={`Detalhes do caso de ${selected.paciente}`}><button type="button" className="op-close" onClick={() => setSelected(null)} aria-label="Fechar"><X size={17} /></button><span className="op-detail-kicker">Caso #{selected.id}</span><h2>{selected.paciente}</h2><p>{formatPhone(selected.telefone)}</p><StatusBadge status={selected.status} /><dl><div><dt>Origem</dt><dd>{selected.origem === 'importacao_csv' ? selected.fonte : 'Agenda Clinisis'}</dd></div><div><dt>Atendimento externo</dt><dd>{selected.atendimento_externo || '—'}</dd></div><div><dt>Profissional</dt><dd>{selected.profissional}</dd></div><div><dt>Especialidade</dt><dd>{selected.especialidade}</dd></div></dl><p className="op-detail-note">Dados importados permanecem vinculados à fonte e ao identificador externo. Um reagendamento não é tratado como recuperação até o comparecimento ser conciliado.</p></aside>}
+      {selected && <CaseDetail id={selected} responsibles={responsibles} onClose={() => setSelected(null)} onChanged={load} />}
     </div>
     {showImport && <ImportCsvModal onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load() }} />}
   </main>
+}
+
+function QueueBadge({ item }) {
+  const labels = { resposta_pendente: 'Responder paciente', conferir_presenca: 'Conferir presença', aguardando_consulta: 'Aguardar consulta', primeira_tentativa: 'Primeira tentativa', nova_tentativa: 'Nova tentativa' }
+  return <span className={`op-queue-badge ${item.etapa_fila}`}>{labels[item.etapa_fila] || 'Acompanhar'}</span>
+}
+
+function nextStep(item) {
+  if (item.alerta_resposta_pendente) return 'Responder paciente agora'
+  if (item.alerta_sem_responsavel) return 'Definir responsável'
+  if (item.alerta_sem_proxima_acao) return 'Definir próxima ação'
+  if (item.alerta_conferir_presenca) return 'Conferir resultado da consulta'
+  if (item.status === 'reagendado') return `Consulta: ${formatDateTime(`${item.data_reagendada}T${item.hora_reagendada}`)}`
+  return item.proxima_acao ? formatDateTime(item.proxima_acao) : 'Aguardando organização'
+}
+
+function CaseDetail({ id, responsibles, onClose, onChanged }) {
+  const [details, setDetails] = useState(null)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const loadDetail = useCallback(async () => {
+    try { setDetails(await fetchOportunidade(id)); setError('') } catch (reason) { setError(reason.message) }
+  }, [id])
+  useEffect(() => {
+    let active = true
+    fetchOportunidade(id)
+      .then((result) => { if (active) { setDetails(result); setError('') } })
+      .catch((reason) => { if (active) setError(reason.message) })
+    return () => { active = false }
+  }, [id])
+  const current = details?.caso
+
+  async function save(event) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('')
+    const form = new FormData(event.currentTarget)
+    const action = form.get('acao')
+    const payload = {
+      versao: current.versao, acao: action,
+      idResponsavel: form.get('idResponsavel') ? Number(form.get('idResponsavel')) : null,
+      proximaAcao: form.get('proximaAcao') ? new Date(form.get('proximaAcao')).toISOString() : null,
+      motivoFalta: form.get('motivoFalta')?.trim() || null,
+      recorrente: form.get('recorrente') === 'on', canal: form.get('canal') || null,
+      resultado: form.get('resultado') || null, observacao: form.get('observacao')?.trim() || null,
+      idConsulta: form.get('idConsulta') ? Number(form.get('idConsulta')) : null,
+    }
+    try { await salvarAcaoOportunidade(id, payload); setNotice('Acompanhamento atualizado.'); await Promise.all([loadDetail(), onChanged()]) }
+    catch (reason) { setError(reason.message) } finally { setBusy(false) }
+  }
+
+  return <aside className="op-case-detail op-daily-detail" aria-label="Detalhes da oportunidade"><button type="button" className="op-close" onClick={onClose} aria-label="Fechar"><X size={17} /></button>
+    {!current && !error && <div className="op-loading"><span className="op-spinner" /> Carregando…</div>}
+    {error && <div className="op-feedback error" role="alert"><AlertCircle size={16} /><span>{error}</span></div>}
+    {current && <><span className="op-detail-kicker">Caso #{current.id}</span><h2>{current.paciente}</h2><p>{formatPhone(current.telefone)}</p><div className="op-detail-status"><StatusBadge status={current.status} /><QueueBadge item={current} /></div>
+      {details.alertas.length > 0 && <section className="op-alert-list"><strong>Pendências ativas</strong>{details.alertas.map((alert) => <div key={alert.id}><AlertTriangle size={14} /><span>{alert.mensagem}</span></div>)}</section>}
+      <dl><div><dt>Motivo da falta</dt><dd>{current.motivo_falta || 'Ainda não informado'}</dd></div><div><dt>Última interação</dt><dd>{current.ultima_interacao ? formatDateTime(current.ultima_interacao) : 'Nenhuma'}</dd></div><div><dt>Responsável</dt><dd>{current.responsavel || 'Sem responsável'}</dd></div><div><dt>Próximo passo</dt><dd>{nextStep(current)}</dd></div><div><dt>Origem</dt><dd>{current.origem === 'importacao_csv' ? current.fonte : 'Agenda Clinisis'}</dd></div></dl>
+      {!CLOSED.includes(current.status) && <CaseActionForm key={current.versao} current={current} details={details} responsibles={responsibles} onSubmit={save} busy={busy} />}
+      {notice && <div className="op-feedback success" role="status"><CheckCircle2 size={16} /><span>{notice}</span></div>}
+      <section className="op-case-history"><strong>Histórico</strong>{details.historico.slice(0, 8).map((event) => <article key={event.id}><time>{formatDateTime(event.criado_em)}</time><p>{event.descricao}</p><small>{event.autor || 'Sistema'}{event.canal ? ` · ${event.canal}` : ''}</small></article>)}</section>
+    </>}
+  </aside>
+}
+
+function CaseActionForm({ current, details, responsibles, onSubmit, busy }) {
+  const initial = current.alerta_resposta_pendente ? 'contato' : current.alerta_sem_responsavel || current.alerta_sem_proxima_acao ? 'organizar' : 'contato'
+  const [action, setAction] = useState(initial)
+  const organized = action === 'organizar' || action === 'contato'
+  const contact = action === 'contato'
+  const response = action === 'resposta_recebida'
+  const closing = action === 'nao_deseja' || action === 'nao_contatar'
+  return <form className="op-case-form" onSubmit={onSubmit}><strong>Registrar próxima ação</strong><label>Ação<select name="acao" value={action} onChange={(event) => setAction(event.target.value)}><option value="organizar">Definir responsável e prazo</option><option value="contato">Registrar contato realizado</option><option value="resposta_recebida">Registrar resposta recebida</option>{!current.id_atendimento_externo_origem && current.status !== 'reagendado' && <option value="reagendar">Vincular reagendamento</option>}<option value="nao_deseja">Encerrar: não deseja</option><option value="nao_contatar">Encerrar: não contatar</option></select></label>
+    {(organized || action === 'reagendar') && <label>Responsável<select name="idResponsavel" required defaultValue={current.id_responsavel || ''}><option value="">Selecione</option>{responsibles.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label>}
+    {organized && <><label>Próxima ação<input type="datetime-local" name="proximaAcao" required defaultValue={dateInput(current.proxima_acao)} /></label><label>Motivo da falta<input name="motivoFalta" maxLength="500" defaultValue={current.motivo_falta || ''} /></label><label className="op-check"><input type="checkbox" name="recorrente" defaultChecked={current.recorrente} /> Atendimento recorrente</label></>}
+    {(contact || response) && <label>Canal<select name="canal" defaultValue="whatsapp"><option value="whatsapp">WhatsApp</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="presencial">Presencial</option></select></label>}
+    {contact && <label>Resultado<select name="resultado" defaultValue="em_contato"><option value="em_contato">Conversou / em acompanhamento</option><option value="sem_resposta">Sem resposta</option></select></label>}
+    {action === 'reagendar' && <label>Nova consulta<select name="idConsulta" required defaultValue=""><option value="">Selecione</option>{details.consultas.map((item) => <option key={item.id} value={item.id}>#{item.id} · {formatDateTime(`${item.data}T${item.hora}`)}</option>)}</select></label>}
+    {(contact || response || closing) && <label>Registro<textarea name="observacao" required rows="3" maxLength="1500" /></label>}
+    <button type="submit" className="op-primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Salvar acompanhamento'}</button></form>
 }
 
 function ImportCsvModal({ onClose, onImported }) {
@@ -159,9 +256,10 @@ function ImportHistory({ items }) {
   return <section className="op-card op-import-history"><header><div><h2>Importações recentes</h2><p>A origem, o responsável e o resultado ficam auditáveis.</p></div></header>{items.length === 0 ? <p>Nenhum arquivo importado.</p> : <div>{items.map((item) => <article key={item.id}><FileSpreadsheet size={17} /><div><strong>{item.arquivo}</strong><span>{item.fonte} · {item.responsavel} · {formatDateTime(item.iniciadaEm)}</span></div><span className={`op-import-status ${item.status.toLowerCase()}`}>{item.importadas} novas · {item.atualizadas} atualizadas · {item.revisao + item.erros} pendências</span></article>)}</div>}</section>
 }
 
-function Kpi({ label, value, note, tone = '', icon }) { return <article className={`op-kpi ${tone ? `op-kpi-${tone}` : ''}`}><div className="op-kpi-label"><span>{label}</span>{icon}</div><strong>{value}</strong><small>{note}</small></article> }
+function Kpi({ label, value, note, tone = '', icon, active, onClick }) { return <button type="button" className={`op-kpi ${tone ? `op-kpi-${tone}` : ''} ${active ? 'active' : ''}`} onClick={onClick}><div className="op-kpi-label"><span>{label}</span>{icon}</div><strong>{value}</strong><small>{note}</small></button> }
 function StatusBadge({ status }) { return <span className={`op-status op-status-${status || 'pendente'}`}><i aria-hidden="true" />{STATUS_LABELS[status] || status}</span> }
 function initials(name = '') { return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '—' }
 function formatPhone(value = '') { const digits = String(value).replace(/\D/g, ''); return digits.length === 11 ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}` : value || 'Sem telefone' }
 function formatDateTime(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date) }
+function dateInput(value) { if (!value) return ''; const date = new Date(value); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16) }
 function importStatus(value) { return value === 'CONCLUIDA' ? 'Concluída' : value === 'CONCLUIDA_COM_ERROS' ? 'Concluída com pendências' : value }
