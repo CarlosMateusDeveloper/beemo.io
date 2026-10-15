@@ -27,18 +27,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if(claims.isPresent()) {
                 int user=Integer.parseInt(claims.get().getSubject());
                 if(usuarios.findById(user).isPresent()) {
-                    var tenantAtual=tenants.atual(claims.get().getId(),user);
-                    var tenant=tenants.resolver(user);
-                    if(tenantAtual==null || !tenantAtual.id().equals(tenant.id())) {
+                    var selectedTenant=tenants.atual(claims.get().getId(),user);
+                    var tenant=selectedTenant;
+                    if(tenant==null) tenant=tenants.resolver(user);
+                    if(tenant!=null && selectedTenant==null) {
                         tenants.vincularSessao(claims.get().getId(),user,tenant.id());
                     }
-                    TenantContext.set(tenant);
                     var authorities=new ArrayList<SimpleGrantedAuthority>();
-                    authorities.add(new SimpleGrantedAuthority("TENANT_ACCESS"));
-                    tenant.papeis().forEach(role -> authorities.add(
-                            new SimpleGrantedAuthority("ROLE_"+role.toUpperCase(Locale.ROOT))));
-                    tenant.permissoes().forEach(permission -> authorities.add(
-                            new SimpleGrantedAuthority("PERM_"+permission)));
+                    if(tenant!=null) {
+                        TenantContext.set(tenant);
+                        authorities.add(new SimpleGrantedAuthority("TENANT_ACCESS"));
+                        tenant.papeis().forEach(role -> authorities.add(
+                                new SimpleGrantedAuthority("ROLE_"+role.toUpperCase(Locale.ROOT))));
+                        tenant.permissoes().forEach(permission -> authorities.add(
+                                new SimpleGrantedAuthority("PERM_"+permission)));
+                    }
                     SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(user,null,authorities));
                 }

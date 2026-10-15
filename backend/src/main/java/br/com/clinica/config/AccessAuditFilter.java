@@ -21,6 +21,8 @@ public class AccessAuditFilter extends OncePerRequestFilter {
         String action = action(request);
         try { chain.doFilter(request, response); }
         finally {
+            Object explicitAction = request.getAttribute("clinicos.audit.action");
+            if (explicitAction instanceof String value && !value.isBlank()) action = value;
             var access = TenantContext.get();
             var authentication = SecurityContextHolder.getContext().getAuthentication();
             Integer user = authentication != null && authentication.getPrincipal() instanceof Integer id ? id : null;
@@ -34,12 +36,18 @@ public class AccessAuditFilter extends OncePerRequestFilter {
         String method = request.getMethod();
         if (isClinical(path)) return method.equals("GET") ? "prontuario.visualizar" : "prontuario.editar";
         if (path.matches("/api/tenants/\\d+/members/\\d+")) return "permissao.gerenciar";
+        if (path.matches("/api/pagamentos/\\d+/estornar") || path.matches("/api/faturas/\\d+/pagamentos/\\d+/estornar"))
+            return "pagamento.estornar";
+        if (path.equals("/api/caixa/turno/reabrir")) return "caixa.reabrir";
         if (path.matches("/api/glosas/\\d+/aceitar")) return "glosa.aceitar_perda";
         if (path.matches("/api/despesas/\\d+/(pagar|cancelar)")) return "despesa.aprovar";
         if (path.equals("/api/caixa/turno/fechar")) return "caixa.fechar";
         if (path.startsWith("/api/faturas") && !method.equals("GET")) return "fatura.editar";
         if (path.startsWith("/api/medicos") && !method.equals("GET")) return "repasse.editar";
         if (path.startsWith("/api/retorno/modelos") && !method.equals("GET")) return "campanha.configurar";
+        if (path.startsWith("/api/pos-venda/tarefas") && !method.equals("GET")) return "tarefa.gerenciar";
+        if (path.startsWith("/api/pos-venda/jornadas") && !method.equals("GET")) return "jornada.configurar";
+        if (path.startsWith("/api/pos-venda/campanhas") && !method.equals("GET")) return "campanha.configurar";
         return null;
     }
 
@@ -47,7 +55,8 @@ public class AccessAuditFilter extends OncePerRequestFilter {
         return java.util.List.of("/api/prontuarios", "/api/alergias", "/api/comorbidades",
                 "/api/cirurgias-previas", "/api/documentos-clinicos", "/api/encaminhamentos",
                 "/api/exames", "/api/itens-prescricao", "/api/medicamentos-uso-continuo",
-                "/api/sinais-vitais", "/api/solicitacoes-exame")
+                "/api/resultados-exame", "/api/sinais-vitais", "/api/solicitacoes-exame",
+                "/api/diagnosticos-cid", "/api/diagnosticos-ciap2")
                 .stream().anyMatch(path::startsWith);
     }
 

@@ -15,6 +15,8 @@ public class TenantDatabaseSafety {
                 throw new IllegalStateException("Aplique a migracao 012_tenant_identity_isolation.sql antes de iniciar a API.");
             if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=15)",Boolean.class)))
                 throw new IllegalStateException("Aplique a migracao 015_roles_permissions_audit.sql antes de iniciar a API.");
+            if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=16)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 016_pos_venda_operacao.sql antes de iniciar a API.");
             var unsafe=db.queryForList("SELECT tablename FROM pg_tables t JOIN pg_class c ON c.relname=t.tablename JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname=t.schemaname WHERE t.schemaname='public' AND t.tablename NOT LIKE 'auth_%' AND t.tablename NOT LIKE 'tenant_%' AND t.tablename NOT IN ('usuario','clinica') AND NOT(c.relrowsecurity AND c.relforcerowsecurity)",String.class);
             if(!unsafe.isEmpty()) throw new IllegalStateException("Tabelas clinicas sem isolamento: "+unsafe);
         };

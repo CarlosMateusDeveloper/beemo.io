@@ -9,6 +9,7 @@ import RotaProtegida from './auth/RotaProtegida'
 import RotaAutorizada from './auth/RotaAutorizada'
 import MagicLink from './components/login/MagicLink'
 import Conta from './auth/Conta'
+import Convite from './auth/Convite'
 
 // Importando as páginas que criamos
 import Layout from './components/layout/Layout'
@@ -21,7 +22,7 @@ import Campanhas from './modules/pos-venda/Campanhas'
 import { Dashboard } from './components/dashboard/dashboard'
 import Login from './components/login/login'
 import Agenda from './pages/Agenda'
-import { Pacientes } from './components/pacientes/pacientes'
+import PacientesPermitidos from './components/pacientes/PacientesPermitidos'
 import { Prontuario } from './components/prontuario/Prontuario'
 import { ProntuarioDetalhe } from './components/prontuario/ProntuarioDetalhe'
 import { PaginaAtendimento } from './components/prontuario/PaginaAtendimento'
@@ -53,7 +54,7 @@ const systemRoutes = [
       { path: "pos-venda/whatsapp", element: <RotaAutorizada permission="whatsapp.visualizar"><Whatsapp /></RotaAutorizada> },
       { path: "agenda", element: <RotaAutorizada permission="agenda.visualizar"><Agenda /></RotaAutorizada> },
       { path: "conta", element: <Conta /> },
-      { path: "pacientes", element: <RotaAutorizada permission="paciente.visualizar"><Pacientes /></RotaAutorizada> },
+      { path: "pacientes", element: <RotaAutorizada permission={['paciente.visualizar', 'paciente.financeiro.visualizar']}><PacientesPermitidos /></RotaAutorizada> },
       { path: "pacientes/:pacienteId", element: <RotaAutorizada permission="prontuario.visualizar"><ProntuarioDetalhe /></RotaAutorizada> },
       { path: "prontuario", element: <RotaAutorizada permission="prontuario.visualizar"><Prontuario /></RotaAutorizada> },
       { path: "prontuario/atendimento", element: <RotaAutorizada permission="prontuario.editar"><PaginaAtendimento /></RotaAutorizada> },
@@ -77,6 +78,7 @@ const systemRoutes = [
   },
   { path: '/clinicas', element: <Navigate to="/dashboard" replace /> },
   { path: '/minha-conta', element: <RotaProtegida><Conta /></RotaProtegida> },
+  { path: '/convite', element: <Convite /> },
   { path: '/login/magic', element: <MagicLink /> },
 ]
 

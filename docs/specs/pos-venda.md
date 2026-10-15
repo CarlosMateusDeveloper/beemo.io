@@ -41,7 +41,16 @@ Métricas: casos, casos com tentativa de contato, casos que tiveram algum reagen
 
 Aplicar `database/migrations/009_pos_venda.sql` após a estrutura de Retorno (007). É uma migração aditiva e idempotente, com importação das faltas anteriores. Não altera agendamentos existentes.
 
+Tarefas, jornadas e campanhas usam `database/migrations/016_pos_venda_operacao.sql`, após a 015.
+As tabelas possuem `id_clinica`, RLS forçada, autoria, histórico e versão otimista. Escritas com
+versão antiga recebem HTTP 409, evitando que duas pessoas sobrescrevam alterações silenciosamente.
+
 Endpoints: `GET /api/pos-venda`, `GET /api/pos-venda/{id}`, `GET /api/pos-venda/responsaveis`, `POST /api/pos-venda/{id}/acoes`.
+
+Recursos operacionais: `GET|POST /api/pos-venda/tarefas`, `PUT /api/pos-venda/tarefas/{id}`,
+`PATCH /api/pos-venda/tarefas/{id}/status`; os mesmos endpoints de consulta, criação, atualização
+e status existem em `/jornadas` e `/campanhas`. Jornadas aceitam inscrições em
+`POST /api/pos-venda/jornadas/{id}/inscricoes`. Listagens usam `pagina` e `tamanho` (máximo 100).
 
 Ações: `organizar`, `contato`, `reagendar`, `nao_deseja`, `nao_contatar`. Todas exigem `versao`. Recuperação não é uma ação manual da API: vem do status Realizada na consulta vinculada.
 

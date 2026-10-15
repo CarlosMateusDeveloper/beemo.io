@@ -10,6 +10,7 @@ import br.com.clinica.service.PacienteBuscaService;
 import br.com.clinica.service.PacienteFilaService;
 import br.com.clinica.service.PacienteKpiService;
 import br.com.clinica.service.PacienteListagemService;
+import br.com.clinica.service.PacienteCobrancaService;
 import br.com.clinica.service.AccessControlService;
 import br.com.clinica.service.ClinicalScopeService;
 import jakarta.validation.Valid;
@@ -34,11 +35,13 @@ public class PacienteController {
     private final PacienteBuscaService buscaService;
     private final AccessControlService access;
     private final ClinicalScopeService scope;
+    private final PacienteCobrancaService cobranca;
 
     public PacienteController(
             PacienteRepository repository, PacienteKpiService kpiService,
             PacienteListagemService listagemService, PacienteFilaService filaService,
-            PacienteBuscaService buscaService, AccessControlService access, ClinicalScopeService scope
+            PacienteBuscaService buscaService, AccessControlService access, ClinicalScopeService scope,
+            PacienteCobrancaService cobranca
     ) {
         this.repository = repository;
         this.kpiService = kpiService;
@@ -47,6 +50,7 @@ public class PacienteController {
         this.buscaService = buscaService;
         this.access = access;
         this.scope = scope;
+        this.cobranca = cobranca;
     }
 
     // Issue #11: "listar (paginado, com busca por nome/CPF/telefone)" — cpf
@@ -94,6 +98,15 @@ public class PacienteController {
     public List<PacienteFilaItemDto> fila() {
         if (access.patientDoctorId() != null) throw AccessControlService.forbidden();
         return filaService.listarHoje();
+    }
+
+    @GetMapping("/cobranca")
+    public java.util.Map<String, Object> cobranca(
+            @RequestParam(required = false) String busca,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho
+    ) {
+        return cobranca.listar(busca, pagina, tamanho);
     }
 
     @GetMapping("/{id}")

@@ -13,7 +13,7 @@ import './Sidebar.css'
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true, permissions: ['dashboard.operacional.visualizar', 'dashboard.financeiro.visualizar'] },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays, permissions: ['agenda.visualizar'] },
-  { to: '/pacientes', label: 'Pacientes', icon: Users, permissions: ['paciente.visualizar'], hideForDoctorOnly: true },
+  { to: '/pacientes', label: 'Pacientes', icon: Users, permissions: ['paciente.visualizar', 'paciente.financeiro.visualizar'], hideForDoctorOnly: true },
   { to: '/prontuario', label: 'Prontuários', icon: FileText, permissions: ['prontuario.visualizar'] },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope, permissions: ['medico.visualizar'] },

@@ -8,6 +8,19 @@
 .pacientes-page .success { color: var(--success); }
 .pacientes-page .warning { color: var(--warning); }
 .pacientes-page .danger { color: var(--danger); }
+.pacientes-finance-note { margin-top: 5px; color: var(--text-tertiary); font-size: 13px; }
+.pacientes-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.pacientes-table-wrap { overflow-x: auto; }
+.pacientes-finance-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pacientes-finance-table th { padding: 12px 16px; text-align: left; color: var(--text-tertiary); background: var(--surface-muted); border-bottom: 1px solid var(--border); }
+.pacientes-finance-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-faint); color: var(--text-secondary); }
+.pacientes-finance-table td strong { color: var(--text-primary); }
+.pacientes-payment { display: inline-flex; padding: 3px 8px; border-radius: 99px; background: var(--surface-muted); text-transform: capitalize; }
+.pacientes-payment-pago { color: var(--success); background: var(--success-bg); }
+.pacientes-payment-atrasado { color: var(--danger); background: var(--danger-bg); }
+.pacientes-state, .pacientes-state-error { padding: 28px; text-align: center; color: var(--text-tertiary); }
+.pacientes-state-error { color: var(--danger); }
+.pacientes-finance-footer { padding: 10px 16px; color: var(--text-tertiary); font-size: 12px; }
 
 /* Cabeçalho + filtros */
 .pacientes-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }

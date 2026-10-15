@@ -109,6 +109,24 @@ class ApiSecurityContractTest {
             .andExpect(status().isOk()).andExpect(header().exists("X-Request-ID"));
         verify(dashboard).calcular(new DashboardRequest("Mês", 7, null, null));
     }
+    @Test void identidadeSemVinculoAutenticaMasNaoRecebeTenant() throws Exception {
+        when(tenants.resolver(10)).thenReturn(null);
+        String token = jwt.gerar(user);
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.tenantAtivo").doesNotExist());
+        mvc.perform(get("/api/auth/session/check").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("tenant_required"));
+        verify(tenants, never()).vincularSessao(anyString(), anyInt(), anyInt());
+    }
+    @Test void financeiroUsaSomenteEndpointMinimoDeCobranca() throws Exception {
+        when(tenants.resolver(10)).thenReturn(new TenantService.Access(2, "Clínica teste", "financeiro",
+                List.of("financeiro"), PermissionCatalog.defaultsFor(Set.of("financeiro")), null));
+        String token = jwt.gerar(user);
+        mvc.perform(get("/api/pacientes").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/pacientes/cobranca").header("Authorization", "Bearer " + token))
+            .andExpect(status().isNotFound());
+    }
     @Test void dashboardRejeitaAnonimoEJsonInvalidoComErroCorrelacionado() throws Exception {
         mvc.perform(post("/api/v1/dashboard").with(csrf())).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/dashboard").with(csrf()).header("Authorization", "Bearer " + jwt.gerar(user))
