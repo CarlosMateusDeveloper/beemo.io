@@ -1,0 +1,3 @@
+paciente_id;nome_paciente;telefone;atendimento_id;data_hora;profissional;especialidade;procedimento;situacao;atualizado_em
+PAC-001;Maria Exemplo;(85) 99999-0001;ATE-1001;10/10/2026 09:00;Dra. Exemplo;Clínica geral;Consulta;Faltou;10/10/2026 10:00
+PAC-002;João Exemplo;(85) 99999-0002;ATE-1002;10/10/2026 10:00;Dra. Exemplo;Clínica geral;Retorno;Realizado;10/10/2026 11:00

@@ -46,7 +46,8 @@ export async function authenticatedRequest(url, options = {}) {
   const mutation = !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())
   for (let attempt = 0; attempt < 2; attempt++) {
     const headers = new Headers(options.headers)
-    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    const multipart = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData
+    if (!headers.has('Content-Type') && !multipart) headers.set('Content-Type', 'application/json')
     if (mutation) headers.set('X-CSRF-TOKEN', await csrfToken())
     const res = await fetch(url, { ...fetchOptions, credentials: 'include', headers })
       .catch(() => { throw new Error('Não foi possível conectar ao clinicOS. Verifique sua conexão e tente novamente.') })
