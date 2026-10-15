@@ -187,6 +187,7 @@
 .op-queue-tabs button.active { border-color: color-mix(in srgb, var(--acc, #3d6edc) 35%, var(--border)); color: var(--acc, #3d6edc); background: color-mix(in srgb, var(--acc, #3d6edc) 9%, transparent); }
 .op-queue-badge { display: inline-flex; padding: 4px 7px; border-radius: 5px; color: var(--info); background: var(--info-bg); font-size: 9px; font-weight: 750; white-space: nowrap; }
 .op-queue-badge.resposta_pendente { color: var(--success); background: var(--success-bg); }
+.op-queue-badge.revisar_recorrencia { color: var(--danger); background: var(--danger-bg); }
 .op-queue-badge.conferir_presenca { color: #5363b3; background: #eceeff; }
 .op-queue-badge.primeira_tentativa, .op-queue-badge.nova_tentativa { color: var(--warning); background: var(--warning-bg); }
 .op-queue-badge.aguardando_consulta { color: var(--text-secondary); background: var(--surface-muted); }
@@ -198,6 +199,7 @@
 .op-alert-list svg { flex: 0 0 auto; }
 .op-case-form { display: grid; gap: 9px; margin: 16px 0; padding: 13px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-sunken); }
 .op-case-form label { display: grid; gap: 4px; color: var(--text-secondary); font-size: 9px; font-weight: 650; }
+.op-case-form label > small { color: var(--text-muted); font-size: 8px; font-weight: 500; line-height: 1.45; }
 .op-case-form input, .op-case-form select, .op-case-form textarea { width: 100%; min-height: 34px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; outline: 0; color: var(--text-primary); background: var(--surface); font: inherit; font-size: 10px; }
 .op-case-form textarea { resize: vertical; }
 .op-case-form input:focus, .op-case-form select:focus, .op-case-form textarea:focus { border-color: var(--acc, #3d6edc); }

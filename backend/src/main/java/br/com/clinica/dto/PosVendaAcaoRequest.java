@@ -16,5 +16,6 @@ public record PosVendaAcaoRequest(
         String canal,
         String resultado,
         @Size(max = 1500) String observacao,
-        Integer idConsulta
+        Integer idConsulta,
+        Long idAtendimentoExterno
 ) {}

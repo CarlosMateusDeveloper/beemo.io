@@ -14,7 +14,7 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
-from chatbot.services import whatsapp_service
+from chatbot.services import comunicacao_policy_service, whatsapp_service
 
 # tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
@@ -204,6 +204,13 @@ def obter_contexto_conversa(db: Session, conversa_id: int) -> dict | None:
         {"id": conversa.id_paciente},
     ).mappings().all()
 
+    consentimentos = db.execute(text("""
+        SELECT DISTINCT ON (finalidade) finalidade,decisao,origem,ocorrido_em
+        FROM comunicacao_consentimento_evento
+        WHERE id_paciente=:id AND canal IN ('whatsapp','todos')
+        ORDER BY finalidade,ocorrido_em DESC,id_consentimento DESC
+    """), {"id": conversa.id_paciente}).mappings().all()
+
     return {
         "paciente": {
             "nome": paciente["nome"],
@@ -227,6 +234,12 @@ def obter_contexto_conversa(db: Session, conversa_id: int) -> dict | None:
         ],
         "pendencias": [],
         "assistente": None,
+        "comunicacao": {
+            "whatsapp": [{
+                "finalidade": item["finalidade"], "decisao": item["decisao"],
+                "origem": item["origem"], "ocorridoEm": item["ocorrido_em"].isoformat(),
+            } for item in consentimentos],
+        },
     }
 
 
@@ -266,6 +279,11 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | 
         return None
     if conversa.estado != EstadoConversaBot.com_agente:
         raise ValueError("Assuma a conversa antes de enviar uma mensagem.")
+    decisao = comunicacao_policy_service.avaliar_e_registrar(
+        db, paciente_id=conversa.id_paciente, telefone=conversa.telefone,
+        canal="whatsapp", finalidade="atendimento", essencial=True,
+        modelo_id=None, origem="whatsapp_agente",
+    )
     whatsapp_service.send_message_sync(conversa.telefone, texto)
     nova = Mensagem(
         id_paciente=conversa.id_paciente,
@@ -274,6 +292,11 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str) -> dict | 
         tipo=TipoMensagem.texto,
         conteudo=texto,
         remetente=RemetenteMensagem.agente,
+        id_tentativa_comunicacao=decisao.tentativa_id,
+        finalidade_comunicacao="atendimento",
+        id_consentimento=decisao.consentimento_id,
+        id_modelo_comunicacao=decisao.modelo_id,
+        modelo_versao=decisao.modelo_versao,
     )
     db.add(nova)
     conversa.atualizado_em = datetime.now(timezone.utc)

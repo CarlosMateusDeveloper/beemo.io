@@ -11,7 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class OAuthSecurityConfig {
     public static final String LINK_USER="clinicos.linkUser";
     public static final String LINK_PROVIDER="clinicos.linkProvider";
-    @Bean @Order(1)
+    @Bean @Order(2)
     SecurityFilterChain oauthSecurity(HttpSecurity http,OAuthClients clients,OAuthLoginSuccessHandler successHandler) throws Exception {
         http.securityMatcher("/oauth2/**","/login/oauth2/**")
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))

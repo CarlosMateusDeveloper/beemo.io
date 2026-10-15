@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: Clinisis Integration API
+  version: 1.0.0
+  description: Recebe pacientes, atendimentos e mudanças de situação de uma fonte vinculada a uma clínica.
+servers:
+  - url: http://localhost:8080/api/integracoes/v1
+paths:
+  /eventos:
+    post:
+      summary: Recebe um evento idempotente da fonte clínica
+      security: [{ integrationKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Evento' }
+            examples:
+              paciente:
+                value:
+                  eventoId: evt-paciente-42-v3
+                  tipo: PACIENTE_ATUALIZADO
+                  versao: 1
+                  ocorridoEm: '2026-10-11T09:00:00-03:00'
+                  atualizadoEmFonte: '2026-10-11T09:00:00-03:00'
+                  paciente: { idExterno: P-42, nome: Paciente Exemplo, telefone: '85999999999' }
+              atendimento:
+                value:
+                  eventoId: evt-atendimento-91-v1
+                  tipo: ATENDIMENTO_ATUALIZADO
+                  versao: 1
+                  ocorridoEm: '2026-10-11T09:05:00-03:00'
+                  atualizadoEmFonte: '2026-10-11T09:05:00-03:00'
+                  atendimento:
+                    idExterno: A-91
+                    pacienteIdExterno: P-42
+                    agendadoEm: '2026-10-10T14:00:00-03:00'
+                    fusoHorario: America/Fortaleza
+                    profissional: Dra. Exemplo
+                    especialidade: Dermatologia
+                    tipo: Consulta
+                    situacao: Faltou
+              situacao:
+                value:
+                  eventoId: evt-atendimento-91-status-v2
+                  tipo: SITUACAO_ATENDIMENTO_ATUALIZADA
+                  versao: 1
+                  ocorridoEm: '2026-10-12T15:30:00-03:00'
+                  atualizadoEmFonte: '2026-10-12T15:30:00-03:00'
+                  atendimento: { idExterno: A-91, situacao: Realizado }
+      responses:
+        '200':
+          description: Evento processado, ignorado por ser antigo, repetido ou encaminhado para revisão
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Resultado' }
+        '400': { $ref: '#/components/responses/Invalid' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409':
+          description: O eventoId já existe com conteúdo diferente
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /estado:
+    get:
+      summary: Consulta a saúde e a última sincronização da fonte da credencial
+      security: [{ integrationKey: [] }]
+      responses:
+        '200':
+          description: Estado da conexão
+          content: { application/json: { schema: { type: object } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /openapi.yaml:
+    get:
+      summary: Baixa este contrato OpenAPI
+      responses: { '200': { description: Contrato YAML } }
+components:
+  securitySchemes:
+    integrationKey:
+      type: http
+      scheme: bearer
+      bearerFormat: Clinisis integration key
+  schemas:
+    Evento:
+      type: object
+      required: [eventoId, tipo, versao, ocorridoEm, atualizadoEmFonte]
+      additionalProperties: false
+      properties:
+        eventoId: { type: string, maxLength: 160, description: Identificador imutável usado na idempotência }
+        tipo:
+          type: string
+          enum: [PACIENTE_ATUALIZADO, ATENDIMENTO_ATUALIZADO, SITUACAO_ATENDIMENTO_ATUALIZADA]
+        versao: { type: integer, minimum: 1 }
+        ocorridoEm: { type: string, format: date-time }
+        atualizadoEmFonte: { type: string, format: date-time, description: Controla eventos fora de ordem }
+        paciente: { $ref: '#/components/schemas/Paciente' }
+        atendimento: { $ref: '#/components/schemas/Atendimento' }
+    Paciente:
+      type: object
+      required: [idExterno]
+      properties:
+        idExterno: { type: string, maxLength: 160 }
+        nome: { type: string, maxLength: 200 }
+        telefone: { type: string, maxLength: 20, description: Telefone com DDD }
+    Atendimento:
+      type: object
+      required: [idExterno, situacao]
+      properties:
+        idExterno: { type: string, maxLength: 160 }
+        pacienteIdExterno: { type: string, maxLength: 160 }
+        agendadoEm: { type: string, format: date-time }
+        fusoHorario: { type: string, example: America/Fortaleza }
+        profissional: { type: string, maxLength: 200 }
+        especialidade: { type: string, maxLength: 160 }
+        tipo: { type: string, maxLength: 160 }
+        situacao: { type: string, maxLength: 160, description: Valor original mapeado na configuração da fonte }
+    Resultado:
+      type: object
+      required: [id, eventoId, resultado, tentativas, reenvio]
+      properties:
+        id: { type: integer, format: int64 }
+        eventoId: { type: string }
+        resultado: { type: string, enum: [PROCESSADO, SEM_ALTERACAO, REVISAO] }
+        codigo: { type: string }
+        mensagem: { type: string }
+        tentativas: { type: integer }
+        reenvio: { type: boolean }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+        requestId: { type: string }
+  responses:
+    Invalid:
+      description: Payload inválido
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Credencial ausente, inválida, expirada ou revogada
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Credencial sem o escopo necessário
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
