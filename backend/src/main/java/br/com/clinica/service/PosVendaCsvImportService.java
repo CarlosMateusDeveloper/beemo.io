@@ -1,6 +1,9 @@
 package br.com.clinica.service;
 
 import br.com.clinica.dto.PosVendaCsvConfigRequest;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import java.util.*;
 
 @Service
 public class PosVendaCsvImportService {
+    private static final ObjectMapper JSON = new ObjectMapper();
     static final long MAX_BYTES = 5L * 1024 * 1024;
     static final int MAX_ROWS = 20_000;
     static final List<String> CAMPOS = List.of("pacienteId", "pacienteNome", "telefone", "atendimentoId",
@@ -44,14 +48,14 @@ public class PosVendaCsvImportService {
     private static final Set<String> SITUACOES = Set.of("AGENDADO", "CONFIRMADO", "FALTOU", "REALIZADO",
             "CANCELADO", "DESCONHECIDO");
     private static final Map<String, List<String>> SINONIMOS = Map.ofEntries(
-            Map.entry("pacienteId", List.of("paciente_id", "id_paciente", "codigo_paciente", "cod_paciente")),
-            Map.entry("pacienteNome", List.of("paciente", "nome_paciente", "paciente_nome", "nome")),
-            Map.entry("telefone", List.of("telefone", "celular", "whatsapp", "fone")),
-            Map.entry("atendimentoId", List.of("atendimento_id", "id_atendimento", "consulta_id", "agendamento_id", "codigo_atendimento")),
-            Map.entry("dataHora", List.of("data_hora", "datahora", "inicio", "data_atendimento", "data_consulta")),
-            Map.entry("profissional", List.of("profissional", "medico", "dentista", "responsavel_clinico")),
-            Map.entry("especialidade", List.of("especialidade", "area", "servico")),
-            Map.entry("tipo", List.of("tipo", "procedimento", "tipo_atendimento", "consulta_tipo")),
+            Map.entry("pacienteId", List.of("paciente_id", "id_paciente", "codigo_paciente", "cod_paciente", "patient_id")),
+            Map.entry("pacienteNome", List.of("paciente", "nome_paciente", "paciente_nome", "nome", "patient_name")),
+            Map.entry("telefone", List.of("telefone", "celular", "whatsapp", "fone", "phone", "mobile")),
+            Map.entry("atendimentoId", List.of("atendimento_id", "id_atendimento", "consulta_id", "agendamento_id", "codigo_atendimento", "codigo_agendamento", "appointment_id")),
+            Map.entry("dataHora", List.of("data_hora", "datahora", "inicio", "data_atendimento", "data_consulta", "scheduled_at", "appointment_date")),
+            Map.entry("profissional", List.of("profissional", "medico", "dentista", "responsavel_clinico", "doctor", "provider")),
+            Map.entry("especialidade", List.of("especialidade", "area", "servico", "specialty")),
+            Map.entry("tipo", List.of("tipo", "procedimento", "servico", "tipo_atendimento", "consulta_tipo", "procedure", "appointment_type")),
             Map.entry("situacao", List.of("situacao", "status", "status_atendimento", "situacao_atendimento")),
             Map.entry("atualizadoEm", List.of("atualizado_em", "data_atualizacao", "ultima_alteracao")),
             Map.entry("consentimentoDecisao", List.of("consentimento", "consentimento_decisao", "opt_in", "aceite_comunicacao")),
@@ -69,10 +73,17 @@ public class PosVendaCsvImportService {
 
     private final JdbcTemplate db;
     private final Clock clock;
+    private final ImportFileProtectionService fileProtection;
 
-    public PosVendaCsvImportService(JdbcTemplate db, Clock clock) {
+    @Autowired
+    public PosVendaCsvImportService(JdbcTemplate db, Clock clock, ImportFileProtectionService fileProtection) {
         this.db = db;
         this.clock = clock;
+        this.fileProtection = fileProtection;
+    }
+
+    PosVendaCsvImportService(JdbcTemplate db, Clock clock) {
+        this(db, clock, new ImportFileProtectionService("", new java.security.SecureRandom()));
     }
 
     public Map<String, Object> preview(MultipartFile file, String fuso) {
@@ -90,6 +101,27 @@ public class PosVendaCsvImportService {
             statusCount.keySet().forEach(value -> statusMapping.put(value, sugerirSituacao(value)));
         }
         PosVendaCsvConfigRequest config = new PosVendaCsvConfigRequest("preview", "Prévia", zone.getId(), mapping, statusMapping);
+        return previewResult(file, csv, config, statusCount);
+    }
+
+    public Map<String, Object> preview(MultipartFile file, PosVendaCsvConfigRequest config) {
+        zone(config.fusoHorario());
+        validateConfig(config);
+        CsvDocument csv = read(file);
+        validateHeaders(csv.headers(), config.colunas());
+        Map<String, Integer> statusCount = new LinkedHashMap<>();
+        Integer statusIndex = index(csv.headers(), config.colunas().get("situacao"));
+        if (statusIndex != null) {
+            for (CsvRow row : csv.rows()) {
+                String original = cell(row, statusIndex).trim();
+                if (!original.isEmpty()) statusCount.merge(original, 1, Integer::sum);
+            }
+        }
+        return previewResult(file, csv, config, statusCount);
+    }
+
+    private Map<String, Object> previewResult(MultipartFile file, CsvDocument csv,
+            PosVendaCsvConfigRequest config, Map<String, Integer> statusCount) {
         List<Map<String, Object>> rows = new ArrayList<>();
         int valid = 0;
         int errors = 0;
@@ -99,13 +131,14 @@ public class PosVendaCsvImportService {
             if (rows.size() < 20) rows.add(previewRow(parsed));
         }
         List<Map<String, Object>> detected = statusCount.entrySet().stream().map(entry -> Map.<String, Object>of(
-                "origem", entry.getKey(), "quantidade", entry.getValue(), "sugestao", statusMapping.get(entry.getKey())
+                "origem", entry.getKey(), "quantidade", entry.getValue(), "sugestao",
+                Objects.toString(config.situacoes().get(entry.getKey()), sugerirSituacao(entry.getKey()))
         )).toList();
         var result = new LinkedHashMap<String, Object>();
         result.put("arquivo", Objects.toString(file.getOriginalFilename(), "arquivo.csv"));
         result.put("separador", Character.toString(csv.delimiter()));
         result.put("colunas", csv.headers());
-        result.put("mapeamento", mapping);
+        result.put("mapeamento", config.colunas());
         result.put("camposObrigatorios", OBRIGATORIOS);
         result.put("situacoesDetectadas", detected);
         result.put("totalLinhas", csv.rows().size());
@@ -123,11 +156,16 @@ public class PosVendaCsvImportService {
         validateHeaders(csv.headers(), config.colunas());
         int tenant = TenantContext.id();
         long source = source(config);
+        String hash = sha256(file);
+        ImportFileProtectionService.ProtectedFile protectedFile = fileProtection.protect(fileBytes(file), tenant, hash);
         long importId = db.queryForObject("""
-                INSERT INTO integracao_importacao(id_clinica,id_fonte,arquivo_nome,arquivo_sha256,fuso_horario,status,criado_por)
-                VALUES (?,?,?,?,?,'PROCESSANDO',?) RETURNING id_importacao
-                """, Long.class, tenant, source, safeName(file.getOriginalFilename()), sha256(file),
-                config.fusoHorario(), author);
+                INSERT INTO integracao_importacao(
+                    id_clinica,id_fonte,arquivo_nome,arquivo_sha256,arquivo_conteudo_criptografado,
+                    arquivo_nonce,arquivo_tamanho,arquivo_chave_versao,fuso_horario,status,criado_por
+                ) VALUES (?,?,?,?,?,?,?,?,?,'PROCESSANDO',?) RETURNING id_importacao
+                """, Long.class, tenant, source, safeName(file.getOriginalFilename()), hash,
+                protectedFile.ciphertext(), protectedFile.nonce(), protectedFile.originalSize(),
+                protectedFile.keyVersion(), config.fusoHorario(), author);
 
         Counters counters = new Counters();
         for (CsvRow row : csv.rows()) {
@@ -162,6 +200,8 @@ public class PosVendaCsvImportService {
                 SELECT i.id_importacao AS id,i.arquivo_nome AS arquivo,i.status,i.total_linhas AS total,
                     i.importadas,i.atualizadas,i.sem_alteracao AS "semAlteracao",i.revisao,i.erros,
                     i.criado_em::text AS "iniciadaEm",i.concluido_em::text AS "concluidaEm",
+                    i.rollback_status AS "rollbackStatus",i.desfeita_em::text AS "desfeitaEm",
+                    (i.arquivo_conteudo_criptografado IS NOT NULL) AS "arquivoProtegido",
                     f.codigo AS "fonteCodigo",f.nome AS fonte,f.ultima_sincronizacao::text AS "ultimaSincronizacao",
                     u.nome AS responsavel
                 FROM integracao_importacao i JOIN integracao_fonte_dados f ON f.id_fonte=i.id_fonte
@@ -174,7 +214,11 @@ public class PosVendaCsvImportService {
                 SELECT i.id_importacao AS id,i.arquivo_nome AS arquivo,i.arquivo_sha256 AS sha256,i.status,
                     i.total_linhas AS total,i.importadas,i.atualizadas,i.sem_alteracao AS "semAlteracao",
                     i.revisao,i.erros,i.fuso_horario AS fuso,i.criado_em::text AS "iniciadaEm",
-                    i.concluido_em::text AS "concluidaEm",f.codigo AS "fonteCodigo",f.nome AS fonte,u.nome AS responsavel
+                    i.concluido_em::text AS "concluidaEm",i.rollback_status AS "rollbackStatus",
+                    i.rollback_relatorio::text AS "rollbackRelatorio",i.desfeita_em::text AS "desfeitaEm",
+                    (i.arquivo_conteudo_criptografado IS NOT NULL) AS "arquivoProtegido",
+                    i.arquivo_tamanho AS "arquivoTamanho",
+                    f.codigo AS "fonteCodigo",f.nome AS fonte,u.nome AS responsavel
                 FROM integracao_importacao i JOIN integracao_fonte_dados f ON f.id_fonte=i.id_fonte
                 JOIN usuario u ON u.id=i.criado_por WHERE i.id_importacao=?
                 """, id).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
@@ -186,6 +230,71 @@ public class PosVendaCsvImportService {
                 ORDER BY numero_linha LIMIT 500
                 """, id);
         return Map.of("importacao", batch, "pendencias", issues);
+    }
+
+    @Transactional
+    public Map<String,Object> rollback(long id, int author) {
+        Map<String,Object> batch = db.queryForList("""
+                SELECT id_importacao,id_fonte,rollback_status FROM integracao_importacao
+                WHERE id_importacao=? FOR UPDATE
+                """, id).stream().findFirst().orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Importação não encontrada"));
+        if (batch.get("rollback_status") != null) throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Esta importação já possui um rollback registrado");
+
+        long source = ((Number) batch.get("id_fonte")).longValue();
+        List<Map<String,Object>> created = db.queryForList("""
+                SELECT a.id_atendimento_externo AS id,a.identificador_externo AS identificador,
+                    c.id AS caso,c.status AS caso_status,
+                    (SELECT count(*) FROM pos_venda_evento e WHERE e.id_caso=c.id AND e.tipo<>'falta') AS alteracoes
+                FROM integracao_importacao_linha l
+                JOIN integracao_atendimento_externo a ON a.id_fonte=?
+                    AND a.identificador_externo=l.atendimento_externo
+                LEFT JOIN pos_venda_caso c ON c.id_atendimento_externo_origem=a.id_atendimento_externo
+                WHERE l.id_importacao=? AND l.resultado='IMPORTADA'
+                ORDER BY l.numero_linha
+                """, source, id);
+        int removed = 0;
+        List<String> assisted = new ArrayList<>();
+        for (Map<String,Object> row : created) {
+            Number caseId = (Number) row.get("caso");
+            boolean untouched = caseId == null || (((Number) row.get("alteracoes")).intValue() == 0
+                    && Set.of("pendente", "nao_contatar", "registro_corrigido")
+                    .contains(Objects.toString(row.get("caso_status"), "pendente")));
+            if (!untouched) {
+                assisted.add(Objects.toString(row.get("identificador")));
+                continue;
+            }
+            if (caseId != null) {
+                db.update("DELETE FROM pos_venda_evento WHERE id_caso=?", caseId.longValue());
+                db.update("DELETE FROM pos_venda_caso WHERE id=?", caseId.longValue());
+            }
+            removed += db.update("DELETE FROM integracao_atendimento_externo WHERE id_atendimento_externo=? AND id_importacao=?",
+                    ((Number) row.get("id")).longValue(), id);
+        }
+        Integer updated = db.queryForObject("""
+                SELECT count(*) FROM integracao_importacao_linha
+                WHERE id_importacao=? AND resultado IN ('ATUALIZADA','REVISAO')
+                """, Integer.class, id);
+        if (updated != null && updated > 0) assisted.add(updated + " registro(s) preexistente(s) atualizado(s)");
+        db.update("""
+                DELETE FROM comunicacao_consentimento_evento
+                WHERE origem='importacao_sem_evidencia' AND evidencia_referencia=?
+                """, "importacao:" + id + ":sem-evidencia");
+        String status = assisted.isEmpty() ? "CONCLUIDO" : "CORRECAO_ASSISTIDA";
+        Map<String,Object> report = new LinkedHashMap<>();
+        report.put("atendimentosRemovidos", removed);
+        report.put("itensParaCorrecaoAssistida", assisted);
+        db.update("""
+                UPDATE integracao_importacao SET rollback_status=?,rollback_relatorio=?::jsonb,
+                    desfeita_em=now(),desfeita_por=? WHERE id_importacao=?
+                """, status, toJson(report), author, id);
+        return detail(id);
+    }
+
+    private static String toJson(Object value) {
+        try { return JSON.writeValueAsString(value); }
+        catch (JacksonException e) { throw new IllegalStateException("Não foi possível registrar o rollback", e); }
     }
 
     private Outcome importRow(long source, long importId, Parsed row) {
@@ -424,10 +533,10 @@ public class PosVendaCsvImportService {
     static String sugerirSituacao(String value) {
         String normalized = normalize(value);
         if (Set.of("faltou", "falta", "nao_compareceu", "no_show").contains(normalized)) return "FALTOU";
-        if (Set.of("realizado", "atendido", "presente", "compareceu", "concluido").contains(normalized)) return "REALIZADO";
-        if (Set.of("cancelado", "cancelada", "desmarcado").contains(normalized)) return "CANCELADO";
-        if (Set.of("confirmado", "confirmada").contains(normalized)) return "CONFIRMADO";
-        if (Set.of("agendado", "agendada", "marcado").contains(normalized)) return "AGENDADO";
+        if (Set.of("realizado", "atendido", "presente", "compareceu", "concluido", "completed").contains(normalized)) return "REALIZADO";
+        if (Set.of("cancelado", "cancelada", "desmarcado", "canceled", "cancelled").contains(normalized)) return "CANCELADO";
+        if (Set.of("confirmado", "confirmada", "confirmed").contains(normalized)) return "CONFIRMADO";
+        if (Set.of("agendado", "agendada", "marcado", "scheduled").contains(normalized)) return "AGENDADO";
         if (Set.of("autorizado", "faturado", "pago", "em_aberto").contains(normalized)) return "DESCONHECIDO";
         return "";
     }
@@ -602,6 +711,13 @@ public class PosVendaCsvImportService {
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException | java.io.IOException exception) {
             throw new IllegalStateException("Não foi possível identificar o arquivo", exception);
+        }
+    }
+
+    private static byte[] fileBytes(MultipartFile file) {
+        try { return file.getBytes(); }
+        catch (java.io.IOException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não foi possível ler o arquivo CSV");
         }
     }
 

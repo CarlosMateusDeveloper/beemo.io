@@ -1,0 +1,3 @@
+codigo_paciente;paciente;celular;codigo_agendamento;data_consulta;profissional;area;servico;status
+PX-301;Paciente Exemplo C;85999990003;AG-401;11/10/2026 14:00;Dr. Exemplo;Dermatologia;Avaliação;não compareceu
+PX-302;Paciente Exemplo D;85999990004;AG-402;11/10/2026 15:00;Dr. Exemplo;Dermatologia;Retorno;atendido
