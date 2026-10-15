@@ -24,6 +24,22 @@
 .pv-error button { margin-left: 8px; color: inherit; background: transparent; border: 0; text-decoration: underline; cursor: pointer; }
 .pv-success { padding: 12px; background: var(--acc-soft); color: var(--success); border-radius: 8px; }
 .pv-contexto { display: flex; align-items: flex-start; gap: 14px; padding: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.pv-metadata { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-muted); color: var(--text-secondary); font-size: 12px; }
+.pv-metadata p { margin: 0; }
+.pv-empty { padding: 16px; border: 1px dashed var(--border); border-radius: 9px; color: var(--text-secondary); text-align: center; }
+.pv-kpi-link { width: 100%; border: 1px solid var(--border); color: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.pv-kpi-link:hover { border-color: var(--acc); transform: translateY(-1px); }
+.pv-kpi-link > span { display: block; }
+.pv-kpi-open { margin-top: 9px; color: var(--acc-deep); font-size: 11px; font-weight: 650; }
+.pv-drilldown { display: grid; gap: 12px; }
+.pv-drilldown .retorno-painel-head > div { display: grid; gap: 3px; }
+.pv-drilldown .retorno-painel-head span { color: var(--text-tertiary); font-size: 11px; }
+.pv-definicoes { padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.pv-definicoes summary { cursor: pointer; font-size: 13px; font-weight: 650; }
+.pv-definicoes > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.pv-definicoes article { padding: 12px; border-radius: 8px; background: var(--surface-muted); }
+.pv-definicoes p { margin: 5px 0; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+.pv-definicoes small { color: var(--text-tertiary); }
 .pv-colunas { display: grid; grid-template-columns: minmax(300px,1fr) minmax(300px,1fr); gap: 20px; align-items: start; }
 .pv-colunas > :only-child { grid-column: 1 / -1; }
 .pv-form { display: grid; gap: 16px; padding: 20px; }
@@ -36,4 +52,4 @@
 .pv-historico p { font-size: 13px; line-height: 1.5; margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (max-width: 1050px) { .pv-kpis { grid-template-columns: repeat(2,1fr); } .pv-colunas { grid-template-columns: 1fr; } }
-@media (max-width: 650px) { .pv-filtros, .pv-form-linha { grid-template-columns: 1fr; } .pv-kpis { grid-template-columns: 1fr; } .retorno-page { padding: 18px 14px; } .retorno-tabs { gap: 15px; flex-wrap: wrap; } }
+@media (max-width: 650px) { .pv-filtros, .pv-form-linha, .pv-definicoes > div { grid-template-columns: 1fr; } .pv-kpis { grid-template-columns: 1fr; } .retorno-page { padding: 18px 14px; } .retorno-tabs { gap: 15px; flex-wrap: wrap; } }

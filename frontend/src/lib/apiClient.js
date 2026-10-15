@@ -25,6 +25,21 @@ async function csrfToken() {
   return (await csrfPromise).token
 }
 export function apiRequest(path, options = {}) { return authenticatedRequest(`${API_BASE}${path}`, options) }
+export async function apiDownload(path) {
+  const initialGeneration = generation
+  const res = await fetch(`${API_BASE}${path}`, { credentials: 'include' })
+    .catch(() => { throw new Error('Não foi possível conectar ao clinicOS. Verifique sua conexão e tente novamente.') })
+  if (res.status === 401 && initialGeneration === generation) {
+    sessaoAtualizada(); aoDeslogar()
+    throw new Error('Sessão expirada. Faça login novamente.')
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    if (res.status === 403 && body.code === 'tenant_required' && initialGeneration === generation) aoPerderTenant()
+    throw new Error(body.message || body.erro || `Não foi possível gerar o arquivo (${res.status}).`)
+  }
+  return res.blob()
+}
 export async function authenticatedRequest(url, options = {}) {
   const { authenticated = true, ...fetchOptions } = options
   const initialGeneration = generation
