@@ -2,6 +2,9 @@ package br.com.clinica.service;
 
 import java.time.Instant;
 import java.time.Clock;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -88,5 +91,35 @@ class PosVendaCsvImportServiceTest {
         var row = (java.util.Map<?, ?>) ((List<?>) preview.get("amostra")).getFirst();
 
         assertEquals("consentimento_sem_texto", row.get("codigo"));
+    }
+
+    @Test void validaTresFormatosAnonimizadosDeSistemasClinicos() throws Exception {
+        var service = new PosVendaCsvImportService(null, Clock.systemUTC());
+        for (String name : List.of("formato-agenda-a.csv", "formato-agenda-b.csv", "formato-agenda-c.csv")) {
+            byte[] content = Files.readAllBytes(Path.of("..", "docs", "examples", "onboarding", name));
+            var file = new MockMultipartFile("arquivo", name, "text/csv", content);
+            var preview = service.preview(file, "America/Fortaleza");
+            assertEquals(0, preview.get("linhasComErro"), name + " " + preview.get("amostra"));
+            assertEquals(2, preview.get("linhasValidas"), name);
+            assertEquals(9, ((Map<?, ?>) preview.get("mapeamento")).entrySet().stream()
+                    .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isBlank()).count(), name);
+        }
+    }
+
+    @Test void revalidaMesmoArquivoAposCorrecaoDoMapeamento() {
+        String csv = "c1;c2;c3;c4;c5;c6;c7;c8;c9\n"
+                + "P-1;Paciente Teste;85999999999;A-1;10/10/2026 09:00;Dra. Ana;Clínica;Consulta;Ausente";
+        var service = new PosVendaCsvImportService(null, Clock.systemUTC());
+        var file = new MockMultipartFile("arquivo", "colunas-proprias.csv", "text/csv", csv.getBytes());
+        Map<String,String> mapping = Map.of("pacienteId", "c1", "pacienteNome", "c2", "telefone", "c3",
+                "atendimentoId", "c4", "dataHora", "c5", "profissional", "c6", "especialidade", "c7",
+                "tipo", "c8", "situacao", "c9");
+        var config = new br.com.clinica.dto.PosVendaCsvConfigRequest("origem-teste", "Origem teste",
+                "America/Fortaleza", mapping, Map.of("Ausente", "FALTOU"));
+
+        var preview = service.preview(file, config);
+
+        assertEquals(0, preview.get("linhasComErro"));
+        assertEquals(1, preview.get("linhasValidas"));
     }
 }

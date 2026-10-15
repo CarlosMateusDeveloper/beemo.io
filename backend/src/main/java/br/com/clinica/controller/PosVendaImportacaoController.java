@@ -33,6 +33,12 @@ public class PosVendaImportacaoController {
         return service.preview(file, fuso);
     }
 
+    @PostMapping(value = "/csv/validar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> validate(@RequestPart("arquivo") MultipartFile file,
+            @Valid @RequestPart("configuracao") PosVendaCsvConfigRequest config) {
+        return service.preview(file, config);
+    }
+
     @PostMapping(value = "/csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> importCsv(@RequestPart("arquivo") MultipartFile file,
             @Valid @RequestPart("configuracao") PosVendaCsvConfigRequest config, Authentication authentication) {
@@ -50,5 +56,13 @@ public class PosVendaImportacaoController {
     @GetMapping("/{id}")
     public Map<String, Object> detail(@PathVariable long id) {
         return service.detail(id);
+    }
+
+    @PostMapping("/{id}/rollback")
+    public Map<String, Object> rollback(@PathVariable long id, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Integer author)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Faça login para desfazer a importação");
+        }
+        return service.rollback(id, author);
     }
 }

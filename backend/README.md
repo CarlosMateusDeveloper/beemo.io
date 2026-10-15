@@ -16,6 +16,7 @@ DB_USER=seu_usuario
 DB_PASSWORD=sua_senha
 JWT_SECRET=gere_um_segredo_aleatorio_com_pelo_menos_32_bytes
 JWT_EXPIRATION_MINUTES=30
+IMPORT_FILE_ENCRYPTION_KEY=gere_32_bytes_aleatorios_em_base64
 APP_TIME_ZONE=America/Fortaleza
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```

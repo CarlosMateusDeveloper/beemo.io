@@ -98,6 +98,8 @@ public class SecurityConfig {
 
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/reguas/**").hasAuthority("PERM_jornada.configurar")
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/modelos/**").hasAuthority("PERM_campanha.configurar")
+                .requestMatchers("/api/onboarding/**","/api/pos-venda/importacoes/**")
+                    .hasAuthority("PERM_integracao.gerenciar")
                 .requestMatchers("/api/pos-venda/integracoes/**").hasAuthority("PERM_integracao.gerenciar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/comunicacao/modelos/**")
                     .hasAuthority("PERM_comunicacao.modelo.visualizar")
