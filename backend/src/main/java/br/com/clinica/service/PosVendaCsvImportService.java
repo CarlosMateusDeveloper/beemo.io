@@ -27,7 +27,9 @@ public class PosVendaCsvImportService {
     static final long MAX_BYTES = 5L * 1024 * 1024;
     static final int MAX_ROWS = 20_000;
     static final List<String> CAMPOS = List.of("pacienteId", "pacienteNome", "telefone", "atendimentoId",
-            "dataHora", "profissional", "especialidade", "tipo", "situacao", "atualizadoEm");
+            "dataHora", "profissional", "especialidade", "tipo", "situacao", "atualizadoEm",
+            "consentimentoDecisao", "consentimentoCanal", "consentimentoFinalidade",
+            "consentimentoTexto", "consentimentoData", "consentimentoEvidencia");
     private static final Set<String> OBRIGATORIOS = Set.of("pacienteId", "pacienteNome", "telefone",
             "atendimentoId", "dataHora", "profissional", "especialidade", "tipo", "situacao");
     private static final Map<String, Integer> LIMITES = Map.of(
@@ -51,7 +53,13 @@ public class PosVendaCsvImportService {
             Map.entry("especialidade", List.of("especialidade", "area", "servico")),
             Map.entry("tipo", List.of("tipo", "procedimento", "tipo_atendimento", "consulta_tipo")),
             Map.entry("situacao", List.of("situacao", "status", "status_atendimento", "situacao_atendimento")),
-            Map.entry("atualizadoEm", List.of("atualizado_em", "data_atualizacao", "ultima_alteracao"))
+            Map.entry("atualizadoEm", List.of("atualizado_em", "data_atualizacao", "ultima_alteracao")),
+            Map.entry("consentimentoDecisao", List.of("consentimento", "consentimento_decisao", "opt_in", "aceite_comunicacao")),
+            Map.entry("consentimentoCanal", List.of("consentimento_canal", "canal_consentimento")),
+            Map.entry("consentimentoFinalidade", List.of("consentimento_finalidade", "finalidade_consentimento")),
+            Map.entry("consentimentoTexto", List.of("consentimento_texto", "texto_aceite", "termo_aceito")),
+            Map.entry("consentimentoData", List.of("consentimento_data", "data_consentimento", "aceite_em")),
+            Map.entry("consentimentoEvidencia", List.of("consentimento_evidencia", "evidencia_consentimento", "aceite_id"))
     );
     private static final List<DateTimeFormatter> LOCAL_FORMATS = List.of(
             DateTimeFormatter.ISO_LOCAL_DATE_TIME,
@@ -202,6 +210,7 @@ public class PosVendaCsvImportService {
                         """, row.patientName(), row.phone(), row.sourceUpdated(), patient);
             }
         }
+        preservarConsentimentoImportado(importId, patient, row);
 
         List<Map<String, Object>> existing = db.queryForList("""
                 SELECT id_atendimento_externo,id_paciente_externo,agendado_em,profissional,especialidade,tipo,
@@ -234,6 +243,31 @@ public class PosVendaCsvImportService {
                 """, row.scheduled(), row.zone(), row.professional(), row.specialty(), row.type(), row.sourceStatus(),
                 row.status(), row.sourceUpdated(), importId, found.get("id_atendimento_externo"));
         return new Outcome("ATUALIZADA");
+    }
+
+    private void preservarConsentimentoImportado(long importId, long patient, Parsed row) {
+        String decision = row.consentDecision();
+        boolean hasEvidence = decision != null;
+        String source = hasEvidence ? "importacao" : "importacao_sem_evidencia";
+        String evidence = hasEvidence ? blankToNull(row.consentEvidence())
+                : "importacao:" + importId + ":sem-evidencia";
+        OffsetDateTime occurred = hasEvidence ? row.consentOccurred() : OffsetDateTime.now(clock);
+        String channel = hasEvidence ? row.consentChannel() : "todos";
+        String purpose = hasEvidence ? row.consentPurpose() : "todos";
+        String effectiveDecision = hasEvidence ? decision : "revogado";
+        db.update("""
+                INSERT INTO comunicacao_consentimento_evento(
+                    id_paciente_externo,canal,finalidade,decisao,origem,texto_aceito,
+                    evidencia_referencia,ocorrido_em
+                ) SELECT ?,?,?,?,?,?,?,?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM comunicacao_consentimento_evento
+                    WHERE id_paciente_externo=? AND origem=? AND coalesce(evidencia_referencia,'')=coalesce(?,'')
+                      AND canal=? AND finalidade=? AND decisao=?
+                )
+                """, patient, channel, purpose, effectiveDecision, source,
+                hasEvidence ? blankToNull(row.consentText()) : null, evidence, occurred,
+                patient, source, evidence, channel, purpose, effectiveDecision);
     }
 
     private void saveLine(long importId, int line, Parsed parsed, String result) {
@@ -321,9 +355,41 @@ public class PosVendaCsvImportService {
             return Parsed.problem(values, new Problem("situacao_sem_mapeamento", "situacao",
                     "Mapeie esta situação para uma situação reconhecida pelo Clinisis.", false));
         }
+        String consentDecision;
+        String consentChannel;
+        String consentPurpose;
+        try {
+            consentDecision = consentDecision(values.get("consentimentoDecisao"));
+            consentChannel = consentValue(values.get("consentimentoCanal"), "todos",
+                    Set.of("whatsapp", "email", "sms", "telefone", "todos"));
+            consentPurpose = consentValue(values.get("consentimentoFinalidade"), "todos",
+                    Set.of("atendimento", "pos_venda", "campanha", "transacional", "todos"));
+        } catch (ResponseStatusException exception) {
+            return Parsed.problem(values, new Problem("consentimento_invalido", "consentimentoDecisao",
+                    exception.getReason(), false));
+        }
+        OffsetDateTime consentOccurred = null;
+        if (consentDecision != null) {
+            if (consentDecision.equals("concedido") && values.get("consentimentoTexto").isBlank()) {
+                return Parsed.problem(values, new Problem("consentimento_sem_texto", "consentimentoTexto",
+                        "Um consentimento concedido precisa preservar o texto aceito.", false));
+            }
+            if (values.get("consentimentoData").isBlank()) {
+                return Parsed.problem(values, new Problem("consentimento_sem_data", "consentimentoData",
+                        "Informe quando o consentimento foi concedido ou revogado.", false));
+            }
+            try {
+                consentOccurred = date(values.get("consentimentoData"), zone).atZone(zone).toOffsetDateTime();
+            } catch (DateTimeParseException exception) {
+                return Parsed.problem(values, new Problem("consentimento_data_invalida", "consentimentoData",
+                        "Use data e hora ISO ou dd/MM/aaaa HH:mm.", false));
+            }
+        }
         return new Parsed(values.get("pacienteId"), values.get("pacienteNome"), phone,
                 values.get("atendimentoId"), scheduled, zone.getId(), values.get("profissional"),
-                values.get("especialidade"), values.get("tipo"), values.get("situacao"), status, updated, null);
+                values.get("especialidade"), values.get("tipo"), values.get("situacao"), status, updated, null,
+                values, consentDecision, consentChannel, consentPurpose, values.get("consentimentoTexto"),
+                consentOccurred, values.get("consentimentoEvidencia"));
     }
 
     private static Map<String, Object> previewRow(Parsed row) {
@@ -335,6 +401,7 @@ public class PosVendaCsvImportService {
         result.put("dataHora", row.scheduled());
         result.put("situacao", row.sourceStatus());
         result.put("situacaoNormalizada", row.status());
+        result.put("consentimento", row.consentDecision() == null ? "Bloqueado até comprovação" : row.consentDecision());
         result.put("valida", row.problem() == null);
         if (row.problem() != null) {
             result.put("codigo", row.problem().code());
@@ -502,6 +569,20 @@ public class PosVendaCsvImportService {
 
     private static String cell(CsvRow row, int index) { return index < row.values().size() ? row.values().get(index) : ""; }
     private static String digits(String value) { return value == null ? "" : value.replaceAll("\\D", ""); }
+    private static String consentDecision(String value) {
+        String normalized = normalize(value);
+        if (normalized.isBlank()) return null;
+        if (Set.of("sim", "true", "1", "aceito", "concedido", "opt_in").contains(normalized)) return "concedido";
+        if (Set.of("nao", "false", "0", "revogado", "recusado", "opt_out").contains(normalized)) return "revogado";
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor de consentimento não reconhecido: " + value);
+    }
+    private static String consentValue(String value, String fallback, Set<String> allowed) {
+        String normalized = normalize(value);
+        if (normalized.isBlank()) return fallback;
+        if (!allowed.contains(normalized)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Canal ou finalidade de consentimento inválido: " + value);
+        return normalized;
+    }
     private static String normalize(String value) {
         String plain = Normalizer.normalize(Objects.toString(value, ""), Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         return plain.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_|_$", "");
@@ -530,17 +611,21 @@ public class PosVendaCsvImportService {
     private record Parsed(String patientId, String patientName, String phone, String appointmentId,
                           Instant scheduled, String zone, String professional, String specialty, String type,
                           String sourceStatus, String status, Instant sourceUpdated, Problem problem,
-                          Map<String, String> values) {
+                          Map<String, String> values, String consentDecision, String consentChannel,
+                          String consentPurpose, String consentText, OffsetDateTime consentOccurred,
+                          String consentEvidence) {
         Parsed(String patientId, String patientName, String phone, String appointmentId, Instant scheduled,
                String zone, String professional, String specialty, String type, String sourceStatus,
                String status, Instant sourceUpdated, Problem problem) {
             this(patientId, patientName, phone, appointmentId, scheduled, zone, professional, specialty,
-                    type, sourceStatus, status, sourceUpdated, problem, Map.of());
+                    type, sourceStatus, status, sourceUpdated, problem, Map.of(), null, "todos", "todos",
+                    null, null, null);
         }
         static Parsed problem(Map<String, String> values, Problem problem) {
             return new Parsed(values.get("pacienteId"), values.get("pacienteNome"), digits(values.get("telefone")),
                     values.get("atendimentoId"), null, null, values.get("profissional"), values.get("especialidade"),
-                    values.get("tipo"), values.get("situacao"), null, null, problem, values);
+                    values.get("tipo"), values.get("situacao"), null, null, problem, values,
+                    null, "todos", "todos", null, null, null);
         }
     }
     private record Outcome(String result, String code, String field, String message) {

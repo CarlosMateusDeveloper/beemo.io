@@ -8,6 +8,7 @@ import br.com.clinica.service.RetornoAcaoService;
 import br.com.clinica.service.RetornoDeteccaoService;
 import br.com.clinica.service.RetornoResultadosService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -52,14 +53,16 @@ public class RetornoController {
     }
 
     @PostMapping("/pacientes/nao-contatar")
-    public void naoContatar(@RequestBody RetornoNaoContatarRequest request) {
-        acaoService.marcarNaoContatar(request.idsPaciente(), request.motivo());
+    public void naoContatar(@RequestBody RetornoNaoContatarRequest request, Authentication authentication) {
+        acaoService.marcarNaoContatar(request.idsPaciente(), request.motivo(), (Integer) authentication.getPrincipal());
     }
 
     @PostMapping("/pacientes/enviar-mensagem")
-    public RetornoEnviarMensagemResponse enviarMensagem(@RequestBody RetornoEnviarMensagemRequest request) {
+    public RetornoEnviarMensagemResponse enviarMensagem(@RequestBody RetornoEnviarMensagemRequest request,
+                                                         Authentication authentication) {
         return acaoService.enviarMensagem(
-                request.idsPaciente(), converterGrupo(request.grupo()), request.texto(), request.idUsuario()
+                request.idsPaciente(), converterGrupo(request.grupo()), request.texto(),
+                (Integer) authentication.getPrincipal()
         );
     }
 
@@ -79,8 +82,9 @@ public class RetornoController {
     }
 
     @PutMapping("/modelos/{grupo}")
-    public ModeloMensagemDto atualizarModelo(@PathVariable String grupo, @RequestBody ModeloMensagemRequest request) {
-        return modeloService.atualizar(grupo, request);
+    public ModeloMensagemDto atualizarModelo(@PathVariable String grupo, @RequestBody ModeloMensagemRequest request,
+                                               Authentication authentication) {
+        return modeloService.atualizar(grupo, request, (Integer) authentication.getPrincipal());
     }
 
     @GetMapping("/resultados")

@@ -65,4 +65,28 @@ class PosVendaCsvImportServiceTest {
 
         assertEquals("O CSV não possui linhas de dados", error.getReason());
     }
+
+    @Test void previewBloqueiaImportadoSemEvidenciaDeConsentimento() {
+        String csv = "paciente_id;nome_paciente;telefone;atendimento_id;data_hora;profissional;especialidade;procedimento;status\n"
+                + "P-1;Paciente;85999999999;A-1;10/10/2026 09:00;Dra. Ana;Clínica;Consulta;Faltou";
+        var service = new PosVendaCsvImportService(null, Clock.systemUTC());
+        var file = new MockMultipartFile("arquivo", "piloto.csv", "text/csv", csv.getBytes());
+
+        var preview = service.preview(file, "America/Fortaleza");
+        var row = (java.util.Map<?, ?>) ((List<?>) preview.get("amostra")).getFirst();
+
+        assertEquals("Bloqueado até comprovação", row.get("consentimento"));
+    }
+
+    @Test void previewExigeTextoDoConsentimentoConcedido() {
+        String csv = "paciente_id;nome_paciente;telefone;atendimento_id;data_hora;profissional;especialidade;procedimento;status;consentimento;data_consentimento\n"
+                + "P-1;Paciente;85999999999;A-1;10/10/2026 09:00;Dra. Ana;Clínica;Consulta;Faltou;sim;10/10/2026 08:00";
+        var service = new PosVendaCsvImportService(null, Clock.systemUTC());
+        var file = new MockMultipartFile("arquivo", "piloto.csv", "text/csv", csv.getBytes());
+
+        var preview = service.preview(file, "America/Fortaleza");
+        var row = (java.util.Map<?, ?>) ((List<?>) preview.get("amostra")).getFirst();
+
+        assertEquals("consentimento_sem_texto", row.get("codigo"));
+    }
 }

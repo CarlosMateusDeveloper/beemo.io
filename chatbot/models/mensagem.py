@@ -45,3 +45,8 @@ class Mensagem(Base):
     # porque e aditivo — mensagens antigas nao tem essa informacao.
     remetente = Column(ENUM(RemetenteMensagem, name="remetente_mensagem", create_type=False), nullable=True)
     id_usuario_remetente = Column(Integer, ForeignKey("usuario.id"), nullable=True)
+    id_tentativa_comunicacao = Column(BigInteger, nullable=True)
+    finalidade_comunicacao = Column(String(30), nullable=True)
+    id_consentimento = Column(BigInteger, nullable=True)
+    id_modelo_comunicacao = Column(BigInteger, nullable=True)
+    modelo_versao = Column(Integer, nullable=True)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   AlertCircle, AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Database, FileSpreadsheet, History,
-  MessageCircleReply, Phone, RefreshCw, Search, Target, Upload, UserRoundPlus, X,
+  MessageCircle, Phone, RefreshCw, Search, Target, Upload, UserPlus, X,
 } from 'lucide-react'
 import {
   fetchImportacoes, fetchOportunidade, fetchOportunidades, fetchResponsaveisPosVenda,
@@ -84,10 +84,10 @@ export default function Oportunidades() {
       {showHistory && <ImportHistory items={imports} />}
 
       <section className="op-kpis op-daily-kpis" aria-label="Prioridades da fila diária">
-        <Kpi label="Organizar" value={summary.pendencias_organizacao ?? '—'} note="Sem responsável ou próximo passo" tone="warning" icon={<UserRoundPlus size={17} />} active={queue === 'organizar'} onClick={() => setQueue('organizar')} />
+        <Kpi label="Organizar" value={summary.pendencias_organizacao ?? '—'} note="Sem responsável ou próximo passo" tone="warning" icon={<UserPlus size={17} />} active={queue === 'organizar'} onClick={() => setQueue('organizar')} />
         <Kpi label="Primeira tentativa" value={summary.primeira_tentativa ?? '—'} note="Pacientes ainda não contatados" icon={<Phone size={17} />} active={queue === 'primeira_tentativa'} onClick={() => setQueue('primeira_tentativa')} />
         <Kpi label="Nova tentativa" value={summary.nova_tentativa ?? '—'} note="Prazo de contato vencido" tone="warning" icon={<Clock3 size={17} />} active={queue === 'nova_tentativa'} onClick={() => setQueue('nova_tentativa')} />
-        <Kpi label="Respostas" value={summary.respostas_pendentes ?? '—'} note="Paciente aguarda a equipe" tone="teal" icon={<MessageCircleReply size={17} />} active={queue === 'respostas'} onClick={() => setQueue('respostas')} />
+        <Kpi label="Respostas" value={summary.respostas_pendentes ?? '—'} note="Paciente aguarda a equipe" tone="teal" icon={<MessageCircle size={17} />} active={queue === 'respostas'} onClick={() => setQueue('respostas')} />
         <Kpi label="Conferir presença" value={summary.conferir_presenca ?? '—'} note="Consulta reagendada já ocorreu" icon={<CalendarCheck2 size={17} />} active={queue === 'conferir_agenda'} onClick={() => setQueue('conferir_agenda')} />
       </section>
 
