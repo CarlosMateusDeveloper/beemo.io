@@ -24,7 +24,9 @@ Em produção use HTTPS e `AUTH_SECURE_COOKIES=true`. O pool Hikari tem limite p
 configurável por `DB_POOL_MAX_SIZE`, com espera máxima de 30 segundos por conexão.
 Aplique as migrações do banco na ordem; a 014 adiciona os índices do dashboard, a 015 cria
 os quatro papéis, permissões por membro, vínculo médico e log de auditoria, a 016 persiste
-tarefas, jornadas e campanhas do pós-venda e a 017 indexa as métricas rastreáveis. Elas dependem da 012/013.
+tarefas, jornadas e campanhas do pós-venda, a 017 indexa as métricas rastreáveis e as migrações
+018 a 025 completam importação, integração, consentimento, mensageria, WhatsApp e automação clínica.
+Elas dependem da 012/013 e devem ser aplicadas em ordem.
 Confira o procedimento de provisionamento do banco em `database/` antes de usar dados existentes.
 
 ```powershell
