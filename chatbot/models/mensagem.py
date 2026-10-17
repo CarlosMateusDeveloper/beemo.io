@@ -56,3 +56,4 @@ class Mensagem(Base):
     id_pos_venda_caso = Column(BigInteger, nullable=True)
     id_campanha = Column(BigInteger, nullable=True)
     id_jornada_inscricao = Column(BigInteger, nullable=True)
+    id_crm_oportunidade = Column(BigInteger, nullable=True)

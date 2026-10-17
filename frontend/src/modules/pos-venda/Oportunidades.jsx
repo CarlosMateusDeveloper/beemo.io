@@ -1,302 +1,126 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { AlertCircle, BarChart3, CalendarCheck2, Clock3, MessageCircle, Plus, Search, Target, UserCheck, X } from 'lucide-react'
 import {
-  AlertCircle, AlertTriangle, CalendarCheck2, CheckCircle2, Clock3, Database, FileSpreadsheet, History,
-  MessageCircle, Phone, RefreshCw, Search, Target, Upload, UserPlus, X,
-} from 'lucide-react'
-import {
-  fetchImportacoes, fetchOportunidade, fetchOportunidades, fetchResponsaveisPosVenda,
-  importarCsv, previewImportacaoCsv, salvarAcaoOportunidade,
-} from '../../components/retorno/api'
-import { enviarWhatsappPosVenda, prepararWhatsappPosVenda } from '../../components/whatsapp/api'
+  atualizarCrmOportunidade, buscarPacientesCrm, converterCrmOportunidade, criarCrmOportunidade,
+  fetchCrmIndicadores, fetchCrmOportunidade, fetchCrmOportunidades, fetchCrmResponsaveis,
+  fetchMedicosCrm, registrarCrmInteracao, transicionarCrmOportunidade,
+} from './crmApi'
 import './Oportunidades.css'
 
-const STATUS_LABELS = {
-  pendente: 'Pendente', em_contato: 'Em contato', sem_resposta: 'Sem resposta',
-  reagendado: 'Reagendado', nova_falta: 'Nova falta', recuperado: 'Recuperado',
-  nao_deseja: 'Não deseja', nao_contatar: 'Não contatar', registro_corrigido: 'Registro corrigido',
+const STAGES = {
+  novo: 'Novo', em_contato: 'Em contato', qualificado: 'Qualificado',
+  aguardando_agendamento: 'Aguardando agenda', agendado: 'Agendado', perdido: 'Perdido',
 }
-const FIELD_LABELS = {
-  pacienteId: 'ID externo do paciente', pacienteNome: 'Nome do paciente', telefone: 'Telefone',
-  atendimentoId: 'ID externo do atendimento', dataHora: 'Data e hora', profissional: 'Profissional',
-  especialidade: 'Especialidade', tipo: 'Tipo/procedimento', situacao: 'Situação', atualizadoEm: 'Atualizado em (opcional)',
+const NEXT = {
+  novo: ['em_contato', 'qualificado', 'perdido'], em_contato: ['qualificado', 'aguardando_agendamento', 'perdido'],
+  qualificado: ['em_contato', 'aguardando_agendamento', 'perdido'],
+  aguardando_agendamento: ['em_contato', 'qualificado', 'perdido'], agendado: [], perdido: [],
 }
-const SITUACOES = [
-  ['AGENDADO', 'Agendado'], ['CONFIRMADO', 'Confirmado'], ['FALTOU', 'Faltou'],
-  ['REALIZADO', 'Realizado/compareceu'], ['CANCELADO', 'Cancelado'],
-  ['DESCONHECIDO', 'Não representa situação clínica'],
-]
-const CLOSED = ['recuperado', 'nao_deseja', 'nao_contatar', 'registro_corrigido']
-const QUEUES = [
-  ['prioridades', 'Prioridades'], ['organizar', 'Organizar'], ['primeira_tentativa', 'Primeira tentativa'],
-  ['nova_tentativa', 'Nova tentativa'], ['respostas', 'Respostas'], ['conferir_agenda', 'Conferir presença'],
-  ['todos', 'Todos os casos'],
-]
+const CHANNELS = [['whatsapp', 'WhatsApp'], ['telefone', 'Telefone'], ['site', 'Site'], ['indicacao', 'Indicação'], ['instagram', 'Instagram'], ['presencial', 'Presencial'], ['outro', 'Outro']]
 
 export default function Oportunidades() {
   const [data, setData] = useState(null)
-  const [imports, setImports] = useState([])
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('abertos')
-  const [queue, setQueue] = useState('prioridades')
-  const [responsible, setResponsible] = useState('')
   const [responsibles, setResponsibles] = useState([])
+  const [filters, setFilters] = useState({ etapa: 'abertas', busca: '', origem: '', responsavel: '' })
+  const [selected, setSelected] = useState(null)
+  const [create, setCreate] = useState(false)
+  const [metrics, setMetrics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState(null)
-  const [showImport, setShowImport] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
-    try {
-      const [cases, history] = await Promise.all([
-        fetchOportunidades({ status, busca: search, fila: queue, responsavel: responsible }), fetchImportacoes(),
-      ])
-      setData(cases); setImports(history)
-    } catch (requestError) { setError(requestError.message) }
+    try { setData(await fetchCrmOportunidades(filters)) } catch (reason) { setError(reason.message) }
     finally { setLoading(false) }
-  }, [queue, responsible, search, status])
-
-  useEffect(() => {
-    const timeout = window.setTimeout(load, 250)
-    return () => window.clearTimeout(timeout)
-  }, [load])
-  useEffect(() => {
-    let active = true
-    fetchResponsaveisPosVenda().then((items) => { if (active) setResponsibles(items) }).catch(() => {})
-    return () => { active = false }
-  }, [])
-
+  }, [filters])
+  useEffect(() => { const timer = setTimeout(load, 250); return () => clearTimeout(timer) }, [load])
+  useEffect(() => { fetchCrmResponsaveis().then(setResponsibles).catch(() => {}) }, [])
   const summary = data?.resumo || {}
-  const items = data?.itens || []
-  const lastImport = imports[0]
 
-  return <main className="opportunities-page" aria-labelledby="opportunities-title">
-    <div className="opportunities-wrap">
-      <header className="opportunities-heading">
-        <div><p className="op-eyebrow">Pós-atendimento e retenção</p><h1 id="opportunities-title">Oportunidades</h1><span className="op-subtitle">Faltas reais da agenda interna e das fontes importadas, sem duplicar casos.</span></div>
-        <div className="op-heading-actions">
-          <button type="button" className="op-secondary-button" onClick={() => setShowHistory((current) => !current)}><History size={15} /> Histórico</button>
-          <button type="button" className="op-primary-button" onClick={() => setShowImport(true)}><Upload size={15} /> Importar CSV</button>
-        </div>
-      </header>
+  async function showMetrics() {
+    try { setMetrics(await fetchCrmIndicadores()) } catch (reason) { setError(reason.message) }
+  }
 
-      {lastImport && <div className="op-source-strip"><Database size={15} /><span><strong>{lastImport.fonte}</strong> atualizada em {formatDateTime(lastImport.ultimaSincronizacao)}</span><span className={`op-import-status ${lastImport.status.toLowerCase()}`}>{importStatus(lastImport.status)}</span></div>}
-      {showHistory && <ImportHistory items={imports} />}
-
-      <section className="op-kpis op-daily-kpis" aria-label="Prioridades da fila diária">
-        <Kpi label="Organizar" value={summary.pendencias_organizacao ?? '—'} note="Sem responsável ou próximo passo" tone="warning" icon={<UserPlus size={17} />} active={queue === 'organizar'} onClick={() => setQueue('organizar')} />
-        <Kpi label="Primeira tentativa" value={summary.primeira_tentativa ?? '—'} note="Pacientes ainda não contatados" icon={<Phone size={17} />} active={queue === 'primeira_tentativa'} onClick={() => setQueue('primeira_tentativa')} />
-        <Kpi label="Nova tentativa" value={summary.nova_tentativa ?? '—'} note="Prazo de contato vencido" tone="warning" icon={<Clock3 size={17} />} active={queue === 'nova_tentativa'} onClick={() => setQueue('nova_tentativa')} />
-        <Kpi label="Respostas" value={summary.respostas_pendentes ?? '—'} note="Paciente aguarda a equipe" tone="teal" icon={<MessageCircle size={17} />} active={queue === 'respostas'} onClick={() => setQueue('respostas')} />
-        <Kpi label="Conferir presença" value={summary.conferir_presenca ?? '—'} note="Consulta reagendada já ocorreu" icon={<CalendarCheck2 size={17} />} active={queue === 'conferir_agenda'} onClick={() => setQueue('conferir_agenda')} />
-      </section>
-
-      <section className="op-card op-list" aria-label="Lista de oportunidades">
-        <nav className="op-queue-tabs" aria-label="Etapas da fila diária">{QUEUES.map(([value, label]) => <button type="button" key={value} className={queue === value ? 'active' : ''} onClick={() => { setQueue(value); setSelected(null) }}>{label}</button>)}</nav>
-        <div className="op-filter-bar">
-          <label className="op-search"><Search size={16} aria-hidden="true" /><span className="op-sr-only">Buscar</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar paciente ou telefone" /></label>
-          <label className="op-select"><span className="op-sr-only">Filtrar por status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="abertos">Casos abertos</option><option value="todos">Todos os casos</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label className="op-select"><span className="op-sr-only">Filtrar por responsável</span><select value={responsible} onChange={(event) => setResponsible(event.target.value)}><option value="">Toda a equipe</option>{responsibles.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label>
-          <button type="button" className="op-icon-button" onClick={load} aria-label="Atualizar lista"><RefreshCw size={15} /></button>
-        </div>
-
-        {error && <div className="op-feedback error" role="alert"><AlertCircle size={18} /><div><strong>Não foi possível carregar as oportunidades</strong><span>{error}</span></div><button type="button" onClick={load}>Tentar novamente</button></div>}
-        {loading && <div className="op-loading"><span className="op-spinner" /> Carregando oportunidades…</div>}
-        {!loading && !error && <div className="op-table-wrap">
-          <table className="op-table"><thead><tr><th>Paciente / origem</th><th>Atendimento</th><th>Etapa da fila</th><th>Última interação</th><th>Responsável / próximo passo</th></tr></thead><tbody>{items.map((item) => <tr key={item.id} onClick={() => setSelected(item.id)} className={selected === item.id ? 'selected' : ''}>
-            <td><div className="op-patient"><span className="op-avatar">{initials(item.paciente)}</span><div><button type="button" className="op-patient-name">{item.paciente}</button><span>{formatPhone(item.telefone)}</span><small>{item.origem === 'importacao_csv' ? `CSV · ${item.fonte || 'fonte externa'}` : 'Agenda Clinisis'}</small></div></div></td>
-            <td><strong>{formatDateTime(item.data_falta)}</strong><span className="op-cell-sub">{item.tipo || 'Atendimento'} · {item.profissional}</span><span className="op-cell-sub">{item.especialidade}</span></td>
-            <td><QueueBadge item={item} /><span className="op-cell-sub"><StatusBadge status={item.status} /></span></td>
-            <td><strong>{item.ultima_interacao ? formatDateTime(item.ultima_interacao) : 'Nenhuma interação'}</strong><span className="op-cell-sub">{item.ultima_interacao_descricao || `${item.tentativas || 0} tentativa(s)`}</span></td>
-            <td><strong className={item.alerta_sem_responsavel ? 'op-overdue' : ''}>{item.responsavel || 'Sem responsável'}</strong><span className={`op-cell-sub ${item.alerta_prazo_vencido || item.alerta_sem_proxima_acao ? 'op-overdue' : ''}`}>{nextStep(item)}</span></td>
-          </tr>)}</tbody></table>
-          {items.length === 0 && <div className="op-empty"><Target size={26} /><strong>Nenhuma oportunidade encontrada</strong><span>Importe o CSV da agenda da clínica ou ajuste os filtros.</span><button type="button" className="op-primary-button" onClick={() => setShowImport(true)}><Upload size={15} /> Importar CSV</button></div>}
-        </div>}
-        <footer className="op-list-footer"><span>{data?.total ?? 0} caso(s) encontrado(s)</span><span>Até 50 casos por página</span></footer>
-      </section>
-
-      {selected && <CaseDetail id={selected} responsibles={responsibles} onClose={() => setSelected(null)} onChanged={load} />}
+  return <main className="opportunities-page crm-page" aria-labelledby="crm-title"><div className="opportunities-wrap">
+    <header className="opportunities-heading"><div><p className="op-eyebrow">CRM de novos pacientes</p><h1 id="crm-title">Oportunidades</h1><span className="op-subtitle">Do primeiro contato até uma consulta realmente agendada, sem misturar interessado com prontuário.</span></div>
+      <div className="op-heading-actions"><Link className="op-secondary-button" to="/pos-venda/oportunidades/retencao"><Target size={15} /> Recuperação de faltas</Link><button className="op-secondary-button" onClick={showMetrics}><BarChart3 size={15} /> Indicadores</button><button className="op-primary-button" onClick={() => setCreate(true)}><Plus size={15} /> Nova oportunidade</button></div>
+    </header>
+    <section className="op-kpis crm-kpis" aria-label="Resumo do CRM">
+      <Kpi icon={<Target size={17} />} label="Em aberto" value={summary.abertas} note="Oportunidades ativas" />
+      <Kpi icon={<Clock3 size={17} />} label="Precisam de ação" value={summary.paradas} note="Prazo vencido ou ausente" tone="warning" />
+      <Kpi icon={<MessageCircle size={17} />} label="Sem resposta humana" value={summary.semRespostaHumana} note="Bot não conta como atendente" tone="warning" />
+      <Kpi icon={<CalendarCheck2 size={17} />} label="Agendadas" value={summary.agendadas} note="Consultas reais no período" tone="teal" />
+      <Kpi icon={<UserCheck size={17} />} label="1ª resposta" value={summary.tempoRespostaMin == null ? '—' : `${summary.tempoRespostaMin} min`} note="Média da equipe" />
+    </section>
+    <section className="op-card op-list crm-list"><div className="op-filter-bar">
+      <label className="op-search"><Search size={16} /><span className="op-sr-only">Buscar</span><input value={filters.busca} onChange={event => setFilters({ ...filters, busca: event.target.value })} placeholder="Nome, telefone ou serviço" /></label>
+      <select value={filters.etapa} onChange={event => setFilters({ ...filters, etapa: event.target.value })}><option value="abertas">Em aberto</option><option value="todas">Todas</option>{Object.entries(STAGES).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>
+      <select value={filters.origem} onChange={event => setFilters({ ...filters, origem: event.target.value })}><option value="">Todas as origens</option>{CHANNELS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>
+      <select value={filters.responsavel} onChange={event => setFilters({ ...filters, responsavel: event.target.value })}><option value="">Toda a equipe</option>{responsibles.map(user => <option value={user.id} key={user.id}>{user.nome}</option>)}</select>
     </div>
-    {showImport && <ImportCsvModal onClose={() => setShowImport(false)} onImported={() => { setShowImport(false); load() }} />}
+    {error && <Feedback error={error} />}{loading && <div className="op-loading"><span className="op-spinner" /> Carregando oportunidades…</div>}
+    {!loading && !error && <div className="op-table-wrap"><table className="op-table crm-table"><thead><tr><th>Interessado</th><th>Interesse / origem</th><th>Etapa</th><th>Próxima ação</th><th>Responsável</th></tr></thead><tbody>
+      {(data?.itens || []).map(item => <tr key={item.id} className={selected === item.id ? 'selected' : ''} onClick={() => setSelected(item.id)}>
+        <td><strong>{item.nome}</strong><span className="op-cell-sub">{item.telefone || item.email}</span></td><td><strong>{item.servicoInteresse}</strong><span className="op-cell-sub">{item.origem} · {channel(item.canalOrigem)}</span></td>
+        <td><Stage value={item.etapa} /></td><td><strong className={item.parada ? 'op-overdue' : ''}>{item.proximaAcao ? dateTime(item.proximaAcao) : 'Não definida'}</strong><span className="op-cell-sub">{item.primeiraRespostaHumanaEm ? `Respondido em ${responseTime(item)}` : 'Aguardando resposta humana'}</span></td>
+        <td><strong>{item.responsavel || 'Sem responsável'}</strong><span className="op-cell-sub">{item.orcamento == null ? 'Sem orçamento' : money(item.orcamento)}</span></td>
+      </tr>)}</tbody></table>{data?.itens?.length === 0 && <div className="op-empty"><Target size={26} /><strong>Nenhuma oportunidade encontrada</strong><span>Cadastre um interessado ou ajuste os filtros.</span></div>}</div>}
+    <footer className="op-list-footer"><span>{data?.total || 0} oportunidade(s)</span><span>Interessados só viram pacientes ao confirmar um agendamento</span></footer></section>
+  </div>
+  {selected && <Detail id={selected} responsibles={responsibles} onClose={() => setSelected(null)} onChanged={load} />}
+  {create && <CreateModal responsibles={responsibles} onClose={() => setCreate(false)} onCreated={item => { setCreate(false); setSelected(item.oportunidade.id); load() }} />}
+  {metrics && <Metrics data={metrics} onClose={() => setMetrics(null)} />}
   </main>
 }
 
-function QueueBadge({ item }) {
-  const labels = { resposta_pendente: 'Responder paciente', revisar_recorrencia: 'Revisar recorrência', conferir_presenca: 'Conferir presença', aguardando_consulta: 'Aguardar consulta', primeira_tentativa: 'Primeira tentativa', nova_tentativa: 'Nova tentativa' }
-  return <span className={`op-queue-badge ${item.etapa_fila}`}>{labels[item.etapa_fila] || 'Acompanhar'}</span>
-}
-
-function nextStep(item) {
-  if (item.alerta_resposta_pendente) return 'Responder paciente agora'
-  if (item.alerta_revisar_recorrencia) return 'Revisar nova falta recorrente'
-  if (item.alerta_sem_responsavel) return 'Definir responsável'
-  if (item.alerta_sem_proxima_acao) return 'Definir próxima ação'
-  if (item.alerta_conferir_presenca) return 'Conferir resultado da consulta'
-  if (item.status === 'reagendado' && item.reagendado_em) return `Atendimento externo: ${formatDateTime(item.reagendado_em)}`
-  if (item.status === 'reagendado') return `Consulta: ${formatDateTime(`${item.data_reagendada}T${item.hora_reagendada}`)}`
-  return item.proxima_acao ? formatDateTime(item.proxima_acao) : 'Aguardando organização'
-}
-
-function CaseDetail({ id, responsibles, onClose, onChanged }) {
-  const [details, setDetails] = useState(null)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [busy, setBusy] = useState(false)
-  const loadDetail = useCallback(async () => {
-    try { setDetails(await fetchOportunidade(id)); setError('') } catch (reason) { setError(reason.message) }
-  }, [id])
-  useEffect(() => {
-    let active = true
-    fetchOportunidade(id)
-      .then((result) => { if (active) { setDetails(result); setError('') } })
-      .catch((reason) => { if (active) setError(reason.message) })
-    return () => { active = false }
-  }, [id])
-  const current = details?.caso
-
-  async function save(event) {
-    event.preventDefault(); setBusy(true); setError(''); setNotice('')
-    const form = new FormData(event.currentTarget)
-    const action = form.get('acao')
-    const payload = {
-      versao: current.versao, acao: action,
-      idResponsavel: form.get('idResponsavel') ? Number(form.get('idResponsavel')) : null,
-      proximaAcao: form.get('proximaAcao') ? new Date(form.get('proximaAcao')).toISOString() : null,
-      motivoFalta: form.get('motivoFalta')?.trim() || null,
-      recorrente: form.get('recorrente') === 'on', canal: form.get('canal') || null,
-      resultado: form.get('resultado') || null, observacao: form.get('observacao')?.trim() || null,
-      idConsulta: form.get('idConsulta') ? Number(form.get('idConsulta')) : null,
-      idAtendimentoExterno: form.get('idAtendimentoExterno') ? Number(form.get('idAtendimentoExterno')) : null,
-    }
-    try { await salvarAcaoOportunidade(id, payload); setNotice('Acompanhamento atualizado.'); await Promise.all([loadDetail(), onChanged()]) }
-    catch (reason) { setError(reason.message) } finally { setBusy(false) }
-  }
-
-  return <aside className="op-case-detail op-daily-detail" aria-label="Detalhes da oportunidade"><button type="button" className="op-close" onClick={onClose} aria-label="Fechar"><X size={17} /></button>
-    {!current && !error && <div className="op-loading"><span className="op-spinner" /> Carregando…</div>}
-    {error && <div className="op-feedback error" role="alert"><AlertCircle size={16} /><span>{error}</span></div>}
-    {current && <><span className="op-detail-kicker">Caso #{current.id}</span><h2>{current.paciente}</h2><p>{formatPhone(current.telefone)}</p><div className="op-detail-status"><StatusBadge status={current.status} /><QueueBadge item={current} /></div>
-      {details.alertas.length > 0 && <section className="op-alert-list"><strong>Pendências ativas</strong>{details.alertas.map((alert) => <div key={alert.id}><AlertTriangle size={14} /><span>{alert.mensagem}</span></div>)}</section>}
-      <dl><div><dt>Motivo da falta</dt><dd>{current.motivo_falta || 'Ainda não informado'}</dd></div><div><dt>Última interação</dt><dd>{current.ultima_interacao ? formatDateTime(current.ultima_interacao) : 'Nenhuma'}</dd></div><div><dt>Responsável</dt><dd>{current.responsavel || 'Sem responsável'}</dd></div><div><dt>Próximo passo</dt><dd>{nextStep(current)}</dd></div><div><dt>Origem</dt><dd>{current.id_atendimento_externo_origem ? current.fonte : 'Agenda Clinisis'}</dd></div>{current.atendimento_externo_reagendado && <div><dt>Reagendamento externo</dt><dd>{current.atendimento_externo_reagendado} · {current.situacao_reagendada_normalizada}</dd></div>}</dl>
-      {!CLOSED.includes(current.status) && <WhatsAppCaseComposer caseId={id} onSent={async () => { setNotice('Mensagem colocada na fila. O contato será registrado quando o WhatsApp aceitar o envio.'); await Promise.all([loadDetail(), onChanged()]) }} />}
-      {!CLOSED.includes(current.status) && <CaseActionForm key={current.versao} current={current} details={details} responsibles={responsibles} onSubmit={save} busy={busy} />}
-      {notice && <div className="op-feedback success" role="status"><CheckCircle2 size={16} /><span>{notice}</span></div>}
-      <section className="op-case-history"><strong>Histórico</strong>{details.historico.slice(0, 8).map((event) => <article key={event.id}><time>{formatDateTime(event.criado_em)}</time><p>{event.descricao}</p><small>{event.autor || 'Sistema'}{event.canal ? ` · ${event.canal}` : ''}</small></article>)}</section>
+function Detail({ id, responsibles, onClose, onChanged }) {
+  const [data, setData] = useState(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [convert, setConvert] = useState(false)
+  const load = useCallback(() => fetchCrmOportunidade(id).then(setData).catch(reason => setError(reason.message)), [id])
+  useEffect(() => { load() }, [load])
+  const current = data?.oportunidade
+  async function save(event) { event.preventDefault(); const form = new FormData(event.currentTarget); await run(async () => atualizarCrmOportunidade(id, { servicoInteresse: form.get('servico'), responsavelId: number(form.get('responsavel')), proximaAcao: iso(form.get('proxima')), orcamento: number(form.get('orcamento')), versao: current.versao })) }
+  async function interact(event) { event.preventDefault(); const form = new FormData(event.currentTarget); await run(async () => registrarCrmInteracao(id, { tipo: 'resposta_humana', canal: form.get('canal'), resumo: form.get('resumo'), ocorridoEm: new Date().toISOString() })); event.currentTarget.reset() }
+  async function move(stage) { let reason = null; if (stage === 'perdido') { reason = window.prompt('Qual foi o motivo da perda?')?.trim(); if (!reason) return } await run(() => transicionarCrmOportunidade(id, { etapa: stage, motivoPerda: reason, proximaAcao: current.proximaAcao, responsavelId: current.responsavelId, versao: current.versao })) }
+  async function run(action) { setBusy(true); setError(''); try { await action(); await Promise.all([load(), onChanged()]) } catch (reason) { setError(reason.message) } finally { setBusy(false) } }
+  return <aside className="op-case-detail crm-detail"><button className="op-close" onClick={onClose} aria-label="Fechar"><X size={17} /></button>{!current && !error && <div className="op-loading"><span className="op-spinner" /></div>}{error && <Feedback error={error} />}
+    {current && <><span className="op-detail-kicker">Oportunidade #{current.id}</span><h2>{current.nome}</h2><p>{current.telefone || current.email}</p><div className="op-detail-status"><Stage value={current.etapa} /> <span className="crm-origin">{current.origem}</span></div>
+      {data.revisoes.some(review => review.status === 'pendente') && <div className="crm-review"><AlertCircle size={16} /><div><strong>Identidade precisa de revisão</strong><span>Há cadastros semelhantes. Nenhum prontuário foi associado automaticamente.</span></div></div>}
+      {!['agendado', 'perdido'].includes(current.etapa) && <form className="op-case-form" onSubmit={save}><strong>Organização</strong><label>Serviço de interesse<input name="servico" defaultValue={current.servicoInteresse} required /></label><label>Responsável<select name="responsavel" defaultValue={current.responsavelId || ''}><option value="">Sem responsável</option>{responsibles.map(user => <option key={user.id} value={user.id}>{user.nome}</option>)}</select></label><label>Próxima ação<input name="proxima" type="datetime-local" defaultValue={localInput(current.proximaAcao)} /></label><label>Orçamento<input name="orcamento" type="number" min="0" step="0.01" defaultValue={current.orcamento || ''} /></label><button className="op-secondary-button" disabled={busy}>Salvar organização</button></form>}
+      {!['agendado', 'perdido'].includes(current.etapa) && <form className="op-case-form" onSubmit={interact}><strong>Registrar contato humano</strong><label>Canal<select name="canal" defaultValue="whatsapp"><option value="whatsapp">WhatsApp</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="presencial">Presencial</option></select></label><label>Resumo<textarea name="resumo" required maxLength="2000" /></label><button className="op-secondary-button" disabled={busy}>Registrar interação</button></form>}
+      {!['agendado', 'perdido'].includes(current.etapa) && <div className="crm-stage-actions"><strong>Avançar etapa</strong>{NEXT[current.etapa].filter(stage => stage !== 'perdido').map(stage => <button key={stage} disabled={busy} onClick={() => move(stage)}>{STAGES[stage]}</button>)}<button className="danger" disabled={busy} onClick={() => move('perdido')}>Marcar como perdida</button><button className="op-primary-button" disabled={busy} onClick={() => setConvert(true)}><CalendarCheck2 size={15} /> Converter em agendamento</button></div>}
+      {current.etapa === 'agendado' && <div className="crm-converted"><CalendarCheck2 size={20} /><div><strong>Consulta #{current.consultaId} agendada</strong><span>Paciente #{current.pacienteId}. Cancelamentos e reagendamentos permanecem no histórico.</span></div></div>}
+      <section className="op-case-history"><strong>Histórico auditável</strong>{data.historico.map(item => <article key={item.id}><time>{dateTime(item.ocorridoEm)}</time><p>{eventLabel(item)}</p><small>{item.automatico ? 'Automação' : item.autor || 'Sistema'}</small></article>)}</section>
     </>}
+    {convert && <ConvertModal opportunity={current} onClose={() => setConvert(false)} onConverted={async () => { setConvert(false); await Promise.all([load(), onChanged()]) }} />}
   </aside>
 }
 
-function WhatsAppCaseComposer({ caseId, onSent }) {
-  const [data, setData] = useState(null)
-  const [text, setText] = useState('')
-  const [modelId, setModelId] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let active = true
-    prepararWhatsappPosVenda(caseId).then((result) => { if (active) { setData(result); setText(result.suggestedText); setModelId(result.models[0]?.id ? String(result.models[0].id) : '') } }).catch((reason) => { if (active) setError(reason.message) })
-    return () => { active = false }
-  }, [caseId])
-  async function send() {
-    setBusy(true); setError('')
-    try {
-      await enviarWhatsappPosVenda(caseId, { text, modelId: Number(modelId), idempotencyKey: `pos-venda:${caseId}:${crypto.randomUUID()}` })
-      await onSent()
-    } catch (reason) { setError(reason.message) } finally { setBusy(false) }
-  }
-  if (error && !data) return <div className="op-feedback error"><AlertCircle size={15} /><span>{error}</span></div>
-  if (!data) return <div className="op-whatsapp-composer loading">Preparando WhatsApp…</div>
-  return <section className="op-whatsapp-composer">
-    <header><MessageCircle size={16} /><div><strong>Enviar pelo WhatsApp</strong><small>{data.sessionOpen ? 'Janela de conversa aberta: o texto pode ser editado.' : 'Fora da janela de 24h: será usado o template aprovado pela Meta.'}</small></div></header>
-    {!data.configured && <p className="op-whatsapp-warning">Configure o número oficial na área WhatsApp antes do envio.</p>}
-    <label>Modelo aprovado<select value={modelId} onChange={(event) => { const value = event.target.value; setModelId(value); const selected = data.models.find((item) => String(item.id) === value); if (selected?.conteudo) setText(selected.conteudo) }}><option value="">Selecione</option>{data.models.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
-    <label>Mensagem<textarea rows="4" maxLength="4096" value={text} onChange={(event) => setText(event.target.value)} disabled={!data.sessionOpen} /></label>
-    {!data.sessionOpen && <small>O conteúdo mostrado é uma referência. A Meta envia a versão aprovada do template.</small>}
-    {error && <p className="op-whatsapp-error">{error}</p>}
-    <button type="button" className="op-primary-button" disabled={busy || !data.configured || !modelId || !text.trim()} onClick={send}>{busy ? 'Enfileirando…' : 'Enviar mensagem'}</button>
-  </section>
+function CreateModal({ responsibles, onClose, onCreated }) {
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('')
+  async function submit(event) { event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setError(''); try { onCreated(await criarCrmOportunidade({ nome: form.get('nome'), telefone: form.get('telefone') || null, email: form.get('email') || null, canalPreferido: form.get('canalPreferido'), contatoPermitido: form.get('permitido') === 'on', canalOrigem: form.get('origem'), origem: form.get('detalheOrigem'), servicoInteresse: form.get('servico'), responsavelId: number(form.get('responsavel')), proximaAcao: iso(form.get('proxima')), orcamento: number(form.get('orcamento')), idempotencyKey: crypto.randomUUID(), conversaExternaId: null })) } catch (reason) { setError(reason.message) } finally { setBusy(false) } }
+  return <Modal title="Nova oportunidade" subtitle="Cadastre o interesse sem criar prontuário ou exigir CPF." onClose={onClose}><form className="crm-modal-form" onSubmit={submit}><label>Nome<input name="nome" required maxLength="160" autoFocus /></label><label>Telefone<input name="telefone" placeholder="(85) 99999-9999" /></label><label>E-mail<input name="email" type="email" /></label><label>Canal preferido<select name="canalPreferido"><option value="whatsapp">WhatsApp</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="presencial">Presencial</option></select></label><label>Origem<select name="origem">{CHANNELS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Detalhe da origem<input name="detalheOrigem" required placeholder="Ex.: indicação Dra. Ana" /></label><label className="wide">Serviço de interesse<input name="servico" required /></label><label>Responsável<select name="responsavel"><option value="">Sem responsável</option>{responsibles.map(user => <option key={user.id} value={user.id}>{user.nome}</option>)}</select></label><label>Próxima ação<input name="proxima" type="datetime-local" /></label><label>Orçamento<input name="orcamento" type="number" min="0" step="0.01" /></label><label className="crm-check wide"><input name="permitido" type="checkbox" defaultChecked /> Contato autorizado para esta finalidade de atendimento</label>{error && <Feedback error={error} />}<footer><button type="button" className="op-secondary-button" onClick={onClose}>Cancelar</button><button className="op-primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Criar oportunidade'}</button></footer></form></Modal>
 }
 
-function CaseActionForm({ current, details, responsibles, onSubmit, busy }) {
-  const initial = current.alerta_resposta_pendente ? 'contato' : current.alerta_sem_responsavel || current.alerta_sem_proxima_acao || current.alerta_revisar_recorrencia ? 'organizar' : 'contato'
-  const [action, setAction] = useState(initial)
-  const organized = action === 'organizar' || action === 'contato'
-  const contact = action === 'contato'
-  const response = action === 'resposta_recebida'
-  const closing = action === 'nao_deseja' || action === 'nao_contatar'
-  return <form className="op-case-form" onSubmit={onSubmit}><strong>Registrar próxima ação</strong><label>Ação<select name="acao" value={action} onChange={(event) => setAction(event.target.value)}><option value="organizar">Definir responsável e prazo</option><option value="contato">Registrar contato realizado</option><option value="resposta_recebida">Registrar resposta recebida</option>{current.status !== 'reagendado' && <option value="reagendar">{current.id_atendimento_externo_origem ? 'Vincular reagendamento externo' : 'Vincular reagendamento'}</option>}<option value="nao_deseja">Encerrar: não deseja</option><option value="nao_contatar">Encerrar: não contatar</option></select></label>
-    {(organized || action === 'reagendar') && <label>Responsável<select name="idResponsavel" required defaultValue={current.id_responsavel || ''}><option value="">Selecione</option>{responsibles.map((item) => <option value={item.id} key={item.id}>{item.nome}</option>)}</select></label>}
-    {organized && <><label>Próxima ação<input type="datetime-local" name="proximaAcao" required defaultValue={dateInput(current.proxima_acao)} /></label><label>Motivo da falta<input name="motivoFalta" maxLength="500" defaultValue={current.motivo_falta || ''} /></label><label className="op-check"><input type="checkbox" name="recorrente" defaultChecked={current.recorrente} /> Atendimento recorrente</label></>}
-    {(contact || response) && <label>Canal<select name="canal" defaultValue="whatsapp"><option value="whatsapp">WhatsApp</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="presencial">Presencial</option></select></label>}
-    {contact && <label>Resultado<select name="resultado" defaultValue="em_contato"><option value="em_contato">Conversou / em acompanhamento</option><option value="sem_resposta">Sem resposta</option></select></label>}
-    {action === 'reagendar' && !current.id_atendimento_externo_origem && <label>Nova consulta<select name="idConsulta" required defaultValue=""><option value="">Selecione</option>{details.consultas.map((item) => <option key={item.id} value={item.id}>#{item.id} · {formatDateTime(`${item.data}T${item.hora}`)}</option>)}</select></label>}
-    {action === 'reagendar' && current.id_atendimento_externo_origem && <label>Novo atendimento da fonte<select name="idAtendimentoExterno" required defaultValue=""><option value="">Selecione</option>{(details.atendimentosExternos || []).map((item) => <option key={item.id} value={item.id}>{item.identificador} · {formatDateTime(item.agendado_em)} · {item.situacao_normalizada}</option>)}</select><small>Somente horários futuros do mesmo paciente, fonte, tipo e especialidade aparecem aqui.</small></label>}
-    {(contact || response || closing) && <label>Registro<textarea name="observacao" required rows="3" maxLength="1500" /></label>}
-    <button type="submit" className="op-primary-button" disabled={busy}>{busy ? 'Salvando…' : 'Salvar acompanhamento'}</button></form>
+function ConvertModal({ opportunity, onClose, onConverted }) {
+  const [mode, setMode] = useState('existente'); const [patients, setPatients] = useState([]); const [doctors, setDoctors] = useState([]); const [review, setReview] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
+  useEffect(() => { fetchMedicosCrm().then(setDoctors).catch(() => {}) }, [])
+  async function search(value) { if (value.trim().length < 2) return setPatients([]); try { const result = await buscarPacientesCrm(value); setPatients(result.content || []) } catch { setPatients([]) } }
+  async function submit(event, confirm = false) { event?.preventDefault(); const form = new FormData(event?.currentTarget || document.querySelector('#crm-convert-form')); setBusy(true); setError(''); try { const phone = String(form.get('telefone') || '').replace(/\D/g, ''); const payload = { pacienteId: mode === 'existente' ? number(form.get('paciente')) : null, novoPaciente: mode === 'novo' ? { nome: form.get('nome'), cpf: String(form.get('cpf')).replace(/\D/g, ''), dataNascimento: form.get('nascimento'), telefone: phone, email: form.get('email') || null } : null, confirmarNovoPaciente: confirm, agendaId: null, medicoId: number(form.get('medico')), data: form.get('data'), hora: form.get('hora'), tipo: 'Consulta', duracaoMinutos: number(form.get('duracao')) || 30, versao: opportunity.versao }; const result = await converterCrmOportunidade(opportunity.id, payload); if (result.status === 'revisao_necessaria') setReview(result); else onConverted() } catch (reason) { setError(reason.message) } finally { setBusy(false) } }
+  return <Modal title="Converter em consulta" subtitle="A conversão cria um agendamento real e mantém a origem rastreável." onClose={onClose}><form id="crm-convert-form" className="crm-modal-form" onSubmit={submit}><div className="crm-mode wide"><button type="button" className={mode === 'existente' ? 'active' : ''} onClick={() => setMode('existente')}>Paciente existente</button><button type="button" className={mode === 'novo' ? 'active' : ''} onClick={() => setMode('novo')}>Novo paciente</button></div>{mode === 'existente' ? <><label className="wide">Buscar paciente<input onChange={event => search(event.target.value)} placeholder="Nome, CPF ou telefone" /></label><label className="wide">Paciente<select name="paciente" required><option value="">Selecione após buscar</option>{patients.map(patient => <option value={patient.id} key={patient.id}>{patient.nome} · {patient.cpfMascarado || ''}</option>)}</select></label></> : <><label>Nome completo<input name="nome" defaultValue={opportunity.nome} required /></label><label>CPF<input name="cpf" required /></label><label>Data de nascimento<input name="nascimento" type="date" required /></label><label>Telefone<input name="telefone" defaultValue={opportunity.telefone || ''} required /></label><label className="wide">E-mail<input name="email" type="email" defaultValue={opportunity.email || ''} /></label></>}<label>Profissional<select name="medico" required><option value="">Selecione</option>{doctors.map(doctor => <option value={doctor.id} key={doctor.id}>{doctor.nome}</option>)}</select></label><label>Data<input name="data" type="date" min={new Date().toISOString().slice(0, 10)} required /></label><label>Horário<input name="hora" type="time" required /></label><label>Duração<select name="duracao"><option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></label>{review && <div className="crm-review wide"><AlertCircle size={16} /><div><strong>Possível cadastro duplicado</strong><span>{review.mensagem}</span>{review.candidatos.map(candidate => <small key={candidate.id}>{candidate.nome} · {candidate.cpf || candidate.telefone}</small>)}</div></div>}{error && <Feedback error={error} />}<footer><button type="button" className="op-secondary-button" onClick={onClose}>Cancelar</button>{review?.podeCriarNovo && mode === 'novo' && <button type="button" className="op-secondary-button" disabled={busy} onClick={() => submit(null, true)}>Confirmar novo cadastro</button>}<button className="op-primary-button" disabled={busy}>{busy ? 'Agendando…' : 'Criar consulta'}</button></footer></form></Modal>
 }
 
-function ImportCsvModal({ onClose, onImported }) {
-  const [file, setFile] = useState(null)
-  const [sourceCode, setSourceCode] = useState('agenda-clinica')
-  const [sourceName, setSourceName] = useState('Agenda da clínica')
-  const [timezone, setTimezone] = useState('America/Fortaleza')
-  const [preview, setPreview] = useState(null)
-  const [mapping, setMapping] = useState({})
-  const [statuses, setStatuses] = useState({})
-  const [result, setResult] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function prepare() {
-    if (!file) return
-    setBusy(true); setError('')
-    try {
-      const response = await previewImportacaoCsv(file, timezone)
-      setPreview(response); setMapping(response.mapeamento)
-      setStatuses(Object.fromEntries(response.situacoesDetectadas.map((item) => [item.origem, item.sugestao])))
-    } catch (requestError) { setError(requestError.message) }
-    finally { setBusy(false) }
-  }
-  const ready = preview && preview.camposObrigatorios.every((field) => mapping[field]) && Object.values(statuses).every(Boolean)
-  async function submit() {
-    setBusy(true); setError('')
-    try {
-      const response = await importarCsv(file, { fonteCodigo: sourceCode.trim(), fonteNome: sourceName.trim(), fusoHorario: timezone, colunas: mapping, situacoes: statuses })
-      setResult(response)
-    } catch (requestError) { setError(requestError.message) }
-    finally { setBusy(false) }
-  }
-
-  return <div className="op-modal-backdrop" role="presentation"><section className="op-import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
-    <header><div><span className="op-detail-kicker">Entrada de dados</span><h2 id="import-title">Importar pacientes e atendimentos</h2><p>O arquivo é validado antes de alterar os casos de pós-venda.</p></div><button type="button" className="op-close" onClick={onClose} aria-label="Fechar"><X size={18} /></button></header>
-    {!result && <>
-      <div className="op-import-source"><label><span>Arquivo CSV</span><input type="file" accept=".csv,text/csv" onChange={(event) => { setFile(event.target.files?.[0] || null); setPreview(null) }} /></label><label><span>Código da fonte</span><input value={sourceCode} pattern="[a-z0-9][a-z0-9_-]+" onChange={(event) => setSourceCode(event.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))} /></label><label><span>Nome da fonte</span><input value={sourceName} onChange={(event) => setSourceName(event.target.value)} /></label><label><span>Fuso horário</span><input value={timezone} onChange={(event) => setTimezone(event.target.value)} /></label></div>
-      {!preview && <div className="op-import-drop"><FileSpreadsheet size={30} /><strong>{file?.name || 'Selecione o CSV exportado pela agenda'}</strong><span>UTF-8, até 5 MB e 20.000 linhas.</span><button type="button" className="op-primary-button" disabled={!file || busy} onClick={prepare}>{busy ? 'Lendo arquivo…' : 'Validar e visualizar'}</button></div>}
-      {preview && <><div className="op-import-summary"><span><strong>{preview.totalLinhas}</strong> linhas</span><span className="success"><strong>{preview.linhasValidas}</strong> válidas</span><span className={preview.linhasComErro ? 'danger' : ''}><strong>{preview.linhasComErro}</strong> com erro</span><span>Separador <strong>{preview.separador}</strong></span></div>
-        <section className="op-mapping"><h3>Mapeamento das colunas</h3><p>Confira qual coluna do arquivo representa cada dado.</p><div className="op-mapping-grid">{Object.entries(FIELD_LABELS).map(([field, label]) => <label key={field}><span>{label}{preview.camposObrigatorios.includes(field) ? ' *' : ''}</span><select value={mapping[field] || ''} onChange={(event) => setMapping((current) => ({ ...current, [field]: event.target.value }))}><option value="">Não mapear</option>{preview.colunas.map((column) => <option key={column} value={column}>{column}</option>)}</select></label>)}</div></section>
-        <section className="op-mapping"><h3>Mapeamento das situações</h3><p>Autorização, faturamento e pagamento não comprovam presença.</p><div className="op-status-mapping">{preview.situacoesDetectadas.map((item) => <label key={item.origem}><span><strong>{item.origem}</strong><small>{item.quantidade} linha(s)</small></span><select value={statuses[item.origem] || ''} onChange={(event) => setStatuses((current) => ({ ...current, [item.origem]: event.target.value }))}><option value="">Selecione…</option>{SITUACOES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>)}</div></section>
-        <section className="op-preview-table"><h3>Prévia</h3><div><table><thead><tr><th>Paciente</th><th>Atendimento</th><th>Data</th><th>Situação</th><th>Validação</th></tr></thead><tbody>{preview.amostra.map((row, index) => <tr key={`${row.atendimentoId}-${index}`}><td>{row.paciente || '—'}<small>{row.pacienteId}</small></td><td>{row.atendimentoId || '—'}</td><td>{formatDateTime(row.dataHora)}</td><td>{row.situacao}<small>{row.situacaoNormalizada || 'Sem mapeamento'}</small></td><td className={row.valida ? 'success' : 'danger'}>{row.valida ? 'Válida' : row.mensagem}</td></tr>)}</tbody></table></div></section></>}
-      {error && <div className="op-feedback error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
-      {preview && <footer><button type="button" className="op-secondary-button" onClick={() => setPreview(null)}>Voltar</button><button type="button" className="op-primary-button" disabled={!ready || busy || !sourceCode || !sourceName} onClick={submit}>{busy ? 'Importando…' : 'Confirmar importação'}</button></footer>}
-    </>}
-    {result && <ImportResult result={result} onDone={onImported} />}
-  </section></div>
-}
-
-function ImportResult({ result, onDone }) {
-  const data = result.importacao
-  return <div className="op-import-result"><CheckCircle2 size={38} /><h3>Importação processada</h3><p>{data.arquivo} · {data.fonte}</p><div className="op-import-summary"><span><strong>{data.importadas}</strong> novas</span><span><strong>{data.atualizadas}</strong> atualizadas</span><span><strong>{data.semAlteracao}</strong> sem alteração</span><span className={data.revisao ? 'danger' : ''}><strong>{data.revisao}</strong> em revisão</span><span className={data.erros ? 'danger' : ''}><strong>{data.erros}</strong> erros</span></div>{result.pendencias.length > 0 && <div className="op-result-issues"><strong>Pendências para corrigir e reprocessar</strong>{result.pendencias.slice(0, 12).map((item) => <span key={item.linha}>Linha {item.linha}: {item.mensagem}</span>)}</div>}<button type="button" className="op-primary-button" onClick={onDone}>Ver oportunidades atualizadas</button></div>
-}
-
-function ImportHistory({ items }) {
-  return <section className="op-card op-import-history"><header><div><h2>Importações recentes</h2><p>A origem, o responsável e o resultado ficam auditáveis.</p></div></header>{items.length === 0 ? <p>Nenhum arquivo importado.</p> : <div>{items.map((item) => <article key={item.id}><FileSpreadsheet size={17} /><div><strong>{item.arquivo}</strong><span>{item.fonte} · {item.responsavel} · {formatDateTime(item.iniciadaEm)}</span></div><span className={`op-import-status ${item.status.toLowerCase()}`}>{item.importadas} novas · {item.atualizadas} atualizadas · {item.revisao + item.erros} pendências</span></article>)}</div>}</section>
-}
-
-function Kpi({ label, value, note, tone = '', icon, active, onClick }) { return <button type="button" className={`op-kpi ${tone ? `op-kpi-${tone}` : ''} ${active ? 'active' : ''}`} onClick={onClick}><div className="op-kpi-label"><span>{label}</span>{icon}</div><strong>{value}</strong><small>{note}</small></button> }
-function StatusBadge({ status }) { return <span className={`op-status op-status-${status || 'pendente'}`}><i aria-hidden="true" />{STATUS_LABELS[status] || status}</span> }
-function initials(name = '') { return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || '—' }
-function formatPhone(value = '') { const digits = String(value).replace(/\D/g, ''); return digits.length === 11 ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}` : value || 'Sem telefone' }
-function formatDateTime(value) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date) }
-function dateInput(value) { if (!value) return ''; const date = new Date(value); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16) }
-function importStatus(value) { return value === 'CONCLUIDA' ? 'Concluída' : value === 'CONCLUIDA_COM_ERROS' ? 'Concluída com pendências' : value }
+function Metrics({ data, onClose }) { return <Modal title="Conversão do CRM" subtitle="O denominador considera oportunidades criadas no período; só consulta real entra como conversão." onClose={onClose}><div className="crm-metrics"><section><h3>Por origem</h3>{data.porOrigem.map(item => <Metric key={item.origem} label={item.origem} item={item} />)}</section><section><h3>Por responsável</h3>{data.porResponsavel.map(item => <Metric key={item.responsavel} label={item.responsavel} item={item} />)}</section><details><summary>Definições dos indicadores</summary>{Object.entries(data.definicoes).map(([key, value]) => <p key={key}><strong>{key}</strong> — {value}</p>)}</details></div></Modal> }
+function Metric({ label, item }) { return <div className="crm-metric"><strong>{label}</strong><span>{item.agendamentos}/{item.oportunidades} agendadas</span><b>{item.conversaoPct || 0}%</b></div> }
+function Modal({ title, subtitle, onClose, children }) { return <div className="op-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="op-import-modal crm-modal"><header><div><span className="op-detail-kicker">CRM</span><h2>{title}</h2><p>{subtitle}</p></div><button className="op-close" onClick={onClose}><X size={17} /></button></header>{children}</section></div> }
+function Kpi({ icon, label, value, note, tone = '' }) { return <article className={`op-kpi ${tone}`}><div className="op-kpi-icon">{icon}</div><div><span>{label}</span><strong>{value ?? '—'}</strong><small>{note}</small></div></article> }
+function Stage({ value }) { return <span className={`crm-stage ${value}`}>{STAGES[value] || value}</span> }
+function Feedback({ error }) { return <div className="op-feedback error" role="alert"><AlertCircle size={16} /><span>{error}</span></div> }
+function channel(value) { return CHANNELS.find(([key]) => key === value)?.[1] || value }
+function number(value) { return value === '' || value == null ? null : Number(value) }
+function iso(value) { return value ? new Date(value).toISOString() : null }
+function localInput(value) { if (!value) return ''; const date = new Date(value); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16) }
+function dateTime(value) { return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) }
+function money(value) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value) }
+function responseTime(item) { const minutes = Math.max(0, Math.round((new Date(item.primeiraRespostaHumanaEm) - new Date(item.primeiroContatoEm)) / 60000)); return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)}h ${minutes % 60}min` }
+function eventLabel(item) { if (item.tipo === 'criada') return 'Oportunidade criada'; if (item.tipo === 'etapa') return `${STAGES[item.etapaAnterior]} → ${STAGES[item.etapaNova]}`; if (item.tipo === 'conversao') return 'Convertida em consulta agendada'; if (item.tipo === 'resposta_humana') return 'Primeira resposta humana registrada'; if (item.tipo === 'resposta_automatica') return 'Resposta automática enviada'; if (item.tipo === 'mensagem_entrada') return 'Mensagem recebida'; if (item.tipo === 'cancelamento') return 'Consulta cancelada'; if (item.tipo === 'reagendamento') return 'Consulta reagendada'; return 'Oportunidade atualizada' }

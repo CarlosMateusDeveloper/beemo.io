@@ -149,6 +149,7 @@ async def _processar(db: Session, mensagem: MensagemRecebida) -> None:
         return
 
     whatsapp_event_service.correlate_incoming(db, received.id_mensagem, telefone, mensagem.wamid)
+    whatsapp_event_service.correlate_crm_incoming(db, received.id_mensagem, telefone, mensagem.wamid, id_paciente)
 
     if conversa.estado in (EstadoConversaBot.com_agente, EstadoConversaBot.aguardando):
         # Atendente humano conduzindo: o bot nao responde por cima dele.
@@ -190,7 +191,7 @@ async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | 
             finalidade="atendimento", essencial=True, modelo_id=None,
             origem="whatsapp_bot",
         )
-        mensageria_service.enqueue_text(
+        queued, _created = mensageria_service.enqueue_text(
             db, idempotency_key=idempotency_key, telefone=telefone,
             texto_mensagem=texto, paciente_id=id_paciente,
             remetente=RemetenteMensagem.bot, tentativa_id=decisao.tentativa_id,
@@ -198,6 +199,7 @@ async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | 
             modelo_versao=decisao.modelo_versao, finalidade="atendimento",
             origem="whatsapp_bot",
         )
+        whatsapp_event_service.link_crm_outgoing(db, queued.id_mensagem, telefone, automatic=True)
     except (ValueError, comunicacao_policy_service.ComunicacaoBloqueadaError) as erro:
         logger.error("Resposta automatica nao enviada para %s: %s", telefone, erro)
         return
