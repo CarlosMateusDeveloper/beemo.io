@@ -48,7 +48,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login","/api/auth/magic-link","/api/auth/magic-link/verify",
                     "/api/auth/csrf","/api/auth/providers","/api/auth/logout",
                     "/api/v1/auth/login","/api/v1/auth/magic-link","/api/v1/auth/magic-link/verify",
-                    "/api/v1/auth/csrf","/api/v1/auth/providers","/api/v1/auth/logout","/error").permitAll()
+                    "/api/v1/auth/csrf","/api/v1/auth/providers","/api/v1/auth/logout",
+                    "/api/pre-atendimento/publico","/api/pre-atendimento/publico/**","/error").permitAll()
                 .requestMatchers("/api/auth/session/check","/api/v1/auth/session/check").hasAuthority("TENANT_ACCESS")
                 .requestMatchers("/api/auth/**","/api/v1/auth/**","/api/tenants","/api/tenants/**").authenticated()
                 .requestMatchers("/actuator/**").denyAll()
@@ -76,6 +77,8 @@ public class SecurityConfig {
 
                 .requestMatchers(HttpMethod.GET,"/api/consultas/**").hasAuthority("PERM_agenda.visualizar")
                 .requestMatchers("/api/consultas/**").hasAuthority("PERM_agenda.gerenciar")
+                .requestMatchers(HttpMethod.GET,"/api/pre-atendimentos/**").hasAuthority("PERM_agenda.visualizar")
+                .requestMatchers("/api/pre-atendimentos/**").hasAuthority("PERM_agenda.gerenciar")
                 .requestMatchers(HttpMethod.POST,"/api/medicos/painel").hasAuthority("PERM_medico.indicadores.visualizar")
                 .requestMatchers(HttpMethod.GET,"/api/medicos/**","/api/especialidades/**").hasAuthority("PERM_medico.visualizar")
                 .requestMatchers("/api/medicos/**","/api/especialidades/**").hasAuthority("PERM_medico.gerenciar")

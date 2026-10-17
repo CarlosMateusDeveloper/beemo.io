@@ -38,6 +38,8 @@ import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
 import AuditoriaDetalhePagina from './components/convenios/AuditoriaDetalhePagina'
 import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 import Onboarding from './pages/Onboarding'
+import PreAtendimentos from './pages/PreAtendimento/PreAtendimentos'
+import PreAtendimentoPublico from './pages/PreAtendimento/PreAtendimentoPublico'
 
 // A página inicial é pública, independentemente da sessão. Apenas as rotas
 // do sistema carregam autenticação e tema; o dashboard continua protegido.
@@ -54,6 +56,7 @@ const systemRoutes = [
       { path: "pos-venda/tarefas", element: <RotaAutorizada permission="tarefa.visualizar"><Tarefas /></RotaAutorizada> },
       { path: "pos-venda/whatsapp", element: <RotaAutorizada permission="whatsapp.visualizar"><Whatsapp /></RotaAutorizada> },
       { path: "agenda", element: <RotaAutorizada permission="agenda.visualizar"><Agenda /></RotaAutorizada> },
+      { path: "pre-atendimentos", element: <RotaAutorizada permission="agenda.visualizar"><PreAtendimentos /></RotaAutorizada> },
       { path: "conta", element: <Conta /> },
       { path: "pacientes", element: <RotaAutorizada permission={['paciente.visualizar', 'paciente.financeiro.visualizar']}><PacientesPermitidos /></RotaAutorizada> },
       { path: "pacientes/:pacienteId", element: <RotaAutorizada permission="prontuario.visualizar"><ProntuarioDetalhe /></RotaAutorizada> },
@@ -86,6 +89,7 @@ const systemRoutes = [
 
 const router = createBrowserRouter([
   { path: '/', element: <ClinisisLanding loginUrl="/login" /> },
+  { path: '/pre-atendimento', element: <PreAtendimentoPublico /> },
   {
     element: <AuthProvider><ThemeProvider><Outlet /></ThemeProvider></AuthProvider>,
     children: systemRoutes,

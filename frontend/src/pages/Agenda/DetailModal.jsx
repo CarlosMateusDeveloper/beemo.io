@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { ExternalLink, Link2, Pencil } from 'lucide-react'
 import { DOW_FULL, MONTHS, STATUS, STATUS_TRANSITIONS } from './constants'
 import { minutesToTime, parseDateKey, timeToMinutes } from './dateUtils'
 import AppointmentFields from './AppointmentFields'
+import { criarLinkPreAtendimento } from '../PreAtendimento/api'
 
 const ACTION_CLASS = {
   positive: 'agenda-action-complete',
@@ -13,10 +14,9 @@ const ACTION_CLASS = {
 export default function DetailModal({ appointment, professionalName, professionalSpecialty, pacientes, onClose, onChangeStatus, onEdit }) {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState(null)
-
-  useEffect(() => {
-    setEditing(false)
-  }, [appointment?.id])
+  const [preLink, setPreLink] = useState(null)
+  const [preError, setPreError] = useState('')
+  const [creatingLink, setCreatingLink] = useState(false)
 
   if (!appointment) return null
 
@@ -33,6 +33,13 @@ export default function DetailModal({ appointment, professionalName, professiona
   function saveEdit() {
     onEdit(appointment.id, editForm)
     setEditing(false)
+  }
+
+  async function createPreLink() {
+    setCreatingLink(true); setPreError('')
+    try { setPreLink(await criarLinkPreAtendimento(appointment.id, { validadeHoras: 48, canal: 'whatsapp' })) }
+    catch (error) { setPreError(error.message) }
+    finally { setCreatingLink(false) }
   }
 
   return (
@@ -83,6 +90,17 @@ export default function DetailModal({ appointment, professionalName, professiona
             </div>
 
             <div className="agenda-hint">Dica: arraste o card na agenda para reagendar.</div>
+
+            <div className="agenda-pre-atendimento">
+              <button className="agenda-btn-ghost" onClick={createPreLink} disabled={creatingLink}>
+                <Link2 size={16} />{creatingLink ? 'Criando acesso…' : 'Enviar pré-atendimento'}
+              </button>
+              {preError && <span>{preError}</span>}
+              {preLink && <div>
+                <button className="agenda-btn-ghost" onClick={() => navigator.clipboard.writeText(preLink.url)}>Copiar link</button>
+                <a className="agenda-btn-primary" href={preLink.whatsappUrl} target="_blank" rel="noreferrer">Abrir WhatsApp <ExternalLink size={14} /></a>
+              </div>}
+            </div>
 
             {transitions.length > 0 ? (
               <div className="agenda-detail-actions">
