@@ -18,11 +18,15 @@ def buscar_por_telefone(db: Session, telefone: str) -> Contato | None:
     if partes is None:
         return None
     ddd, numeros = partes
-    return (
+    contatos = (
         db.query(Contato)
         .filter(Contato.ddd == ddd, Contato.numero.in_(numeros))
-        .first()
+        .limit(2)
+        .all()
     )
+    # Telefone é meio de contato, não identidade. Mais de um cadastro exige
+    # revisão humana e nunca pode liberar o histórico clínico de uma pessoa ao acaso.
+    return contatos[0] if len(contatos) == 1 else None
 
 
 def _ddd_e_numero(telefone: str) -> tuple[str, list[str]] | None:
