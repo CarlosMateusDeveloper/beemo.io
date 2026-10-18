@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**","/api/v1/auth/**","/api/tenants","/api/tenants/**").authenticated()
                 .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/api/usuarios/**").hasAuthority("PERM_usuario.gerenciar")
+                .requestMatchers("/api/exportacoes/**").hasAuthority("PERM_dados.exportar")
 
                 .requestMatchers(HttpMethod.POST,"/api/dashboard","/api/v1/dashboard")
                     .hasAnyAuthority("PERM_dashboard.operacional.visualizar","PERM_dashboard.financeiro.visualizar")

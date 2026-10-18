@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/apiClient'
 import './Conta.css'
 import MembrosTenant from './MembrosTenant'
 import AuditoriaAcesso from './AuditoriaAcesso'
+import ExportacaoDados from './ExportacaoDados'
 import { hasPermission } from './permissions'
 
 export default function Conta() {
@@ -46,5 +47,6 @@ export default function Conta() {
     {usuario.tenantAtivo && hasPermission(usuario, 'usuario.gerenciar') && <MembrosTenant tenant={usuario.tenantAtivo} />}
     {usuario.tenantAtivo && hasPermission(usuario, ['auditoria.visualizar', 'auditoria.financeira.visualizar'])
       && <AuditoriaAcesso tenant={usuario.tenantAtivo} />}
+    {usuario.tenantAtivo && hasPermission(usuario, 'dados.exportar') && <ExportacaoDados />}
   </section>
 }

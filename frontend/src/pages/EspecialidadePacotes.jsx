@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Check, CheckCircle2, Clock3, FileCheck2, Layers3, RotateCcw, ShieldCheck, Stethoscope, Workflow } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle2, Clock3, FileCheck2, Layers, RotateCcw, ShieldCheck, Stethoscope, Workflow } from 'lucide-react'
 import {
   aplicarPacoteEspecialidade, criarVersaoPacoteEspecialidade, desativarPacoteEspecialidade, fetchPacotesEspecialidade,
   enviarVersaoParaRevisao, fetchRevisoresEspecialidade, previewPacoteEspecialidade, publicarPacoteEspecialidade,
@@ -7,7 +7,7 @@ import {
 } from './especialidadePacotesApi'
 import './EspecialidadePacotes.css'
 
-const TYPE_ICONS = { MODELO_ATENDIMENTO: Clock3, DOCUMENTO: FileCheck2, FORMULARIO: Layers3, FLUXO_ACOMPANHAMENTO: Workflow }
+const TYPE_ICONS = { MODELO_ATENDIMENTO: Clock3, DOCUMENTO: FileCheck2, FORMULARIO: Layers, FLUXO_ACOMPANHAMENTO: Workflow }
 const TYPE_LABELS = { MODELO_ATENDIMENTO: 'Modelo de atendimento', DOCUMENTO: 'Documento', FORMULARIO: 'Formulário', FLUXO_ACOMPANHAMENTO: 'Fluxo de acompanhamento' }
 const ACTION_LABELS = { CRIAR: 'Novo', ATUALIZAR: 'Atualizar', SEM_ALTERACAO: 'Já aplicado', PRESERVAR_PERSONALIZACAO: 'Ajuste local preservado' }
 

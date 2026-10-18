@@ -55,7 +55,8 @@ public final class PermissionCatalog {
                 "financeiro.dre.visualizar", "financeiro.fluxo.visualizar",
                 "despesa.visualizar", "despesa.gerenciar", "despesa.aprovar",
                 "convenio.gerenciar", "glosa.visualizar", "glosa.recorrer", "glosa.aceitar_perda",
-                "repasse.todos.visualizar", "usuario.gerenciar", "permissao.gerenciar", "auditoria.visualizar"));
+                "repasse.todos.visualizar", "usuario.gerenciar", "permissao.gerenciar", "auditoria.visualizar",
+                "dados.exportar"));
         return Map.copyOf(roles);
     }
 
