@@ -13,3 +13,5 @@
 .audit-ok, .audit-denied { display: inline-flex; padding: 2px 7px; border-radius: 999px; font-weight: 700; }
 .audit-ok { color: #067647; background: #ecfdf3; }
 .audit-denied { color: #b42318; background: #fef3f2; }
+.exportacoes button { margin: 4px 8px 4px 0; }
+.exportacao-revogar { color: #b42318; }
