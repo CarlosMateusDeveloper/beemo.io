@@ -38,6 +38,8 @@ import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
 import AuditoriaDetalhePagina from './components/convenios/AuditoriaDetalhePagina'
 import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 import Onboarding from './pages/Onboarding'
+import Suporte from './pages/Suporte'
+import SelecionarClinica from './pages/SelecionarClinica'
 
 // A página inicial é pública, independentemente da sessão. Apenas as rotas
 // do sistema carregam autenticação e tema; o dashboard continua protegido.
@@ -63,6 +65,7 @@ const systemRoutes = [
       { path: "whatsapp", element: <RotaAutorizada permission="whatsapp.visualizar"><Whatsapp /></RotaAutorizada> },
       { path: "medicos", element: <RotaAutorizada permission="medico.visualizar"><Medicos /></RotaAutorizada> },
       { path: "onboarding", element: <RotaAutorizada permission="integracao.gerenciar"><Onboarding /></RotaAutorizada> },
+      { path: "ajuda", element: <RotaAutorizada permission={['suporte.ajuda.visualizar', 'suporte.chamado.visualizar']}><Suporte /></RotaAutorizada> },
       { path: "caixa", element: <RotaAutorizada permission="caixa.visualizar"><Caixa /></RotaAutorizada> },
       { path: "caixa/dre", element: <RotaAutorizada permission="financeiro.dre.visualizar"><CaixaDre /></RotaAutorizada> },
       { path: "caixa/fluxo-consolidado", element: <RotaAutorizada permission="financeiro.fluxo.visualizar"><CaixaFluxoConsolidado /></RotaAutorizada> },
@@ -80,6 +83,7 @@ const systemRoutes = [
   },
   { path: '/clinicas', element: <Navigate to="/dashboard" replace /> },
   { path: '/minha-conta', element: <RotaProtegida><Conta /></RotaProtegida> },
+  { path: '/selecionar-clinica', element: <RotaProtegida allowWithoutTenant><SelecionarClinica /></RotaProtegida> },
   { path: '/convite', element: <Convite /> },
   { path: '/login/magic', element: <MagicLink /> },
 ]

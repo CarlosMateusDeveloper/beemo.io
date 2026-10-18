@@ -28,19 +28,22 @@ public final class PermissionCatalog {
                 "mensageria.visualizar",
                 "comunicacao.consentimento.visualizar", "comunicacao.consentimento.gerenciar", "comunicacao.modelo.visualizar",
                 "oportunidade.visualizar", "oportunidade.gerenciar", "tarefa.visualizar", "tarefa.gerenciar",
-                "jornada.executar", "campanha.executar", "caixa.visualizar", "caixa.receber", "caixa.fechar"));
+                "jornada.executar", "campanha.executar", "caixa.visualizar", "caixa.receber", "caixa.fechar",
+                "suporte.ajuda.visualizar", "suporte.chamado.visualizar", "suporte.chamado.gerenciar"));
         roles.put(MEDICO, set(
                 "dashboard.operacional.visualizar", "agenda.visualizar", "agenda.gerenciar",
                 "paciente.visualizar", "prontuario.visualizar", "prontuario.editar", "medico.visualizar", "medico.indicadores.visualizar",
                 "comunicacao.consentimento.visualizar",
-                "oportunidade.visualizar", "tarefa.visualizar", "tarefa.gerenciar", "repasse.proprio.visualizar"));
+                "oportunidade.visualizar", "tarefa.visualizar", "tarefa.gerenciar", "repasse.proprio.visualizar",
+                "suporte.ajuda.visualizar", "suporte.chamado.visualizar", "suporte.chamado.gerenciar"));
         roles.put(FINANCEIRO, set(
                 "dashboard.financeiro.visualizar", "paciente.financeiro.visualizar",
                 "medico.visualizar", "medico.indicadores.visualizar", "oportunidade.visualizar", "tarefa.visualizar", "tarefa.gerenciar",
                 "caixa.visualizar", "caixa.receber", "caixa.fechar",
                 "financeiro.dre.visualizar", "financeiro.fluxo.visualizar",
                 "despesa.visualizar", "despesa.gerenciar", "convenio.gerenciar",
-                "glosa.visualizar", "glosa.recorrer", "repasse.todos.visualizar", "auditoria.financeira.visualizar"));
+                "glosa.visualizar", "glosa.recorrer", "repasse.todos.visualizar", "auditoria.financeira.visualizar",
+                "suporte.ajuda.visualizar", "suporte.chamado.visualizar", "suporte.chamado.gerenciar"));
         roles.put(ADMINISTRADOR, set(
                 "dashboard.operacional.visualizar", "dashboard.financeiro.visualizar",
                 "agenda.visualizar", "agenda.gerenciar", "paciente.visualizar", "paciente.cadastrar", "paciente.editar",
@@ -55,7 +58,9 @@ public final class PermissionCatalog {
                 "financeiro.dre.visualizar", "financeiro.fluxo.visualizar",
                 "despesa.visualizar", "despesa.gerenciar", "despesa.aprovar",
                 "convenio.gerenciar", "glosa.visualizar", "glosa.recorrer", "glosa.aceitar_perda",
-                "repasse.todos.visualizar", "usuario.gerenciar", "permissao.gerenciar", "auditoria.visualizar"));
+                "repasse.todos.visualizar", "usuario.gerenciar", "permissao.gerenciar", "auditoria.visualizar",
+                "suporte.ajuda.visualizar", "suporte.chamado.visualizar", "suporte.chamado.gerenciar",
+                "suporte.acesso.gerenciar", "suporte.exportar"));
         return Map.copyOf(roles);
     }
 

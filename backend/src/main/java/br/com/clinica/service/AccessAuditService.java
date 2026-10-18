@@ -20,6 +20,12 @@ public class AccessAuditService {
         try {
             db.update("INSERT INTO auth_audit_log(id_clinica,id_usuario,acao,recurso,metodo,resultado,endereco_ip) "
                             + "VALUES (?,?,?,?,?,?,?)", tenant, user, action, resource, method, result, address);
+            var access=TenantContext.get();
+            if (access!=null && access.suporteTemporario() && access.suporteAcessoId()!=null) {
+                db.update("INSERT INTO auth_suporte_acesso_evento(id_acesso,id_clinica,id_autor,tipo,recurso,metodo,resultado,detalhes) "
+                                + "VALUES (?,?,?,'ACAO',?,?,?,jsonb_build_object('ip',?))",
+                        access.suporteAcessoId(),tenant,user,resource,method,result,address);
+            }
         } catch (RuntimeException exception) {
             // Auditoria não pode transformar uma resposta já concluída em erro de aplicação.
             log.error("Não foi possível gravar auditoria de acesso", exception);

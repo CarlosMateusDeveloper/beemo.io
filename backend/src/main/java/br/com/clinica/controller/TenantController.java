@@ -22,6 +22,17 @@ public class TenantController {
             AccessAuditService audit) { this.tenants=tenants;this.sessions=sessions;this.clients=clients;this.audit=audit; }
     public record Invite(@NotBlank @Email @Size(max=100) String email,@NotBlank String perfil) {}
     public record Accept(@NotBlank @Size(max=100) String token) {}
+    @GetMapping public List<TenantService.Access> list(Authentication auth) {
+        return tenants.listar((Integer)auth.getPrincipal());
+    }
+    @PostMapping("/{id}/select") public TenantService.Access select(Authentication auth,@PathVariable int id,
+            HttpServletRequest req) {
+        int user=(Integer)auth.getPrincipal();
+        var claims=sessions.validar(SessionCookies.token(req))
+                .orElseThrow(()->new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        tenants.vincularSessao(claims.getId(),user,id);
+        return tenants.acesso(user,id);
+    }
     @GetMapping("/{id}/members") public List<Map<String,Object>> members(Authentication auth,@PathVariable int id) { return tenants.membros((Integer)auth.getPrincipal(),id); }
     @GetMapping("/{id}/access-model") public Map<String,Object> accessModel(Authentication auth,@PathVariable int id) {
         return tenants.accessModel((Integer)auth.getPrincipal(),id);
