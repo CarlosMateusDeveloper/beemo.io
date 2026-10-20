@@ -53,6 +53,7 @@ Caddy obtém e renova automaticamente o certificado TLS usando `ACME_EMAIL`. Os 
 git fetch origin
 git switch main
 git pull --ff-only
+export DEPLOY_IMAGE_TAG=$(git rev-parse --short HEAD)
 docker compose --env-file .env.production -f docker-compose.production.yml build --pull
 docker compose --env-file .env.production -f docker-compose.production.yml up -d --remove-orphans
 docker image prune -f
@@ -67,6 +68,7 @@ Faça a atualização numa janela de manutenção e registre a revisão Git impl
 
    ```bash
    git switch --detach <commit-anterior>
+   export DEPLOY_IMAGE_TAG=$(git rev-parse --short HEAD)
    docker compose --env-file .env.production -f docker-compose.production.yml build
    docker compose --env-file .env.production -f docker-compose.production.yml up -d
    ```

@@ -37,6 +37,7 @@ services:
           memory: 192M
 
   frontend:
+    image: clinisis-frontend:
     build:
       context: ./frontend
     restart: unless-stopped
@@ -60,6 +61,7 @@ services:
           memory: 128M
 
   api:
+    image: clinisis-api:
     build:
       context: ./backend
     restart: unless-stopped
@@ -95,6 +97,7 @@ services:
           memory: 768M
 
   agenda:
+    image: clinisis-agenda:
     build:
       context: ./agenda-service
     restart: unless-stopped
@@ -127,6 +130,7 @@ services:
           memory: 128M
 
   chatbot:
+    image: clinisis-chatbot:
     build:
       context: .
       dockerfile: chatbot/Dockerfile
