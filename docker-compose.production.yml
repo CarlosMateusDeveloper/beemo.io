@@ -37,7 +37,7 @@ services:
           memory: 192M
 
   frontend:
-    image: clinisis-frontend:
+    image: clinisis-frontend:${DEPLOY_IMAGE_TAG:-local}
     build:
       context: ./frontend
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
           memory: 128M
 
   api:
-    image: clinisis-api:
+    image: clinisis-api:${DEPLOY_IMAGE_TAG:-local}
     build:
       context: ./backend
     restart: unless-stopped
@@ -97,7 +97,7 @@ services:
           memory: 768M
 
   agenda:
-    image: clinisis-agenda:
+    image: clinisis-agenda:${DEPLOY_IMAGE_TAG:-local}
     build:
       context: ./agenda-service
     restart: unless-stopped
@@ -130,7 +130,7 @@ services:
           memory: 128M
 
   chatbot:
-    image: clinisis-chatbot:
+    image: clinisis-chatbot:${DEPLOY_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: chatbot/Dockerfile
