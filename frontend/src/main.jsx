@@ -38,6 +38,8 @@ import GlosaDetalhePagina from './components/convenios/GlosaDetalhePagina'
 import AuditoriaDetalhePagina from './components/convenios/AuditoriaDetalhePagina'
 import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 import Onboarding from './pages/Onboarding'
+import SaasPainel from './pages/SaasPainel'
+import RotaSaas from './auth/RotaSaas'
 import EspecialidadePacotes from './pages/EspecialidadePacotes'
 
 // A página inicial é pública, independentemente da sessão. Apenas as rotas
@@ -84,6 +86,7 @@ const systemRoutes = [
   { path: '/minha-conta', element: <RotaProtegida><Conta /></RotaProtegida> },
   { path: '/convite', element: <Convite /> },
   { path: '/login/magic', element: <MagicLink /> },
+  { path: '/operacao', element: <RotaSaas><SaasPainel /></RotaSaas> },
 ]
 
 const router = createBrowserRouter([
