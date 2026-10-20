@@ -33,9 +33,10 @@ public class ProntuarioDetalheService {
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     private final EntityManager entityManager;
+    private final ProntuarioConteudoCifradoService conteudoCifrado;
 
-    public ProntuarioDetalheService(EntityManager entityManager) {
-        this.entityManager = entityManager;
+    public ProntuarioDetalheService(EntityManager entityManager, ProntuarioConteudoCifradoService conteudoCifrado) {
+        this.entityManager = entityManager; this.conteudoCifrado = conteudoCifrado;
     }
 
     @SuppressWarnings("unchecked")
@@ -201,13 +202,14 @@ public class ProntuarioDetalheService {
 
         LocalDate data = paraLocalDate(l[6]);
         OffsetDateTime assinadoEm = l[19] == null ? null : paraOffsetDateTime(l[19]);
+        var cifrado = conteudoCifrado.load(idProntuario);
         return new ProntuarioDetalheCompletoDto(
                 ((Number) l[0]).intValue(), ((Number) l[1]).intValue(), ((Number) l[2]).intValue(), (String) l[3],
                 ((Number) l[4]).intValue(), (String) l[5],
                 data.format(DIA_MES_ANO), paraLocalTime(l[7]).format(HORA), (String) l[8],
-                (String) l[9], (String) l[10], (String) l[11], (String) l[12],
-                (String) l[13], (String) l[14], (String) l[15],
-                (String) l[16], (String) l[17], (String) l[18],
+                cifrado == null ? (String) l[9] : cifrado.queixaPrincipal(), cifrado == null ? (String) l[10] : cifrado.historiaDoencaAtual(), cifrado == null ? (String) l[11] : cifrado.descricao(), cifrado == null ? (String) l[12] : cifrado.exameFisico(),
+                cifrado == null ? (String) l[13] : cifrado.hipoteseDiagnostica(), cifrado == null ? (String) l[14] : cifrado.diagnostico(), (String) l[15],
+                cifrado == null ? (String) l[16] : cifrado.prescricao(), cifrado == null ? (String) l[17] : cifrado.planoTerapeutico(), cifrado == null ? (String) l[18] : cifrado.conduta(),
                 assinadoEm != null, assinadoEm == null ? null : assinadoEm.toString()
         );
     }
