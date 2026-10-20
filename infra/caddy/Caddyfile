@@ -1,0 +1,24 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+  encode zstd gzip
+
+  @api path /api/*
+  handle @api {
+    reverse_proxy api:8080
+  }
+
+  handle_path /agenda-api/* {
+    reverse_proxy agenda:8081
+  }
+
+  handle_path /chatbot-api/* {
+    reverse_proxy chatbot:8082
+  }
+
+  handle {
+    reverse_proxy frontend:8080
+  }
+}
