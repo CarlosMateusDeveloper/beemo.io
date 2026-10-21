@@ -59,6 +59,21 @@ class PosVendaCsvImportServiceTest {
         assertEquals("pacienteId", row.get("campo"));
     }
 
+    @Test void previewRecusaTipoFalsoMesmoComExtensaoCsv() {
+        var file = new MockMultipartFile("arquivo", "dados.csv", "application/pdf", "a;b`n1;2".getBytes());
+        var error = assertThrows(ResponseStatusException.class, () ->
+                new PosVendaCsvImportService(null, Clock.systemUTC()).preview(file, "America/Fortaleza"));
+        assertEquals(415, error.getStatusCode().value());
+    }
+
+    @Test void previewRejeitaArquivoMaiorQueLimite() {
+        var file = new MockMultipartFile("arquivo", "dados.csv", "text/csv",
+                new byte[(int) PosVendaCsvImportService.MAX_BYTES + 1]);
+        var error = assertThrows(ResponseStatusException.class, () ->
+                new PosVendaCsvImportService(null, Clock.systemUTC()).preview(file, "America/Fortaleza"));
+        assertEquals(413, error.getStatusCode().value());
+    }
+
     @Test void previewRejeitaArquivoSemDados() {
         var service = new PosVendaCsvImportService(null, Clock.systemUTC());
         var file = new MockMultipartFile("arquivo", "vazio.csv", "text/csv", "paciente_id;nome_paciente\n".getBytes());

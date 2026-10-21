@@ -52,7 +52,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/session/check","/api/v1/auth/session/check").hasAuthority("TENANT_ACCESS")
                 .requestMatchers("/api/auth/**","/api/v1/auth/**","/api/tenants","/api/tenants/**").authenticated()
                 .requestMatchers("/actuator/**").denyAll()
+                .requestMatchers(HttpMethod.GET,"/api/saas/me","/api/saas/clinicas","/api/saas/acoes")
+                    .hasAuthority("SAAS_saas.dashboard.visualizar")
+                .requestMatchers(HttpMethod.POST,"/api/saas/acoes/**","/api/saas/acoes")
+                    .hasAuthority("SAAS_saas.acao.gerenciar")
+                .requestMatchers("/api/saas/clinicas/**").hasAuthority("SAAS_saas.clinica.gerenciar")
+                .requestMatchers("/api/saas/funcionarios/**","/api/saas/funcionarios").hasAuthority("SAAS_saas.funcionario.gerenciar")
                 .requestMatchers("/api/usuarios/**").hasAuthority("PERM_usuario.gerenciar")
+                .requestMatchers("/api/exportacoes/**").hasAuthority("PERM_dados.exportar")
 
                 .requestMatchers(HttpMethod.POST,"/api/dashboard","/api/v1/dashboard")
                     .hasAnyAuthority("PERM_dashboard.operacional.visualizar","PERM_dashboard.financeiro.visualizar")
@@ -98,7 +105,7 @@ public class SecurityConfig {
 
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/reguas/**").hasAuthority("PERM_jornada.configurar")
                 .requestMatchers(HttpMethod.PUT,"/api/retorno/modelos/**").hasAuthority("PERM_campanha.configurar")
-                .requestMatchers("/api/onboarding/**","/api/pos-venda/importacoes/**")
+                .requestMatchers("/api/onboarding/**","/api/configuracoes/especialidades/**","/api/pos-venda/importacoes/**")
                     .hasAuthority("PERM_integracao.gerenciar")
                 .requestMatchers("/api/pos-venda/integracoes/**").hasAuthority("PERM_integracao.gerenciar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/comunicacao/modelos/**")

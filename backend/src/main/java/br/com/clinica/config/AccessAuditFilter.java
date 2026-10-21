@@ -46,6 +46,8 @@ public class AccessAuditFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/medicos") && !method.equals("GET")) return "repasse.editar";
         if (path.startsWith("/api/retorno/modelos") && !method.equals("GET")) return "campanha.configurar";
         if (path.startsWith("/api/onboarding") && !method.equals("GET")) return "integracao.gerenciar";
+        if (path.startsWith("/api/configuracoes/especialidades") && !method.equals("GET")) return "integracao.gerenciar";
+        if (path.startsWith("/api/exportacoes")) return "dados.exportar";
         if (path.startsWith("/api/pos-venda/importacoes") && !method.equals("GET")) return "integracao.gerenciar";
         if (path.startsWith("/api/pos-venda/automacoes") && !method.equals("GET")) return "jornada.configurar";
         if (path.startsWith("/api/pos-venda/tarefas") && !method.equals("GET")) return "tarefa.gerenciar";
