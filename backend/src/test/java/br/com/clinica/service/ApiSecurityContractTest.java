@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.jwt.secret=test-secret-32-bytes-long-123456789", "app.jwt.expiration-minutes=30"
 })
 @Import({SecurityConfig.class, JwtAuthFilter.class, AuthService.class, SessionService.class, JwtService.class,
-    SessionCookies.class, AuthRateLimiter.class, RequestLoggingFilter.class, DashboardErrors.class,
+    SessionCookies.class, AuthRateLimiter.class, RequestLoggingFilter.class, ResponseSecurityHeadersFilter.class, DashboardErrors.class,
     AccessControlService.class, ClinicalScopeService.class, ClinicalLegacyScopeFilter.class,
     AccessAuditService.class, AccessAuditFilter.class})
 @ImportAutoConfiguration({MetricsAutoConfiguration.class, SimpleMetricsExportAutoConfiguration.class,
@@ -71,7 +71,8 @@ class ApiSecurityContractTest {
     @Test void loginEmiteCookieHttpOnlySemExporTokenSenhaOuCpf() throws Exception {
         var result = mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"teste@example.invalid\",\"senha\":\"Test-Password-123\"}"))
-            .andExpect(status().isOk()).andExpect(cookie().httpOnly("clinicos_session", true))
+            .andExpect(status().isOk()).andExpect(header().string("X-Content-Type-Options", "nosniff"))
+            .andExpect(header().string("Cache-Control", "no-store")).andExpect(cookie().httpOnly("clinicos_session", true))
             .andExpect(cookie().maxAge("clinicos_session", 1800))
             .andExpect(jsonPath("$.token").doesNotExist()).andExpect(jsonPath("$.usuario.senha").doesNotExist())
             .andReturn();

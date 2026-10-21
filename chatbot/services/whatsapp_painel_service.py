@@ -15,7 +15,7 @@ from chatbot.models.mensagem import DirecaoMensagem, Mensagem, RemetenteMensagem
 from chatbot.models.mensagem_template import MensagemTemplateBot
 from chatbot.models.regra_atendimento import RegraAtendimentoBot
 from chatbot.models.usuario import Usuario  # noqa: F401 — mesmo motivo do import de Clinica acima
-from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_integracao_service, whatsapp_service
+from chatbot.services import comunicacao_policy_service, mensageria_service, whatsapp_event_service, whatsapp_integracao_service, whatsapp_service
 
 # tenant_id() vem de chatbot.config: sem sessao/login real ainda
 # (Fase 0 do roadmap "multiempresa" nao implementada) — mono-clinica por
@@ -318,6 +318,7 @@ def enviar_mensagem_agente(db: Session, conversa_id: int, texto: str, idempotenc
         modelo_versao=decisao.modelo_versao, finalidade="atendimento",
         origem="whatsapp_agente",
     )
+    whatsapp_event_service.link_crm_outgoing(db, nova.id_mensagem, conversa.telefone, automatic=False)
     conversa.atualizado_em = datetime.now(timezone.utc)
     db.commit()
     db.refresh(nova)

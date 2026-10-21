@@ -71,3 +71,6 @@ app:
     from: ${RESEND_FROM:}
   import-file:
     encryption-key: ${IMPORT_FILE_ENCRYPTION_KEY:}
+  export:
+    # Base64 de 32 bytes. Obrigatória para gerar ou abrir exportações.
+    encryption-key: ${EXPORT_ENCRYPTION_KEY:}
