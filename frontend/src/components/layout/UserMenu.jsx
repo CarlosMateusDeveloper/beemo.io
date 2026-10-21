@@ -38,6 +38,7 @@ export default function UserMenu() {
   async function handleSelect(key) {
     setOpen(false); setErro('')
     if (key === 'perfil') navigate('/conta')
+    if (key === 'ajuda') navigate('/ajuda')
     if (key === 'sair') {
       try { await logout(); navigate('/login') }
       catch (e) { setErro(e.message) }

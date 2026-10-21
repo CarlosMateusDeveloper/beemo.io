@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, Users, FileText, MessageCircle, Stethoscope, Wallet,
   HeartHandshake, Target, Workflow, Megaphone, CheckSquare, ChevronLeft, ChevronRight,
+  BarChart3, ArrowUpDown, Receipt, ClipboardCheck, LifeBuoy,
   BarChart3, ArrowUpDown, Receipt, ClipboardCheck, PackageCheck,
 } from 'lucide-react'
 import UserMenu from './UserMenu'
@@ -18,6 +19,8 @@ const NAV_ITEMS = [
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
   { to: '/medicos', label: 'Médicos', icon: Stethoscope, permissions: ['medico.visualizar'] },
   { to: '/onboarding', label: 'Implantação', icon: ClipboardCheck, permissions: ['integracao.gerenciar'] },
+  { to: '/ajuda', label: 'Suporte', icon: LifeBuoy, permissions: ['suporte.ajuda.visualizar', 'suporte.chamado.visualizar'] },
+
   { to: '/configuracoes/especialidades', label: 'Especialidades', icon: PackageCheck, permissions: ['integracao.gerenciar'] },
 ]
 

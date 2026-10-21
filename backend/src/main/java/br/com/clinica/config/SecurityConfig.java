@@ -61,6 +61,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/usuarios/**").hasAuthority("PERM_usuario.gerenciar")
                 .requestMatchers("/api/exportacoes/**").hasAuthority("PERM_dados.exportar")
 
+                .requestMatchers(HttpMethod.GET,"/api/suporte/artigos").hasAuthority("PERM_suporte.ajuda.visualizar")
+                .requestMatchers(HttpMethod.GET,"/api/suporte/chamados/**","/api/suporte/metricas")
+                    .hasAuthority("PERM_suporte.chamado.visualizar")
+                .requestMatchers("/api/suporte/chamados/**").hasAuthority("PERM_suporte.chamado.gerenciar")
+                .requestMatchers("/api/suporte/acessos/**","/api/suporte/acessos")
+                    .hasAuthority("PERM_suporte.acesso.gerenciar")
+
                 .requestMatchers(HttpMethod.POST,"/api/dashboard","/api/v1/dashboard")
                     .hasAnyAuthority("PERM_dashboard.operacional.visualizar","PERM_dashboard.financeiro.visualizar")
 
