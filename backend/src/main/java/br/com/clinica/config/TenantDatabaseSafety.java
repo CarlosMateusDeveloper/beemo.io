@@ -38,6 +38,7 @@ public class TenantDatabaseSafety {
             if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=26)",Boolean.class)))
                 throw new IllegalStateException("Aplique a migracao 026_onboarding_clinicas.sql antes de iniciar a API.");
             if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=27)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 027_pre_atendimento_seguro.sql antes de iniciar a API.");
                 throw new IllegalStateException("Aplique a migracao 027_crm_conversao.sql antes de iniciar a API.");
             if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=30)",Boolean.class)))
                 throw new IllegalStateException("Aplique a migracao 030_saas_painel_interno.sql antes de iniciar a API.");

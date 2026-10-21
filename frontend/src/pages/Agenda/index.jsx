@@ -283,6 +283,7 @@ export default function Agenda({
       />
 
       <DetailModal
+        key={detailAppointment?.id || 'closed'}
         appointment={detailAppointment}
         professionalName={currentProf.name}
         professionalSpecialty={currentProf.specialty}

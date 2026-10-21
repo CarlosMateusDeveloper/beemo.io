@@ -9,6 +9,11 @@
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   box-sizing: border-box;
 }
+
+.agenda-pre-atendimento { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+.agenda-pre-atendimento > span { width:100%; color:var(--danger); font-size:12px; }
+.agenda-pre-atendimento > div { display:flex; gap:8px; }
+.agenda-pre-atendimento a { text-decoration:none; }
 .agenda-page *, .agenda-page *::before, .agenda-page *::after { box-sizing: border-box; }
 .agenda-page select, .agenda-page input, .agenda-page button { font-family: inherit; }
 
