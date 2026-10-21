@@ -74,3 +74,7 @@ app:
   export:
     # Base64 de 32 bytes. Obrigatória para gerar ou abrir exportações.
     encryption-key: ${EXPORT_ENCRYPTION_KEY:}
+  data-encryption:
+    key: ${DATA_ENCRYPTION_KEY:}
+    keys: ${DATA_ENCRYPTION_KEYS:}
+    active-version: ${DATA_ENCRYPTION_KEY_VERSION:1}
