@@ -61,6 +61,7 @@ public final class PermissionCatalog {
                 "repasse.todos.visualizar", "usuario.gerenciar", "permissao.gerenciar", "auditoria.visualizar",
                 "suporte.ajuda.visualizar", "suporte.chamado.visualizar", "suporte.chamado.gerenciar",
                 "suporte.acesso.gerenciar", "suporte.exportar"));
+                "dados.exportar"));
         return Map.copyOf(roles);
     }
 

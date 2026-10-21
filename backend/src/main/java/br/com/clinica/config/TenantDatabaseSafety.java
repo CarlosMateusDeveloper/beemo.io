@@ -39,6 +39,14 @@ public class TenantDatabaseSafety {
                 throw new IllegalStateException("Aplique a migracao 026_onboarding_clinicas.sql antes de iniciar a API.");
             if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=29)",Boolean.class)))
                 throw new IllegalStateException("Aplique a migracao 029_suporte_auditado.sql antes de iniciar a API.");
+            if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=27)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 027_crm_conversao.sql antes de iniciar a API.");
+            if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=30)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 030_saas_painel_interno.sql antes de iniciar a API.");
+            if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=28)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 028_pacotes_especialidade.sql antes de iniciar a API.");
+            if(!Boolean.TRUE.equals(db.queryForObject("SELECT EXISTS(SELECT 1 FROM auth_schema_version WHERE version=29)",Boolean.class)))
+                throw new IllegalStateException("Aplique a migracao 029_exportacao_continuidade.sql antes de iniciar a API.");
             var unsafe=db.queryForList("SELECT tablename FROM pg_tables t JOIN pg_class c ON c.relname=t.tablename JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname=t.schemaname WHERE t.schemaname='public' AND t.tablename NOT LIKE 'auth_%' AND t.tablename NOT LIKE 'tenant_%' AND t.tablename NOT IN ('usuario','clinica') AND NOT(c.relrowsecurity AND c.relforcerowsecurity)",String.class);
             if(!unsafe.isEmpty()) throw new IllegalStateException("Tabelas clinicas sem isolamento: "+unsafe);
         };

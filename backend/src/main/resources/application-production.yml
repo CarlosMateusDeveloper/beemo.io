@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: production
+  jpa:
+    hibernate:
+      # Migrations versionadas são a única forma de alterar o schema em produção.
+      ddl-auto: validate
+  web:
+    resources:
+      add-mappings: false
+
+server:
+  forward-headers-strategy: framework
+
+app:
+  production: true

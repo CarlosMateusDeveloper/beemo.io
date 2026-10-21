@@ -15,6 +15,7 @@ import Convite from './auth/Convite'
 import Layout from './components/layout/Layout'
 import PosVenda from './modules/pos-venda/PosVenda'
 import Oportunidades from './modules/pos-venda/Oportunidades'
+import RetencaoOportunidades from './modules/pos-venda/RetencaoOportunidades'
 import PosVendaPacientes from './modules/pos-venda/Pacientes'
 import Tarefas from './modules/pos-venda/Tarefas'
 import Jornadas from './modules/pos-venda/Jornadas'
@@ -40,7 +41,9 @@ import LoteDetalhePagina from './components/convenios/LoteDetalhePagina'
 import Onboarding from './pages/Onboarding'
 import Suporte from './pages/Suporte'
 import SelecionarClinica from './pages/SelecionarClinica'
-
+import SaasPainel from './pages/SaasPainel'
+import RotaSaas from './auth/RotaSaas'
+import EspecialidadePacotes from './pages/EspecialidadePacotes'
 // A página inicial é pública, independentemente da sessão. Apenas as rotas
 // do sistema carregam autenticação e tema; o dashboard continua protegido.
 const systemRoutes = [
@@ -51,6 +54,7 @@ const systemRoutes = [
       { path: "pos-venda", element: <RotaAutorizada permission="oportunidade.visualizar"><PosVenda /></RotaAutorizada> },
       { path: "pos-venda/pacientes", element: <RotaAutorizada permission="oportunidade.visualizar"><PosVendaPacientes /></RotaAutorizada> },
       { path: "pos-venda/oportunidades", element: <RotaAutorizada permission="oportunidade.visualizar"><Oportunidades /></RotaAutorizada> },
+      { path: "pos-venda/oportunidades/retencao", element: <RotaAutorizada permission="oportunidade.visualizar"><RetencaoOportunidades /></RotaAutorizada> },
       { path: "pos-venda/jornadas", element: <RotaAutorizada permission={['jornada.executar', 'jornada.configurar']}><Jornadas /></RotaAutorizada> },
       { path: "pos-venda/campanhas", element: <RotaAutorizada permission={['campanha.executar', 'campanha.configurar']}><Campanhas /></RotaAutorizada> },
       { path: "pos-venda/tarefas", element: <RotaAutorizada permission="tarefa.visualizar"><Tarefas /></RotaAutorizada> },
@@ -66,6 +70,7 @@ const systemRoutes = [
       { path: "medicos", element: <RotaAutorizada permission="medico.visualizar"><Medicos /></RotaAutorizada> },
       { path: "onboarding", element: <RotaAutorizada permission="integracao.gerenciar"><Onboarding /></RotaAutorizada> },
       { path: "ajuda", element: <RotaAutorizada permission={['suporte.ajuda.visualizar', 'suporte.chamado.visualizar']}><Suporte /></RotaAutorizada> },
+      { path: "configuracoes/especialidades", element: <RotaAutorizada permission="integracao.gerenciar"><EspecialidadePacotes /></RotaAutorizada> },
       { path: "caixa", element: <RotaAutorizada permission="caixa.visualizar"><Caixa /></RotaAutorizada> },
       { path: "caixa/dre", element: <RotaAutorizada permission="financeiro.dre.visualizar"><CaixaDre /></RotaAutorizada> },
       { path: "caixa/fluxo-consolidado", element: <RotaAutorizada permission="financeiro.fluxo.visualizar"><CaixaFluxoConsolidado /></RotaAutorizada> },
@@ -86,6 +91,7 @@ const systemRoutes = [
   { path: '/selecionar-clinica', element: <RotaProtegida allowWithoutTenant><SelecionarClinica /></RotaProtegida> },
   { path: '/convite', element: <Convite /> },
   { path: '/login/magic', element: <MagicLink /> },
+  { path: '/operacao', element: <RotaSaas><SaasPainel /></RotaSaas> },
 ]
 
 const router = createBrowserRouter([

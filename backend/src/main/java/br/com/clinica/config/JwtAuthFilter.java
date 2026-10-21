@@ -18,8 +18,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final SessionService sessions;
     private final TenantService tenants;
+    private final SaasAdminService saas;
     private final br.com.clinica.repository.UsuarioRepository usuarios;
-    public JwtAuthFilter(SessionService sessions,TenantService tenants,br.com.clinica.repository.UsuarioRepository usuarios) { this.sessions=sessions;this.tenants=tenants;this.usuarios=usuarios; }
+    public JwtAuthFilter(SessionService sessions,TenantService tenants,SaasAdminService saas,br.com.clinica.repository.UsuarioRepository usuarios) { this.sessions=sessions;this.tenants=tenants;this.saas=saas;this.usuarios=usuarios; }
     @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain) throws ServletException,IOException {
         TenantContext.clear();
         try {
@@ -41,6 +42,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                 new SimpleGrantedAuthority("ROLE_"+role.toUpperCase(Locale.ROOT))));
                         tenant.permissoes().forEach(permission -> authorities.add(
                                 new SimpleGrantedAuthority("PERM_"+permission)));
+                    }
+                    if(saas.isFresh(user,claims.get().getId())) {
+                        var staff=saas.staff(user);
+                        if(staff!=null) staff.permissoes().forEach(permission -> authorities.add(
+                                new SimpleGrantedAuthority("SAAS_"+permission)));
                     }
                     SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(user,null,authorities));
