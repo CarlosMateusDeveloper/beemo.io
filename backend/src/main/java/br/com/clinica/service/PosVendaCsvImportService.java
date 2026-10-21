@@ -5,6 +5,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,8 @@ public class PosVendaCsvImportService {
     private static final ObjectMapper JSON = new ObjectMapper();
     static final long MAX_BYTES = 5L * 1024 * 1024;
     static final int MAX_ROWS = 20_000;
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            MediaType.TEXT_PLAIN_VALUE, "text/csv", "application/csv", "application/vnd.ms-excel");
     static final List<String> CAMPOS = List.of("pacienteId", "pacienteNome", "telefone", "atendimentoId",
             "dataHora", "profissional", "especialidade", "tipo", "situacao", "atualizadoEm",
             "consentimentoDecisao", "consentimentoCanal", "consentimentoFinalidade",
@@ -599,6 +602,11 @@ public class PosVendaCsvImportService {
         if (file == null || file.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecione um arquivo CSV");
         if (file.getSize() > MAX_BYTES) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
                 "O CSV deve ter no máximo 5 MB");
+        String contentType = Objects.toString(file.getContentType(), "").toLowerCase(Locale.ROOT);
+        if (!ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "Envie um CSV com tipo de conteúdo permitido");
+        }
         String name = Objects.toString(file.getOriginalFilename(), "").toLowerCase(Locale.ROOT);
         if (!name.endsWith(".csv")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Envie um arquivo com extensão .csv");
         try {
