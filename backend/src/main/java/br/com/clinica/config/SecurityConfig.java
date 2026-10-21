@@ -128,6 +128,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/campanhas/**")
                     .hasAnyAuthority("PERM_campanha.executar","PERM_campanha.configurar")
                 .requestMatchers("/api/pos-venda/campanhas/**").hasAuthority("PERM_campanha.configurar")
+                .requestMatchers(HttpMethod.GET,"/api/crm/**").hasAuthority("PERM_oportunidade.visualizar")
+                .requestMatchers("/api/crm/**").hasAuthority("PERM_oportunidade.gerenciar")
                 .requestMatchers(HttpMethod.GET,"/api/pos-venda/**","/api/retorno/**").hasAuthority("PERM_oportunidade.visualizar")
                 .requestMatchers("/api/pos-venda/**","/api/retorno/**").hasAuthority("PERM_oportunidade.gerenciar")
                 .anyRequest().denyAll())

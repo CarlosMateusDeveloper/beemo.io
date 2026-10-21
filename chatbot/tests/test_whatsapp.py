@@ -6,6 +6,7 @@ from chatbot.views.whatsapp import EnviarMensagemIn, AssumirIn
 from chatbot.models.conversa import EstadoConversaBot
 from chatbot.services import mensagem_service, whatsapp_painel_service as painel
 from chatbot.services import comunicacao_policy_service
+from chatbot.services import contato_service
 from chatbot.tenant import current_tenant
 from chatbot.views.webhook import MensagemRecebida
 
@@ -28,6 +29,12 @@ class ValidacaoTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 painel.enviar_mensagem_agente(MagicMock(), 1, "Olá", "request-123")
             enviar.assert_not_called()
+
+    def test_telefone_compartilhado_nao_escolhe_paciente(self):
+        db = MagicMock()
+        query = db.query.return_value.filter.return_value.limit.return_value
+        query.all.return_value = [SimpleNamespace(id_paciente=1), SimpleNamespace(id_paciente=2)]
+        self.assertIsNone(contato_service.buscar_por_telefone(db, "5585999999999"))
 
     def test_assistente_sem_regras_tem_campos_completos(self):
         db = MagicMock()

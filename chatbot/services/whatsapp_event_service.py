@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from chatbot.tenant import tenant_id
 from chatbot.views.webhook import StatusRecebido
 
 
@@ -151,6 +152,94 @@ def correlate_incoming(db: Session, message_id: int, phone: str, wamid: str) -> 
                 "origin": f"whatsapp_resposta:{wamid}"})
     db.commit()
     return case["id"]
+
+
+def correlate_crm_incoming(db: Session, message_id: int, phone: str, wamid: str, patient_id: int | None = None) -> int | None:
+    """Cria ou reutiliza a oportunidade comercial da conversa sem transformar telefone em identidade."""
+    conversation_key = f"whatsapp:{phone}"
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key,:tenant))"),
+               {"key": conversation_key, "tenant": tenant_id()})
+    opportunity = db.execute(text("""
+        SELECT o.id_oportunidade,o.etapa FROM crm_oportunidade o
+        WHERE o.conversa_externa_id=:conversation AND o.etapa NOT IN ('agendado','perdido')
+        ORDER BY o.id_oportunidade DESC LIMIT 1
+    """), {"conversation": conversation_key}).mappings().first()
+    # Uma conversa assistencial de paciente já conhecido não vira lead por padrão.
+    # Se já houver oportunidade aberta, a conversa continua nela.
+    if opportunity is None and patient_id is not None:
+        return None
+    if opportunity is None:
+        interested = db.execute(text("""
+            INSERT INTO crm_interessado(nome,telefone,canal_preferido,contato_permitido)
+            VALUES (:name,:phone,'whatsapp',true) RETURNING id_interessado
+        """), {"name": f"Contato WhatsApp •{phone[-4:]}", "phone": phone}).scalar_one()
+        opportunity_id = db.execute(text("""
+            INSERT INTO crm_oportunidade(
+              id_interessado,canal_origem,origem,servico_interesse,idempotency_key,
+              conversa_externa_id,primeiro_contato_em
+            ) VALUES (:interested,'whatsapp','WhatsApp','A definir',:key,:conversation,now())
+            RETURNING id_oportunidade
+        """), {"interested": interested, "key": f"whatsapp:{wamid}",
+                "conversation": conversation_key}).scalar_one()
+        db.execute(text("""
+            INSERT INTO crm_oportunidade_evento(id_oportunidade,tipo,etapa_nova,automatico,dados)
+            VALUES (:opportunity,'criada','novo',true,CAST(:data AS jsonb))
+        """), {"opportunity": opportunity_id,
+                "data": json.dumps({"origem": "WhatsApp", "wamid": wamid}, ensure_ascii=False)})
+    else:
+        opportunity_id = opportunity["id_oportunidade"]
+    db.execute(text("UPDATE mensagem SET id_crm_oportunidade=:opportunity WHERE id_mensagem=:message"),
+               {"opportunity": opportunity_id, "message": message_id})
+    db.execute(text("""
+        INSERT INTO crm_oportunidade_evento(id_oportunidade,tipo,automatico,id_mensagem,dados)
+        VALUES (:opportunity,'mensagem_entrada',true,:message,CAST(:data AS jsonb))
+        ON CONFLICT(id_clinica,id_mensagem,tipo) WHERE id_mensagem IS NOT NULL DO NOTHING
+    """), {"opportunity": opportunity_id, "message": message_id,
+            "data": json.dumps({"canal": "whatsapp", "wamid": wamid}, ensure_ascii=False)})
+    candidates = db.execute(text("""
+        SELECT id_paciente AS id,nome FROM paciente
+        WHERE regexp_replace(concat(ddd,numero),'\\D','','g') IN (:phone,:without_country)
+        ORDER BY id_paciente LIMIT 10
+    """), {"phone": phone, "without_country": phone[2:] if phone.startswith("55") else phone}).mappings().all()
+    if len(candidates) > 1:
+        db.execute(text("""
+            INSERT INTO crm_identidade_revisao(id_oportunidade,motivo,candidatos)
+            VALUES (:opportunity,'telefone_compartilhado',CAST(:candidates AS jsonb))
+            ON CONFLICT(id_clinica,id_oportunidade,motivo) WHERE status='pendente'
+            DO UPDATE SET candidatos=excluded.candidatos
+        """), {"opportunity": opportunity_id,
+                "candidates": json.dumps([{"id": row["id"], "nome": row["nome"]} for row in candidates], ensure_ascii=False)})
+    db.commit()
+    return opportunity_id
+
+
+def link_crm_outgoing(db: Session, message_id: int, phone: str, automatic: bool) -> int | None:
+    opportunity = db.execute(text("""
+        SELECT o.id_oportunidade,o.etapa FROM crm_oportunidade o JOIN crm_interessado i ON i.id_interessado=o.id_interessado
+        WHERE i.telefone=:phone AND o.etapa NOT IN ('agendado','perdido')
+        ORDER BY o.id_oportunidade DESC LIMIT 2
+    """), {"phone": phone}).mappings().all()
+    if len(opportunity) != 1:
+        return None
+    opportunity_id = opportunity[0]["id_oportunidade"]
+    event_type = "resposta_automatica" if automatic else "resposta_humana"
+    db.execute(text("UPDATE mensagem SET id_crm_oportunidade=:opportunity WHERE id_mensagem=:message"),
+               {"opportunity": opportunity_id, "message": message_id})
+    db.execute(text("""
+        UPDATE crm_oportunidade SET
+          primeira_resposta_automatica_em=CASE WHEN :automatic THEN coalesce(primeira_resposta_automatica_em,now()) ELSE primeira_resposta_automatica_em END,
+          primeira_resposta_humana_em=CASE WHEN NOT :automatic THEN coalesce(primeira_resposta_humana_em,now()) ELSE primeira_resposta_humana_em END,
+          etapa=CASE WHEN NOT :automatic AND etapa='novo' THEN 'em_contato' ELSE etapa END
+        WHERE id_oportunidade=:opportunity
+    """), {"automatic": automatic, "opportunity": opportunity_id})
+    db.execute(text("""
+        INSERT INTO crm_oportunidade_evento(id_oportunidade,tipo,etapa_nova,automatico,id_mensagem,dados)
+        VALUES (:opportunity,:type,
+          CASE WHEN NOT :automatic AND :stage='novo' THEN 'em_contato' ELSE :stage END,
+          :automatic,:message,'{"canal":"whatsapp"}'::jsonb)
+    """), {"opportunity": opportunity_id, "type": event_type, "automatic": automatic,
+            "message": message_id, "stage": opportunity[0]["etapa"]})
+    return opportunity_id
 
 
 def close_contact_after_optout(db: Session, phone: str) -> None:
