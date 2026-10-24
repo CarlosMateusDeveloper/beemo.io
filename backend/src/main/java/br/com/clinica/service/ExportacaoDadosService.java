@@ -15,6 +15,9 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
@@ -41,13 +44,18 @@ public class ExportacaoDadosService {
     private final Executor executor;
     private final TransactionTemplate transaction;
     private final String keyText;
+    private final ClinicalTextCipher clinicalCipher;
+    private final ObjectMapper json;
 
     public ExportacaoDadosService(JdbcTemplate db, AccessControlService access,
             @Qualifier("exportacaoExecutor") Executor executor, PlatformTransactionManager transactionManager,
+            ClinicalTextCipher clinicalCipher, ObjectMapper json,
             @Value("${app.export.encryption-key:}") String keyText) {
         this.db = db; this.access = access; this.executor = executor;
         this.transaction = new TransactionTemplate(transactionManager);
         this.keyText = keyText;
+        this.clinicalCipher = clinicalCipher;
+        this.json = json;
     }
 
     public Map<String,Object> solicitar(int userId) {
@@ -106,7 +114,7 @@ public class ExportacaoDadosService {
     private void processar(UUID id, int tenant, SecretKey key) {
         try {
             transaction.executeWithoutResult(s -> withTenant(tenant, () -> db.update("UPDATE exportacao_dados SET status='PROCESSANDO',progresso=5,iniciado_em=now() WHERE id=? AND status='PENDENTE'", id)));
-            Export archive = transaction.execute(s -> withTenantResult(tenant, () -> criarArquivo(id)));
+            Export archive = transaction.execute(s -> withTenantResult(tenant, () -> criarArquivo(id, tenant)));
             if (archive == null) return;
             byte[] nonce = new byte[12]; RANDOM.nextBytes(nonce);
             byte[] encrypted = encrypt(archive.bytes(), nonce, key);
@@ -117,7 +125,7 @@ public class ExportacaoDadosService {
         }
     }
 
-    private Export criarArquivo(UUID id) {
+    private Export criarArquivo(UUID id, int tenant) {
         List<String> tables = db.queryForList("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND c.relforcerowsecurity AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attname='id_clinica' AND NOT a.attisdropped) AND c.relname<>'exportacao_dados' ORDER BY c.relname", String.class);
         if (tables.isEmpty() || tables.size() > MAX_TABELAS) throw new IllegalStateException("Catálogo de exportação inválido");
         try (var output = new ByteArrayOutputStream(); var zip = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
@@ -130,7 +138,7 @@ public class ExportacaoDadosService {
                 StringBuilder rows = new StringBuilder();
                 db.query("SELECT row_to_json(t)::text FROM " + quote(table) + " t", rs -> {
                     while (rs.next()) {
-                        rows.append(rs.getString(1)).append('\n');
+                        rows.append(exportRow(table, rs.getString(1), tenant)).append('\n');
                         if (rows.length() > MAX_ARQUIVO_BYTES * 3) throw new IllegalStateException("A exportação excede o limite configurado");
                     }
                 });
@@ -142,6 +150,26 @@ public class ExportacaoDadosService {
             if (output.size() > MAX_ARQUIVO_BYTES) throw new IllegalStateException("A exportação excede 50 MB; solicite exportação assistida");
             return new Export(output.toByteArray(), tables);
         } catch (Exception e) { throw new IllegalStateException("Não foi possível montar a exportação", e); }
+    }
+
+    String exportRow(String table, String serialized, int tenant) {
+        if (!table.equals("prontuario") && !table.equals("documento_clinico")) return serialized;
+        ObjectNode row = (ObjectNode) json.readTree(serialized);
+        JsonNode clinic = row.get("id_clinica");
+        String idColumn = table.equals("prontuario") ? "id_prontuario" : "id_documento_clinico";
+        JsonNode id = row.get(idColumn);
+        if (clinic == null || id == null || clinic.asInt() != tenant || id.asLong() <= 0)
+            throw new IllegalStateException("Clinical export context invalid");
+        String[] fields = table.equals("prontuario")
+                ? new String[]{"queixa_principal", "historia_doenca_atual", "descricao", "exame_fisico",
+                    "hipotese_diagnostica", "diagnostico", "prescricao", "plano_terapeutico", "conduta"}
+                : new String[]{"texto"};
+        for (String field : fields) {
+            JsonNode value = row.get(field);
+            if (value != null && !value.isNull())
+                row.put(field, clinicalCipher.decrypt(value.asText(), tenant, table, field, id.asLong()));
+        }
+        return json.writeValueAsString(row);
     }
 
     private static String quote(String name) { return "\"" + name.replace("\"", "\"\"") + "\""; }

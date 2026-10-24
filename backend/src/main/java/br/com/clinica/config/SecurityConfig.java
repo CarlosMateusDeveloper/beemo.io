@@ -13,6 +13,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
+@org.springframework.context.annotation.Profile("!clinical-migration")
 public class SecurityConfig {
     private final JwtAuthFilter jwt;
     public SecurityConfig(JwtAuthFilter jwt) { this.jwt=jwt; }

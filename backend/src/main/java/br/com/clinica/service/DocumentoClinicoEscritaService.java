@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 // tipo é enum nativo do Postgres (tipo_documento_clinico), sem DEFAULT no
 // banco — mesmo motivo/tratamento de AlergiaEscritaService.
@@ -22,10 +23,13 @@ public class DocumentoClinicoEscritaService {
 
     private final DocumentoClinicoRepository repository;
     private final EntityManager entityManager;
+    private final ClinicalTextCipher cipher;
 
-    public DocumentoClinicoEscritaService(DocumentoClinicoRepository repository, EntityManager entityManager) {
+    public DocumentoClinicoEscritaService(DocumentoClinicoRepository repository, EntityManager entityManager,
+            ClinicalTextCipher cipher) {
         this.repository = repository;
         this.entityManager = entityManager;
+        this.cipher = cipher;
     }
 
     @Transactional
@@ -40,8 +44,12 @@ public class DocumentoClinicoEscritaService {
                 .setParameter("tipo", request.tipo())
                 .setParameter("diasAfastamento", request.diasAfastamento())
                 .setParameter("codigoCid", request.codigoCidRelacionado())
-                .setParameter("texto", request.texto())
+                .setParameter("texto", "")
                 .getSingleResult()).intValue();
+        entityManager.createNativeQuery("UPDATE documento_clinico SET texto = :texto WHERE id_documento_clinico = :id")
+                .setParameter("texto", cipher.encrypt(request.texto(), TenantContext.id(), "documento_clinico", "texto", id))
+                .setParameter("id", id).executeUpdate();
+        entityManager.clear();
         return paraDto(repository.findById(id).orElseThrow());
     }
 
@@ -58,7 +66,7 @@ public class DocumentoClinicoEscritaService {
                 .setParameter("tipo", request.tipo())
                 .setParameter("diasAfastamento", request.diasAfastamento())
                 .setParameter("codigoCid", request.codigoCidRelacionado())
-                .setParameter("texto", request.texto())
+                .setParameter("texto", cipher.encrypt(request.texto(), TenantContext.id(), "documento_clinico", "texto", id))
                 .setParameter("id", id)
                 .executeUpdate();
         entityManager.clear();
@@ -79,8 +87,17 @@ public class DocumentoClinicoEscritaService {
     private DocumentoClinicoDto paraDto(DocumentoClinico d) {
         return new DocumentoClinicoDto(
                 d.getId(), d.getProntuario().getId(), d.getTipo().name(), d.getDiasAfastamento(),
-                d.getCodigoCidRelacionado(), d.getTexto(),
+                d.getCodigoCidRelacionado(), cipher.decrypt(d.getTexto(), TenantContext.id(), "documento_clinico", "texto", d.getId()),
                 d.getEmitidoEm() == null ? null : d.getEmitidoEm().format(DIA_MES_ANO_HORA)
         );
+    }
+
+    public List<DocumentoClinicoDto> listar(Integer idProntuario) {
+        return (idProntuario == null ? repository.findAll() : repository.findByProntuarioId(idProntuario))
+                .stream().map(this::paraDto).toList();
+    }
+
+    public DocumentoClinicoDto buscar(Integer id) {
+        return paraDto(repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
     }
 }
