@@ -1,0 +1,11 @@
+**/.git
+**/node_modules
+**/target
+**/.env
+**/.env.*
+!.env.example
+!.env.production.example
+**/.venv
+**/__pycache__
+output
+tmp
