@@ -1,6 +1,8 @@
 -- Issue #22: WhatsApp oficial, bidirecional e correlacionado ao pos-venda.
 -- Aplicar depois de 023_mensageria_confiavel.sql.
 BEGIN;
+CREATE UNIQUE INDEX IF NOT EXISTS pos_venda_jornada_inscricao_tenant_id_uk
+    ON pos_venda_jornada_inscricao(id_clinica,id_inscricao);
 
 CREATE TABLE whatsapp_integracao (
     id_clinica INTEGER PRIMARY KEY REFERENCES clinica(id_clinica),

@@ -25,7 +25,7 @@ public class ProductionSecurityValidator implements ApplicationRunner {
     }
 
     static void validate(Environment env) {
-        required(env, "DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD", "JWT_SECRET", "EXPORT_ENCRYPTION_KEY",
+        required(env, "DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD", "JWT_SECRET", "EXPORT_ENCRYPTION_KEY", "DATA_ENCRYPTION_KEY",
                 "RESEND_API_KEY", "RESEND_FROM", "APP_FRONTEND_URL", "APP_API_URL", "CORS_ALLOWED_ORIGINS");
         if (!env.getProperty("app.auth.secure-cookies", Boolean.class, false))
             fail("AUTH_SECURE_COOKIES deve ser true em produção");
@@ -35,6 +35,7 @@ public class ProductionSecurityValidator implements ApplicationRunner {
         if (localHost(dbHost)) fail("DB_HOST não pode apontar para localhost em produção");
         strongSecret(env.getProperty("JWT_SECRET"), "JWT_SECRET");
         aes256Key(env.getProperty("EXPORT_ENCRYPTION_KEY"), "EXPORT_ENCRYPTION_KEY");
+        aes256Key(env.getProperty("DATA_ENCRYPTION_KEY"), "DATA_ENCRYPTION_KEY");
         publicHttps(env.getProperty("APP_FRONTEND_URL"), "APP_FRONTEND_URL");
         publicHttps(env.getProperty("APP_API_URL"), "APP_API_URL");
         List<String> origins = Arrays.stream(env.getProperty("CORS_ALLOWED_ORIGINS", "").split(","))

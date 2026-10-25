@@ -27,6 +27,7 @@ class ProductionSecurityValidatorTest {
                 .withProperty("DB_USER", "clinisis_app").withProperty("DB_PASSWORD", "correct-horse-battery-staple")
                 .withProperty("JWT_SECRET", "0123456789abcdef0123456789abcdef")
                 .withProperty("EXPORT_ENCRYPTION_KEY", key).withProperty("RESEND_API_KEY", "re_123")
+                .withProperty("DATA_ENCRYPTION_KEY", key)
                 .withProperty("RESEND_FROM", "Clinisis <acesso@clinisis.com.br>")
                 .withProperty("APP_FRONTEND_URL", "https://app.clinisis.com.br")
                 .withProperty("APP_API_URL", "https://api.clinisis.com.br")

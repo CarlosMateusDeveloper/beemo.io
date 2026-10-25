@@ -28,13 +28,16 @@ public class ProntuarioEscritaService {
     private final ProntuarioRepository repository;
     private final EntityManager entityManager;
     private final AuditoriaEngineService auditoriaEngineService;
+    private final ClinicalTextCipher cipher;
 
     public ProntuarioEscritaService(
-            ProntuarioRepository repository, EntityManager entityManager, AuditoriaEngineService auditoriaEngineService
+            ProntuarioRepository repository, EntityManager entityManager, AuditoriaEngineService auditoriaEngineService,
+            ClinicalTextCipher cipher
     ) {
         this.repository = repository;
         this.entityManager = entityManager;
         this.auditoriaEngineService = auditoriaEngineService;
+        this.cipher = cipher;
     }
 
     @Transactional
@@ -44,8 +47,15 @@ public class ProntuarioEscritaService {
         }
         Prontuario prontuario = new Prontuario();
         prontuario.setConsulta(entityManager.getReference(Consulta.class, request.consultaId()));
-        aplicar(prontuario, request);
+        // IDENTITY allocates the ID on insert. Required columns receive only empty
+        // placeholders inside this transaction; clinical text is written after the ID exists.
+        prontuario.setDescricao("");
+        prontuario.setDiagnostico("");
+        prontuario.setPrescricao("");
         Prontuario salvo = repository.save(prontuario);
+        aplicar(salvo, request);
+        repository.save(salvo);
+        repository.flush();
         atualizarTipoDiagnostico(salvo.getId(), request.tipoDiagnostico());
         // Atendimento finalizado já na criação (fluxo de um passo só) —
         // dispara o motor de auditoria (docs/specs/convenios.md).
@@ -66,6 +76,7 @@ public class ProntuarioEscritaService {
         Integer idConsulta = existente.getConsulta().getId();
         aplicar(existente, request);
         repository.save(existente);
+        repository.flush();
         atualizarTipoDiagnostico(id, request.tipoDiagnostico());
         // "Atendimento finalizado" é o evento real mais próximo de
         // consulta.status = 'Realizada' que existe no monólito Java — a
@@ -78,16 +89,18 @@ public class ProntuarioEscritaService {
     }
 
     private void aplicar(Prontuario prontuario, ProntuarioSalvarRequest request) {
-        prontuario.setQueixaPrincipal(request.queixaPrincipal());
-        prontuario.setHistoriaDoencaAtual(request.historiaDoencaAtual());
-        prontuario.setDescricao(request.descricao());
-        prontuario.setExameFisico(request.exameFisico());
-        prontuario.setHipoteseDiagnostica(request.hipoteseDiagnostica());
-        prontuario.setDiagnostico(request.diagnostico());
+        int tenant = TenantContext.id();
+        long id = prontuario.getId();
+        prontuario.setQueixaPrincipal(cipher.encrypt(request.queixaPrincipal(), tenant, "prontuario", "queixa_principal", id));
+        prontuario.setHistoriaDoencaAtual(cipher.encrypt(request.historiaDoencaAtual(), tenant, "prontuario", "historia_doenca_atual", id));
+        prontuario.setDescricao(cipher.encrypt(requiredText(request.descricao()), tenant, "prontuario", "descricao", id));
+        prontuario.setExameFisico(cipher.encrypt(request.exameFisico(), tenant, "prontuario", "exame_fisico", id));
+        prontuario.setHipoteseDiagnostica(cipher.encrypt(request.hipoteseDiagnostica(), tenant, "prontuario", "hipotese_diagnostica", id));
+        prontuario.setDiagnostico(cipher.encrypt(requiredText(request.diagnostico()), tenant, "prontuario", "diagnostico", id));
         // tipoDiagnostico não é setado aqui — ver atualizarTipoDiagnostico.
-        prontuario.setPrescricao(request.prescricao());
-        prontuario.setPlanoTerapeutico(request.planoTerapeutico());
-        prontuario.setConduta(request.conduta());
+        prontuario.setPrescricao(cipher.encrypt(requiredText(request.prescricao()), tenant, "prontuario", "prescricao", id));
+        prontuario.setPlanoTerapeutico(cipher.encrypt(request.planoTerapeutico(), tenant, "prontuario", "plano_terapeutico", id));
+        prontuario.setConduta(cipher.encrypt(request.conduta(), tenant, "prontuario", "conduta", id));
 
         if (request.finalizar()) {
             if (vazio(request.descricao()) || vazio(request.diagnostico()) || vazio(request.prescricao())) {
@@ -123,6 +136,10 @@ public class ProntuarioEscritaService {
 
     private boolean vazio(String valor) {
         return valor == null || valor.isBlank();
+    }
+
+    private String requiredText(String value) {
+        return value == null ? "" : value;
     }
 
     private ProntuarioSalvoDto paraDto(Prontuario prontuario) {

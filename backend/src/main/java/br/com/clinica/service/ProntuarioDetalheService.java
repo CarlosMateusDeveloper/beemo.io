@@ -33,9 +33,14 @@ public class ProntuarioDetalheService {
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm");
 
     private final EntityManager entityManager;
+    private final ClinicalTextCipher cipher;
+    private final ProntuarioConteudoCifradoService legacy;
 
-    public ProntuarioDetalheService(EntityManager entityManager) {
+    public ProntuarioDetalheService(EntityManager entityManager, ClinicalTextCipher cipher,
+            ProntuarioConteudoCifradoService legacy) {
         this.entityManager = entityManager;
+        this.cipher = cipher;
+        this.legacy = legacy;
     }
 
     @SuppressWarnings("unchecked")
@@ -149,8 +154,15 @@ public class ProntuarioDetalheService {
             String tipo = (String) l[5];
             boolean temProntuario = prontuarioId != null;
             boolean finalizado = l[6] != null;
-            String queixa = (String) l[7];
-            String descricao = (String) l[8];
+            String queixa = prontuarioId == null ? null : cipher.decrypt((String) l[7], TenantContext.id(), "prontuario", "queixa_principal", prontuarioId);
+            String descricao = prontuarioId == null ? null : cipher.decrypt((String) l[8], TenantContext.id(), "prontuario", "descricao", prontuarioId);
+            if (prontuarioId != null && queixa == null && descricao == null) {
+                var earlier = legacy.load(prontuarioId);
+                if (earlier != null) {
+                    queixa = earlier.queixaPrincipal();
+                    descricao = earlier.descricao();
+                }
+            }
 
             String status = !temProntuario ? "sem_registro" : finalizado ? "finalizado" : "pendente";
             String resumo = queixa != null ? queixa : descricao;
@@ -201,13 +213,22 @@ public class ProntuarioDetalheService {
 
         LocalDate data = paraLocalDate(l[6]);
         OffsetDateTime assinadoEm = l[19] == null ? null : paraOffsetDateTime(l[19]);
+        int tenant = TenantContext.id();
+        long id = ((Number) l[0]).longValue();
+        var earlier = l[11] == null ? legacy.load(idProntuario) : null;
         return new ProntuarioDetalheCompletoDto(
                 ((Number) l[0]).intValue(), ((Number) l[1]).intValue(), ((Number) l[2]).intValue(), (String) l[3],
                 ((Number) l[4]).intValue(), (String) l[5],
                 data.format(DIA_MES_ANO), paraLocalTime(l[7]).format(HORA), (String) l[8],
-                (String) l[9], (String) l[10], (String) l[11], (String) l[12],
-                (String) l[13], (String) l[14], (String) l[15],
-                (String) l[16], (String) l[17], (String) l[18],
+                earlier == null ? cipher.decrypt((String) l[9], tenant, "prontuario", "queixa_principal", id) : earlier.queixaPrincipal(),
+                earlier == null ? cipher.decrypt((String) l[10], tenant, "prontuario", "historia_doenca_atual", id) : earlier.historiaDoencaAtual(),
+                earlier == null ? cipher.decrypt((String) l[11], tenant, "prontuario", "descricao", id) : earlier.descricao(),
+                earlier == null ? cipher.decrypt((String) l[12], tenant, "prontuario", "exame_fisico", id) : earlier.exameFisico(),
+                earlier == null ? cipher.decrypt((String) l[13], tenant, "prontuario", "hipotese_diagnostica", id) : earlier.hipoteseDiagnostica(),
+                earlier == null ? cipher.decrypt((String) l[14], tenant, "prontuario", "diagnostico", id) : earlier.diagnostico(), (String) l[15],
+                earlier == null ? cipher.decrypt((String) l[16], tenant, "prontuario", "prescricao", id) : earlier.prescricao(),
+                earlier == null ? cipher.decrypt((String) l[17], tenant, "prontuario", "plano_terapeutico", id) : earlier.planoTerapeutico(),
+                earlier == null ? cipher.decrypt((String) l[18], tenant, "prontuario", "conduta", id) : earlier.conduta(),
                 assinadoEm != null, assinadoEm == null ? null : assinadoEm.toString()
         );
     }
@@ -227,6 +248,7 @@ public class ProntuarioDetalheService {
 
     private OffsetDateTime paraOffsetDateTime(Object valor) {
         if (valor instanceof OffsetDateTime offsetDateTime) return offsetDateTime;
+        if (valor instanceof java.time.Instant instant) return instant.atZone(ZoneId.systemDefault()).toOffsetDateTime();
         if (valor instanceof java.sql.Timestamp timestamp) return timestamp.toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
         throw new IllegalStateException("Tipo de timestamp inesperado: " + valor.getClass());
     }
