@@ -178,6 +178,7 @@ services:
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:?}
       APP_API_URL: ${APP_API_URL:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
+      APP_WEBSOCKET_URL: ${APP_WEBSOCKET_URL:?Defina APP_WEBSOCKET_URL}
     ports:
       - '80:8080'
       - '443:8443'

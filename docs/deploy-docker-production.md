@@ -5,7 +5,7 @@ Este procedimento sobe frontend, API Java, agenda, chatbot, PostgreSQL e Caddy n
 ## Pré-requisitos
 
 - Docker Engine e Compose v2 na VPS; DNS de `APP_FRONTEND_URL` e `APP_API_URL` apontando para ela.
-- Portas públicas 80 e 443 disponíveis para os desafios ACME do Caddy. A restrição do firewall e do SSH pertence à #62.
+- Portas públicas 80 e 443 disponíveis para os desafios ACME do Caddy. A configuração de cabeçalhos, firewall e SSH está em [HTTPS e superfície de rede](network-hardening.md).
 - Backup PostgreSQL `pg_dump -Fc` confiável, com as migrações exigidas pela versão do backend. **Não use `database/schema_clinica.sql` para iniciar produção:** ele contém dados de demonstração.
 - Segredos fora do repositório. Use [`.env.production.example`](../.env.production.example) como referência e mantenha `.env.production` com permissão `0600` sob o usuário de deploy. `DB_ADMIN_PASSWORD` e `DB_PASSWORD` devem ser distintos; a role da aplicação não pode ter `SUPERUSER` nem `BYPASSRLS`.
 
