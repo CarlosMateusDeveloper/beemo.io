@@ -45,16 +45,18 @@ public class ExportacaoDadosService {
     private final TransactionTemplate transaction;
     private final String keyText;
     private final ClinicalTextCipher clinicalCipher;
+    private final ProntuarioConteudoCifradoService legacy;
     private final ObjectMapper json;
 
     public ExportacaoDadosService(JdbcTemplate db, AccessControlService access,
             @Qualifier("exportacaoExecutor") Executor executor, PlatformTransactionManager transactionManager,
-            ClinicalTextCipher clinicalCipher, ObjectMapper json,
+            ClinicalTextCipher clinicalCipher, ProntuarioConteudoCifradoService legacy, ObjectMapper json,
             @Value("${app.export.encryption-key:}") String keyText) {
         this.db = db; this.access = access; this.executor = executor;
         this.transaction = new TransactionTemplate(transactionManager);
         this.keyText = keyText;
         this.clinicalCipher = clinicalCipher;
+        this.legacy = legacy;
         this.json = json;
     }
 
@@ -112,6 +114,7 @@ public class ExportacaoDadosService {
     }
 
     private void processar(UUID id, int tenant, SecretKey key) {
+        TenantContext.set(new TenantService.Access(tenant, "Exportação", "administrador"));
         try {
             transaction.executeWithoutResult(s -> withTenant(tenant, () -> db.update("UPDATE exportacao_dados SET status='PROCESSANDO',progresso=5,iniciado_em=now() WHERE id=? AND status='PENDENTE'", id)));
             Export archive = transaction.execute(s -> withTenantResult(tenant, () -> criarArquivo(id, tenant)));
@@ -122,6 +125,8 @@ public class ExportacaoDadosService {
                     encrypted, nonce, sha256(archive.bytes()), archive.bytes().length, jsonText(archive.tables()), id)));
         } catch (Exception error) {
             transaction.executeWithoutResult(s -> withTenant(tenant, () -> db.update("UPDATE exportacao_dados SET status='FALHA',erro=?,concluido_em=now() WHERE id=? AND status<>'REVOGADA'", safeError(error), id)));
+        } finally {
+            TenantContext.clear();
         }
     }
 
@@ -164,6 +169,17 @@ public class ExportacaoDadosService {
                 ? new String[]{"queixa_principal", "historia_doenca_atual", "descricao", "exame_fisico",
                     "hipotese_diagnostica", "diagnostico", "prescricao", "plano_terapeutico", "conduta"}
                 : new String[]{"texto"};
+        if (table.equals("prontuario") && (row.get("descricao") == null || row.get("descricao").isNull())) {
+            var earlier = legacy.load(Math.toIntExact(id.asLong()));
+            if (earlier != null) {
+                String[] values = earlier.values();
+                for (int i = 0; i < fields.length; i++) {
+                    if (values[i] == null) row.putNull(fields[i]);
+                    else row.put(fields[i], values[i]);
+                }
+                return json.writeValueAsString(row);
+            }
+        }
         for (String field : fields) {
             JsonNode value = row.get(field);
             if (value != null && !value.isNull())

@@ -14,7 +14,7 @@ O backend cifra os nove campos narrativos de `prontuario` e `documento_clinico.t
 ## Implantação e migração legada
 
 1. Pare todos os escritores antigos. Faça backup consistente **e cifrado** do PostgreSQL, incluindo a versão da aplicação, e teste uma restauração. O backup não deve incluir `.env` nem o cofre de chaves.
-2. Aplique `database/migrations/031_clinical_encryption_progress.sql` com o procedimento usual de migração. Configure a chave nova no ambiente do backend.
+2. Aplique primeiro `database/migrations/031_prontuario_conteudo_cifrado.sql` e depois `database/migrations/032_clinical_encryption_progress.sql` com o procedimento usual de migração. Configure a chave nova no ambiente do backend.
 3. Execute o backend novo sem listener HTTP, na raiz `backend`, por exemplo:
 
    ```powershell
@@ -24,6 +24,8 @@ O backend cifra os nove campos narrativos de `prontuario` e `documento_clinico.t
    O processo percorre clínicas e registros em lotes de 50. Cada lote é uma transação; para cada valor legado, cifra e valida uma leitura autenticada **antes** de substituir o texto original. Uma falha reverte o lote. Reexecutar o comando continua de onde parou; campos já cifrados são ignorados. `clinical_encryption_migration` guarda somente contadores por clínica e tabela. O console imprime somente clínica, tabela, lote e quantidade.
 4. Confira que não restam valores em claro, por clínica, para todos os nove campos e `documento_clinico.texto`. Confira também uma leitura autorizada de prontuário e documento, rascunho e registro finalizado, com caracteres acentuados. Não coloque texto clínico nos comandos de auditoria nem em tickets.
 5. Inicie o backend para tráfego com `DATA_ENCRYPTION_ALLOW_LEGACY_READ=false` (padrão). A opção `true` é apenas uma janela de transição explicitamente aprovada quando a migração ainda está em curso; não é a configuração final.
+
+O formato lateral introduzido pela migração 031 continua legível. O job copia seu conteúdo para envelopes por campo, autentica a leitura e mantém a cópia lateral cifrada para recuperação. Enquanto houver cópias laterais, mantenha a chave correspondente; em uma rotação, `DATA_ENCRYPTION_KEYS=1:<chave-v1>` permite que o leitor legado abra a versão 1 mesmo quando `DATA_ENCRYPTION_KEY` ativa já for v2. `DATA_ENCRYPTION_LEGACY_ACTIVE_VERSION` fica em 1 para o formato lateral. A remoção dessas cópias requer uma operação separada de retenção e recuperação.
 
 Para voltar à versão antiga da aplicação, restaure o **backup completo anterior à migração** antes de subir o binário antigo. O código antigo não entende o envelope cifrado. Não tente remover o prefixo `enc:` ou descriptografar manualmente em SQL.
 

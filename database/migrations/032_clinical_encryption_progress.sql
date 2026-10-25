@@ -1,4 +1,4 @@
--- Apply after 030_saas_painel_interno.sql, before running the encryption job.
+-- Apply after 031_prontuario_conteudo_cifrado.sql, before running the encryption job.
 -- No clinical content or key material is stored here.
 BEGIN;
 CREATE TABLE IF NOT EXISTS clinical_encryption_migration (
@@ -15,5 +15,5 @@ DROP POLICY IF EXISTS tenant_isolation ON clinical_encryption_migration;
 CREATE POLICY tenant_isolation ON clinical_encryption_migration
     USING (id_clinica = nullif(current_setting('app.tenant_id', true), '')::integer)
     WITH CHECK (id_clinica = nullif(current_setting('app.tenant_id', true), '')::integer);
-INSERT INTO auth_schema_version(version) VALUES (31) ON CONFLICT DO NOTHING;
+INSERT INTO auth_schema_version(version) VALUES (32) ON CONFLICT DO NOTHING;
 COMMIT;

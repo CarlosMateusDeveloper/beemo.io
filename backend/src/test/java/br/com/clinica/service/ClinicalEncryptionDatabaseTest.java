@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,6 +28,8 @@ class ClinicalEncryptionDatabaseTest {
     @Autowired ProntuarioDetalheService chartDetails;
     @Autowired DocumentoClinicoEscritaService documents;
     @Autowired ClinicalTextCipher cipher;
+    @Autowired ProntuarioConteudoCifradoService legacy;
+    @Autowired PlatformTransactionManager transactionManager;
 
     @AfterEach void clearTenant() { TenantContext.clear(); }
 
@@ -91,4 +95,46 @@ class ClinicalEncryptionDatabaseTest {
         assertEquals(404, denied.getStatusCode().value());
         assertTrue(documents.listar(null).isEmpty());
     }
+
+    @Test
+    @Transactional
+    void sidecarRecordRemainsReadableAndMigrationCopiesWithoutDeletingIt() {
+        assertEquals(System.getenv("CLINICAL_TEST_DB_NAME"),
+                db.queryForObject("SELECT current_database()", String.class));
+        TenantContext.set(new TenantService.Access(1, "Validação", "administrador"));
+        db.queryForObject("SELECT set_config('app.tenant_id', '1', true)", String.class);
+        Integer consultationId = db.queryForObject("""
+                SELECT c.id_consulta FROM consulta c
+                WHERE NOT EXISTS (SELECT 1 FROM prontuario p WHERE p.id_consulta = c.id_consulta)
+                ORDER BY c.id_consulta LIMIT 1
+                """, Integer.class);
+        var draft = charts.criar(new ProntuarioSalvarRequest(consultationId, null,
+                "Queixa temporária", null, "Descrição temporária", null, null,
+                null, null, null, null, null, null, false));
+        legacy.save(draft.id(), new ProntuarioConteudoCifradoService.Conteudo(
+                "Queixa lateral", null, "Descrição lateral", null, null,
+                "Diagnóstico lateral", "Prescrição lateral", null, null));
+        for (String required : new String[]{"descricao", "diagnostico", "prescricao"})
+            db.execute("ALTER TABLE prontuario ALTER COLUMN " + required + " DROP NOT NULL");
+        db.update("""
+                UPDATE prontuario SET queixa_principal=NULL,historia_doenca_atual=NULL,descricao=NULL,
+                    exame_fisico=NULL,hipotese_diagnostica=NULL,diagnostico=NULL,
+                    prescricao=NULL,plano_terapeutico=NULL,conduta=NULL
+                WHERE id_prontuario=?
+                """, draft.id());
+
+        assertEquals("Descrição lateral", chartDetails.detalharProntuario(draft.id()).descricao());
+        new ClinicalEncryptionMigration(db, transactionManager, cipher, legacy, false)
+                .run(new DefaultApplicationArguments(new String[0]));
+        TenantContext.set(new TenantService.Access(1, "Validação", "administrador"));
+        db.queryForObject("SELECT set_config('app.tenant_id', '1', true)", String.class);
+        String stored = db.queryForObject("SELECT descricao FROM prontuario WHERE id_prontuario=?",
+                String.class, draft.id());
+        assertTrue(stored.startsWith("enc:" + cipher.activeVersion() + ":"));
+        assertEquals("Descrição lateral", chartDetails.detalharProntuario(draft.id()).descricao());
+        assertEquals(1, db.queryForObject(
+                "SELECT count(*) FROM prontuario_conteudo_cifrado WHERE id_prontuario=?",
+                Integer.class, draft.id()));
+    }
+
 }

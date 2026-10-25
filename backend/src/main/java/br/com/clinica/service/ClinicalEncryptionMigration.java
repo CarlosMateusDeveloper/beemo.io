@@ -23,13 +23,16 @@ public class ClinicalEncryptionMigration implements ApplicationRunner {
     private final JdbcTemplate db;
     private final TransactionTemplate transaction;
     private final ClinicalTextCipher cipher;
+    private final ProntuarioConteudoCifradoService legacy;
     private final boolean rotate;
 
     public ClinicalEncryptionMigration(JdbcTemplate db, PlatformTransactionManager manager, ClinicalTextCipher cipher,
+            ProntuarioConteudoCifradoService legacy,
             @Value("${app.clinical-encryption.rotate:false}") boolean rotate) {
         this.db = db;
         this.transaction = new TransactionTemplate(manager);
         this.cipher = cipher;
+        this.legacy = legacy;
         this.rotate = rotate;
     }
 
@@ -38,8 +41,13 @@ public class ClinicalEncryptionMigration implements ApplicationRunner {
         cipher.requireActiveKey();
         List<Integer> tenants = db.queryForList("SELECT id_clinica FROM clinica ORDER BY id_clinica", Integer.class);
         for (int tenant : tenants) {
-            migrateTable(tenant, "prontuario");
-            migrateTable(tenant, "documento_clinico");
+            TenantContext.set(new TenantService.Access(tenant, "Migração clínica", "administrador"));
+            try {
+                migrateTable(tenant, "prontuario");
+                migrateTable(tenant, "documento_clinico");
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 
@@ -67,6 +75,8 @@ public class ClinicalEncryptionMigration implements ApplicationRunner {
                 if (!predicate.isEmpty()) predicate.append(" OR ");
                 predicate.append('(').append(field).append(" IS NOT NULL AND ").append(field).append(' ').append(condition).append(')');
             }
+            predicate.append(" OR (descricao IS NULL AND EXISTS (SELECT 1 FROM prontuario_conteudo_cifrado c"
+                    + " WHERE c.id_prontuario = prontuario.id_prontuario))");
             return db.queryForObject("SELECT count(*) FROM prontuario WHERE " + predicate, Long.class);
         });
         if (remaining != 0) throw new IllegalStateException("Clinical encryption migration incomplete");
@@ -82,6 +92,8 @@ public class ClinicalEncryptionMigration implements ApplicationRunner {
                     .append(rotate ? " NOT LIKE 'enc:" + cipher.activeVersion() + ":%'" : " NOT LIKE 'enc:%'")
                     .append(')');
         }
+        where.append(" OR (descricao IS NULL AND EXISTS (SELECT 1 FROM prontuario_conteudo_cifrado c"
+                + " WHERE c.id_prontuario = prontuario.id_prontuario))");
         List<ChartRow> rows = db.query(select + " FROM prontuario WHERE " + where
                 + " ORDER BY id_prontuario LIMIT " + BATCH_SIZE + " FOR UPDATE SKIP LOCKED", (rs, n) -> {
             String[] values = new String[CHART_FIELDS.length];
@@ -90,8 +102,18 @@ public class ClinicalEncryptionMigration implements ApplicationRunner {
         });
         int fields = 0;
         for (ChartRow row : rows) {
+            String[] values = row.values();
+            if (values[2] == null) {
+                var earlier = legacy.load(Math.toIntExact(row.id()));
+                if (earlier != null) {
+                    values = earlier.values();
+                    for (int required : new int[]{2, 5, 6}) {
+                        if (values[required] == null) values[required] = "";
+                    }
+                }
+            }
             for (int i = 0; i < CHART_FIELDS.length; i++) {
-                String value = row.values()[i];
+                String value = values[i];
                 if (value == null || (!rotate && cipher.isEncrypted(value))
                         || (rotate && value.startsWith("enc:" + cipher.activeVersion() + ":"))) continue;
                 String plain = cipher.isEncrypted(value)
