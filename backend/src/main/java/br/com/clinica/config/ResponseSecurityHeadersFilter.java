@@ -22,7 +22,8 @@ public class ResponseSecurityHeadersFilter extends OncePerRequestFilter {
         response.setHeader("Referrer-Policy", "no-referrer");
         response.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=()");
         response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-        if (request.getServletPath().startsWith("/api/auth/")) {
+        if (request.getServletPath().startsWith("/api/auth/")
+                || request.getServletPath().startsWith("/api/v1/auth/")) {
             response.setHeader("Cache-Control", "no-store");
             response.setHeader("Pragma", "no-cache");
         }

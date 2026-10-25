@@ -16,7 +16,6 @@ import Layout from './components/layout/Layout'
 import PosVenda from './modules/pos-venda/PosVenda'
 import Oportunidades from './modules/pos-venda/Oportunidades'
 import RetencaoOportunidades from './modules/pos-venda/RetencaoOportunidades'
-import PosVendaPacientes from './modules/pos-venda/Pacientes'
 import Tarefas from './modules/pos-venda/Tarefas'
 import Jornadas from './modules/pos-venda/Jornadas'
 import Campanhas from './modules/pos-venda/Campanhas'
@@ -51,7 +50,7 @@ const systemRoutes = [
     children: [
       { path: "dashboard", element: <RotaAutorizada permission={['dashboard.operacional.visualizar', 'dashboard.financeiro.visualizar']}><Dashboard /></RotaAutorizada> },
       { path: "pos-venda", element: <RotaAutorizada permission="oportunidade.visualizar"><PosVenda /></RotaAutorizada> },
-      { path: "pos-venda/pacientes", element: <RotaAutorizada permission="oportunidade.visualizar"><PosVendaPacientes /></RotaAutorizada> },
+      { path: "pos-venda/pacientes", element: <Navigate to="/pos-venda/oportunidades" replace /> },
       { path: "pos-venda/oportunidades", element: <RotaAutorizada permission="oportunidade.visualizar"><Oportunidades /></RotaAutorizada> },
       { path: "pos-venda/oportunidades/retencao", element: <RotaAutorizada permission="oportunidade.visualizar"><RetencaoOportunidades /></RotaAutorizada> },
       { path: "pos-venda/jornadas", element: <RotaAutorizada permission={['jornada.executar', 'jornada.configurar']}><Jornadas /></RotaAutorizada> },

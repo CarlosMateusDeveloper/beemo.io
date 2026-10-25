@@ -80,7 +80,7 @@ public class DocumentoClinicoEscritaService {
         try {
             TipoDocumentoClinico.valueOf(request.tipo());
         } catch (IllegalArgumentException | NullPointerException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tipo inválido: " + request.tipo());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de documento clínico inválido");
         }
     }
 

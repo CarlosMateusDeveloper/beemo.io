@@ -116,7 +116,7 @@ public class RecursoGlosaEscritaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Recurso em \"" + recurso.getStatus() + "\" não aceita novos documentos");
         }
         if (request.tipo() == null || !TIPOS_DOCUMENTO_VALIDOS.contains(request.tipo())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tipo de documento inválido: " + request.tipo());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tipo de documento inválido");
         }
 
         RecursoGlosaDocumento documento = new RecursoGlosaDocumento();
@@ -143,7 +143,7 @@ public class RecursoGlosaEscritaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Não é possível enviar: " + String.join("; ", pendencias));
         }
         if (request.canalEnvio() == null || !CANAIS_VALIDOS.contains(request.canalEnvio())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "canalEnvio inválido: " + request.canalEnvio());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Canal de envio inválido");
         }
 
         entityManager.createNativeQuery(

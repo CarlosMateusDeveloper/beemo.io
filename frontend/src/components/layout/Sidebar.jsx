@@ -24,7 +24,6 @@ const NAV_ITEMS = [
 const POS_VENDA_NAV_ITEMS = [
   { to: '/pos-venda', label: 'Dashboard', icon: LayoutDashboard, end: true, permissions: ['oportunidade.visualizar'] },
   { to: '/pos-venda/oportunidades', label: 'Oportunidades', icon: Target, permissions: ['oportunidade.visualizar'] },
-  { to: '/pos-venda/pacientes', label: 'Pacientes', icon: Users, permissions: ['oportunidade.visualizar'] },
   { to: '/pos-venda/whatsapp', label: 'WhatsApp', icon: MessageCircle, permissions: ['whatsapp.visualizar'] },
   { to: '/pos-venda/tarefas', label: 'Tarefas', icon: CheckSquare, permissions: ['tarefa.visualizar'] },
   { to: '/pos-venda/jornadas', label: 'Jornadas', icon: Workflow, permissions: ['jornada.executar', 'jornada.configurar'] },

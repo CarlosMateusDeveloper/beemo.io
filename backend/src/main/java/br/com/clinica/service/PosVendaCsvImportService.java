@@ -614,6 +614,8 @@ public class PosVendaCsvImportService {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
             if (text.startsWith("\uFEFF")) text = text.substring(1);
+            if (text.chars().anyMatch(c -> c == 0 || (c < 32 && c != '\n' && c != '\r' && c != '\t')))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O CSV contém caracteres de controle inválidos");
             char delimiter = detectDelimiter(text);
             List<List<String>> records = parseCsv(text, delimiter);
             if (records.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O CSV está vazio");
@@ -691,13 +693,13 @@ public class PosVendaCsvImportService {
         if (normalized.isBlank()) return null;
         if (Set.of("sim", "true", "1", "aceito", "concedido", "opt_in").contains(normalized)) return "concedido";
         if (Set.of("nao", "false", "0", "revogado", "recusado", "opt_out").contains(normalized)) return "revogado";
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor de consentimento não reconhecido: " + value);
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor de consentimento não reconhecido");
     }
     private static String consentValue(String value, String fallback, Set<String> allowed) {
         String normalized = normalize(value);
         if (normalized.isBlank()) return fallback;
         if (!allowed.contains(normalized)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Canal ou finalidade de consentimento inválido: " + value);
+                "Canal ou finalidade de consentimento inválido");
         return normalized;
     }
     private static String normalize(String value) {

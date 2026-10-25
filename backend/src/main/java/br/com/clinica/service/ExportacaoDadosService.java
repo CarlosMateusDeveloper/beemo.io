@@ -24,6 +24,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ import org.springframework.web.server.ResponseStatusException;
 /** Exportação assíncrona, cifrada e limitada ao tenant da sessão atual. */
 @Service
 public class ExportacaoDadosService {
+    private static final Logger log = LoggerFactory.getLogger(ExportacaoDadosService.class);
     private static final int MAX_TABELAS = 120;
     private static final long MAX_ARQUIVO_BYTES = 50L * 1024 * 1024;
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -124,6 +127,7 @@ public class ExportacaoDadosService {
             transaction.executeWithoutResult(s -> withTenant(tenant, () -> db.update("UPDATE exportacao_dados SET status='PRONTA',progresso=100,arquivo_criptografado=?,arquivo_nonce=?,arquivo_sha256=?,tamanho_bytes=?,tabelas_exportadas=CAST(? AS jsonb),concluido_em=now() WHERE id=? AND status='PROCESSANDO'",
                     encrypted, nonce, sha256(archive.bytes()), archive.bytes().length, jsonText(archive.tables()), id)));
         } catch (Exception error) {
+            log.error("Falha ao gerar exportação (id {}, tipo {})", id, error.getClass().getSimpleName());
             transaction.executeWithoutResult(s -> withTenant(tenant, () -> db.update("UPDATE exportacao_dados SET status='FALHA',erro=?,concluido_em=now() WHERE id=? AND status<>'REVOGADA'", safeError(error), id)));
         } finally {
             TenantContext.clear();
@@ -206,7 +210,7 @@ public class ExportacaoDadosService {
     private static byte[] encrypt(byte[] plain, byte[] nonce, SecretKey key) { return crypt(Cipher.ENCRYPT_MODE, plain, nonce, key); }
     private static byte[] decrypt(byte[] cipher, byte[] nonce, SecretKey key) { return crypt(Cipher.DECRYPT_MODE, cipher, nonce, key); }
     private static byte[] crypt(int mode, byte[] bytes, byte[] nonce, SecretKey key) { try { Cipher c=Cipher.getInstance("AES/GCM/NoPadding"); c.init(mode,key,new GCMParameterSpec(128,nonce)); return c.doFinal(bytes); } catch(Exception e) { throw new ResponseStatusException(HttpStatus.CONFLICT,"Não foi possível abrir a exportação"); } }
-    private static String safeError(Exception e) { String message=e.getMessage()==null?"Falha ao gerar exportação":e.getMessage(); return message.substring(0, Math.min(message.length(),500)); }
+    static String safeError(Exception ignored) { return "Falha ao gerar exportação"; }
     private static String jsonText(List<String> values) {
         return values.stream().map(value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
                 .collect(java.util.stream.Collectors.joining(",", "[", "]"));

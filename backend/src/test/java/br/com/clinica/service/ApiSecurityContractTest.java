@@ -91,6 +91,33 @@ class ApiSecurityContractTest {
                 .content("{\"email\":\"" + address + "\",\"senha\":\"incorreta\"}"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("E-mail ou senha inválidos"));
     }
+
+    @Test void csrfECorsBloqueiamOrigemNaoRegistradaEMutacaoSemToken() throws Exception {
+        String token = jwt.gerar(user);
+        mvc.perform(post("/api/v1/dashboard").header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+        mvc.perform(options("/api/v1/dashboard").header("Origin", "https://nao-autorizado.example")
+            .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden())
+            .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+        mvc.perform(options("/api/v1/dashboard").header("Origin", "http://localhost:5173")
+            .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    @Test void respostaDeErroNaoReproduzCredenciaisECabecalhosProtegemApi() throws Exception {
+        String secret = "credencial-sensivel-123";
+        var result = mvc.perform(post("/api/v1/auth/login").with(csrf())
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"email\":\"ausente@example.invalid\",\"senha\":\"" + secret + "\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+            .andExpect(header().string("X-Frame-Options", "DENY"))
+            .andExpect(header().string("Referrer-Policy", "no-referrer"))
+            .andReturn();
+        assertFalse(result.getResponse().getContentAsString().contains(secret));
+    }
     @Test void recusaAusenteInvalidoExpiradoERevogado() throws Exception {
         var expired = new JwtService("test-secret-32-bytes-long-123456789", -1).gerar(user);
         mvc.perform(get("/api/usuarios")).andExpect(status().isUnauthorized());

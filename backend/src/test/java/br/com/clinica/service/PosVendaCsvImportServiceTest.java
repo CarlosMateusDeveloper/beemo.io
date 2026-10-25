@@ -74,6 +74,36 @@ class PosVendaCsvImportServiceTest {
         assertEquals(413, error.getStatusCode().value());
     }
 
+    @Test void previewRejeitaBinarioDisfarcadoDeCsv() {
+        var file = new MockMultipartFile("arquivo", "dados.csv", "text/csv",
+                "id;nome\n1;Paciente\u0000Teste".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var error = assertThrows(ResponseStatusException.class, () ->
+                new PosVendaCsvImportService(null, Clock.systemUTC()).preview(file, "America/Fortaleza"));
+        assertEquals(400, error.getStatusCode().value());
+        assertFalse(error.getReason().contains("Paciente"));
+    }
+
+    @Test void previewRejeitaMaisDeVinteMilLinhas() {
+        var csv = new StringBuilder("id;nome\n");
+        for (int i = 0; i <= PosVendaCsvImportService.MAX_ROWS; i++) csv.append("1;Paciente\n");
+        var file = new MockMultipartFile("arquivo", "dados.csv", "text/csv",
+                csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var error = assertThrows(ResponseStatusException.class, () ->
+                new PosVendaCsvImportService(null, Clock.systemUTC()).preview(file, "America/Fortaleza"));
+        assertEquals(413, error.getStatusCode().value());
+    }
+
+    @Test void erroDeConsentimentoNaoRepeteDadosDoArquivo() {
+        String csv = "paciente_id;nome_paciente;telefone;atendimento_id;data_hora;profissional;especialidade;procedimento;status;consentimento\n"
+                + "P-1;Paciente fictício;85999999999;A-1;10/10/2026 09:00;Dra. Ana;Clínica;Consulta;Faltou;segredo-clinico";
+        var file = new MockMultipartFile("arquivo", "dados.csv", "text/csv",
+                csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var preview = new PosVendaCsvImportService(null, Clock.systemUTC()).preview(file, "America/Fortaleza");
+        var row = (Map<?, ?>) ((List<?>) preview.get("amostra")).getFirst();
+        assertEquals("consentimento_invalido", row.get("codigo"));
+        assertFalse(row.get("mensagem").toString().contains("segredo-clinico"));
+    }
+
     @Test void previewRejeitaArquivoSemDados() {
         var service = new PosVendaCsvImportService(null, Clock.systemUTC());
         var file = new MockMultipartFile("arquivo", "vazio.csv", "text/csv", "paciente_id;nome_paciente\n".getBytes());
