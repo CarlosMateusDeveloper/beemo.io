@@ -10,6 +10,7 @@ class ResponseSecurityHeadersFilterTest {
     @Test
     void protegeRespostasDaApiESinalizaAutenticacaoComoNaoCacheavel() throws Exception {
         var request = new MockHttpServletRequest("POST", "/api/auth/login");
+        request.setServletPath("/api/auth/login");
         var response = new MockHttpServletResponse();
 
         new ResponseSecurityHeadersFilter().doFilter(request, response, (req, res) -> {});
