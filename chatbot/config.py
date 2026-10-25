@@ -1,10 +1,20 @@
 import os
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL and all(os.getenv(name) for name in ("DB_HOST", "DB_NAME", "DB_USER", "DB_PASSWORD")):
+    DATABASE_URL = URL.create(
+        "postgresql+psycopg",
+        username=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        host=os.environ["DB_HOST"],
+        port=int(os.getenv("DB_PORT", "5432")),
+        database=os.environ["DB_NAME"],
+    )
 SISTEMA_API_URL = os.getenv("SISTEMA_API_URL")
 
 # Placeholder de multiempresa: ainda nao existe sessao/login real (Fase 0 do

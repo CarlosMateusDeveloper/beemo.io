@@ -1,0 +1,41 @@
+{
+    http_port 8080
+    https_port 8443
+    email {$ACME_EMAIL}
+}
+
+{$APP_FRONTEND_URL} {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+    handle /oauth2/* {
+        reverse_proxy backend:8080
+    }
+    handle /login/oauth2/* {
+        reverse_proxy backend:8080
+    }
+    handle_path /agenda-api/* {
+        reverse_proxy agenda:8081
+    }
+    handle_path /chatbot-api/* {
+        reverse_proxy chatbot:8082
+    }
+    handle {
+        reverse_proxy frontend:8080
+    }
+}
+
+{$APP_API_URL} {
+    encode zstd gzip
+    handle /actuator {
+        respond 404
+    }
+    handle /actuator/* {
+        respond 404
+    }
+    handle {
+        reverse_proxy backend:8080
+    }
+}

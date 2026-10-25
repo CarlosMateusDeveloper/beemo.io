@@ -52,6 +52,7 @@ public class SecurityConfig {
                     "/api/v1/auth/csrf","/api/v1/auth/providers","/api/v1/auth/logout","/error").permitAll()
                 .requestMatchers("/api/auth/session/check","/api/v1/auth/session/check").hasAuthority("TENANT_ACCESS")
                 .requestMatchers("/api/auth/**","/api/v1/auth/**","/api/tenants","/api/tenants/**").authenticated()
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers(HttpMethod.GET,"/api/saas/me","/api/saas/clinicas","/api/saas/acoes")
                     .hasAuthority("SAAS_saas.dashboard.visualizar")

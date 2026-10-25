@@ -15,3 +15,13 @@ server:
 
 app:
   production: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+        exclude: ''
+  endpoint:
+    health:
+      show-details: never

@@ -116,6 +116,10 @@ func requirePermission(permission string, next http.Handler) http.Handler {
 
 func withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		access, status, code := readSessionAccess(r.Context(), r)
 		if status != http.StatusOK {
 			w.Header().Set("Content-Type", "application/json")

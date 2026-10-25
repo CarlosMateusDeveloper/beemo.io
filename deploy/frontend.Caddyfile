@@ -1,0 +1,10 @@
+{
+    admin off
+    persist_config off
+}
+
+:8080 {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+}
