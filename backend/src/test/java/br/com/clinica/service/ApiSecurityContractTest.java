@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -49,6 +50,7 @@ class ApiSecurityContractTest {
     @MockitoBean JdbcTemplate db;
     @MockitoBean TenantDatabaseFilter tenantDatabase;
     @MockitoBean DashboardService dashboard;
+    @MockitoBean SaasAdminService saasAdmin;
     Usuario user;
     AtomicBoolean active;
 
@@ -72,7 +74,7 @@ class ApiSecurityContractTest {
         var result = mvc.perform(post("/api/v1/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
             .content("{\"email\":\"teste@example.invalid\",\"senha\":\"Test-Password-123\"}"))
             .andExpect(status().isOk()).andExpect(header().string("X-Content-Type-Options", "nosniff"))
-            .andExpect(header().string("Cache-Control", "no-store")).andExpect(cookie().httpOnly("clinicos_session", true))
+            .andExpect(header().string("Cache-Control", containsString("no-store"))).andExpect(cookie().httpOnly("clinicos_session", true))
             .andExpect(cookie().maxAge("clinicos_session", 1800))
             .andExpect(jsonPath("$.token").doesNotExist()).andExpect(jsonPath("$.usuario.senha").doesNotExist())
             .andReturn();

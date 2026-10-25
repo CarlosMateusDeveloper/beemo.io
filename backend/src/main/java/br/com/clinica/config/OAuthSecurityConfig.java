@@ -8,6 +8,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@Profile("!clinical-migration")
 public class OAuthSecurityConfig {
     public static final String LINK_USER="clinicos.linkUser";
     public static final String LINK_PROVIDER="clinicos.linkProvider";

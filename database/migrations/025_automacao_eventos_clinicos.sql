@@ -1,6 +1,8 @@
 -- Issue #20: automacao idempotente baseada em eventos da agenda e do prontuario.
 -- Aplicar depois de 024_whatsapp_bidirecional.sql.
 BEGIN;
+CREATE UNIQUE INDEX IF NOT EXISTS pos_venda_tarefa_tenant_id_uk
+    ON pos_venda_tarefa(id_clinica,id_tarefa);
 
 ALTER TABLE pos_venda_jornada_inscricao
     DROP CONSTRAINT IF EXISTS pos_venda_jornada_inscricao_status_check;

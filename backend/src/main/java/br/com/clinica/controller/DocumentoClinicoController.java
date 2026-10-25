@@ -2,7 +2,6 @@ package br.com.clinica.controller;
 
 import br.com.clinica.dto.DocumentoClinicoDto;
 import br.com.clinica.dto.DocumentoClinicoRequest;
-import br.com.clinica.model.DocumentoClinico;
 import br.com.clinica.repository.DocumentoClinicoRepository;
 import br.com.clinica.service.DocumentoClinicoEscritaService;
 import org.springframework.http.HttpStatus;
@@ -25,17 +24,13 @@ public class DocumentoClinicoController {
     }
 
     @GetMapping
-    public List<DocumentoClinico> listar(@RequestParam(required = false) Integer idProntuario) {
-        if (idProntuario != null) {
-            return repository.findByProntuarioId(idProntuario);
-        }
-        return repository.findAll();
+    public List<DocumentoClinicoDto> listar(@RequestParam(required = false) Integer idProntuario) {
+        return escritaService.listar(idProntuario);
     }
 
     @GetMapping("/{id}")
-    public DocumentoClinico buscar(@PathVariable Integer id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    public DocumentoClinicoDto buscar(@PathVariable Integer id) {
+        return escritaService.buscar(id);
     }
 
     @PostMapping

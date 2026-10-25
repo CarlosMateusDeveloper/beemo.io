@@ -1,5 +1,7 @@
 # API ClinicOS
 
+Criptografia clínica: [chaves, migração, backup, rotação e recuperação](../docs/clinical-encryption.md).
+
 Java 21, Spring Boot 4.1, Spring MVC, Spring Security, JPA/Hibernate e PostgreSQL.
 Controllers recebem DTOs, services aplicam regras/agregações, repositories e EntityManager acessam o banco.
 
