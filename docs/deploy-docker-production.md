@@ -28,6 +28,8 @@ Este procedimento sobe frontend, API Java, agenda, chatbot, PostgreSQL e Caddy n
 
    ```bash
    docker compose --env-file .env.production -f docker-compose.production.yml build
+   docker compose --env-file .env.production -f docker-compose.production.yml \
+     run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
    docker compose --env-file .env.production -f docker-compose.production.yml up -d --no-build
    docker compose --env-file .env.production -f docker-compose.production.yml ps
    ```
