@@ -79,6 +79,23 @@ class PosVendaDatabaseTest {
         assertEquals(0, scalar("SELECT count(*) FROM pos_venda_tarefa WHERE titulo='Retorno B'"));
     }
 
+    @Test void rlsRecusaContextoAusenteEEscritaEmOutraClinica() throws Exception {
+        tenant(1);
+        sql("INSERT INTO pos_venda_tarefa(id_paciente,titulo,id_responsavel,prioridade,prazo,origem,criado_por,atualizado_por) "
+                + "VALUES (100,'Tarefa protegida',10,'alta',now(),'consulta',10,10)");
+        assertThrows(java.sql.SQLException.class, () -> sql("""
+                INSERT INTO pos_venda_tarefa(id_clinica,id_paciente,titulo,id_responsavel,prioridade,prazo,origem,criado_por,atualizado_por)
+                VALUES (2,200,'Invasão',20,'alta',now(),'consulta',20,20)
+                """));
+        tenant(2);
+        assertEquals(0, affected("UPDATE pos_venda_tarefa SET titulo='Alterada' WHERE titulo='Tarefa protegida'"));
+        assertEquals(0, scalar("SELECT count(*) FROM pos_venda_tarefa WHERE titulo='Tarefa protegida'"));
+        sql("RESET app.tenant_id");
+        assertEquals(0, scalar("SELECT count(*) FROM pos_venda_tarefa"));
+        tenant(1);
+        assertEquals(1, scalar("SELECT count(*) FROM pos_venda_tarefa WHERE titulo='Tarefa protegida'"));
+    }
+
     static void tenant(int id) throws Exception { sql("SET app.tenant_id TO '" + id + "'"); }
     static long scalar(String query) throws Exception {
         try (var statement = connection.createStatement(); var result = statement.executeQuery(query)) {
@@ -87,5 +104,8 @@ class PosVendaDatabaseTest {
     }
     static void sql(String value) throws Exception {
         try (var statement = connection.createStatement()) { statement.execute(value); }
+    }
+    static int affected(String value) throws Exception {
+        try (var statement = connection.createStatement()) { return statement.executeUpdate(value); }
     }
 }

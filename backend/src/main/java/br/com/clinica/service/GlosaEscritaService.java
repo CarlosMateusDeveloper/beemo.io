@@ -88,10 +88,10 @@ public class GlosaEscritaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Glosa já concluída (" + existente.getStatus() + ") não pode ser reclassificada");
         }
         if (request.recorribilidade() != null && !RECORRIBILIDADES_VALIDAS.contains(request.recorribilidade())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "recorribilidade inválida: " + request.recorribilidade());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Recorribilidade inválida");
         }
         if (request.categoriaMotivo() != null && !CATEGORIAS_VALIDAS.contains(request.categoriaMotivo())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "categoriaMotivo inválida: " + request.categoriaMotivo());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Categoria do motivo inválida");
         }
 
         existente.setRecorribilidade(request.recorribilidade());

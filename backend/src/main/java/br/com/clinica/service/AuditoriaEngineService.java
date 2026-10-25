@@ -66,7 +66,8 @@ public class AuditoriaEngineService {
         try {
             avaliar(idConsulta);
         } catch (Exception e) {
-            log.warn("Falha ao avaliar auditoria do atendimento (consulta {}): {}", idConsulta, e.getMessage(), e);
+            log.warn("Falha ao avaliar auditoria do atendimento (consulta {}, tipo {})",
+                    idConsulta, e.getClass().getSimpleName());
         }
     }
 

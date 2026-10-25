@@ -22,7 +22,8 @@ public class AccessAuditService {
                             + "VALUES (?,?,?,?,?,?,?)", tenant, user, action, resource, method, result, address);
         } catch (RuntimeException exception) {
             // Auditoria não pode transformar uma resposta já concluída em erro de aplicação.
-            log.error("Não foi possível gravar auditoria de acesso", exception);
+            log.error("Não foi possível gravar auditoria de acesso (tipo {})",
+                    exception.getClass().getSimpleName());
         }
     }
 
