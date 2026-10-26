@@ -22,6 +22,7 @@ public class TenantDatabaseFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest req) {
         String path=req.getServletPath();
         return !path.startsWith("/api/") || path.startsWith("/api/auth/") || path.startsWith("/api/v1/auth/")
+            || path.startsWith("/api/pre-atendimento/publico")
             || path.equals("/api/tenants") || path.startsWith("/api/tenants/");
     }
     @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain) throws ServletException,IOException {
