@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PreAtendimentoMigrationContractTest {
     @Test void contratoProtegeEscopoExpiracaoConcorrenciaEIsolamento() throws Exception {
-        String sql=Files.readString(Path.of("..","database","migrations","027_pre_atendimento_seguro.sql"));
+        String sql=Files.readString(Path.of("..","database","migrations","033_pre_atendimento_seguro.sql"));
         assertTrue(sql.contains("token_hash CHAR(64) PRIMARY KEY"));
         assertTrue(sql.contains("expira_em TIMESTAMPTZ NOT NULL"));
         assertTrue(sql.contains("revogado_em TIMESTAMPTZ"));

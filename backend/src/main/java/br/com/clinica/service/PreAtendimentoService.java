@@ -73,6 +73,8 @@ public class PreAtendimentoService {
         int hours = input != null && input.validadeHoras() != null ? Math.max(1, Math.min(168, input.validadeHoras())) : 48;
         List<String> scopes = input == null || input.escopo() == null || input.escopo().isEmpty()
                 ? List.copyOf(SCOPES) : input.escopo().stream().filter(SCOPES::contains).distinct().toList();
+        if (input != null && input.escopo() != null && !SCOPES.containsAll(input.escopo()))
+            throw bad("O link contém ações desconhecidas");
         if (scopes.isEmpty()) throw bad("Informe ao menos uma ação permitida");
         db.update("""
                 INSERT INTO auth_pre_atendimento_acesso(token_hash,id_clinica,id_consulta,id_pre_atendimento,escopo,expira_em,criado_por)
@@ -148,7 +150,7 @@ public class PreAtendimentoService {
                 "expiraEm",access.get("expira_em"),"escopo",scopes(access));
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public Map<String,Object> verificar(String token, PreAtendimentoDtos.Verificar input) {
         var access = acesso(token,true);
         boolean matches = Boolean.TRUE.equals(db.queryForObject("""
@@ -169,6 +171,7 @@ public class PreAtendimentoService {
     @Transactional
     public Map<String,Object> dadosPublicos(String token, String session) {
         var access = sessao(token,session);
+        var granted = scopes(access);
         var row = new LinkedHashMap<>(db.queryForMap("""
                 SELECT pa.id_pre_atendimento AS id,pa.status,pa.versao,pa.dados_propostos::text AS "dadosPropostos",
                        pa.respostas::text AS respostas,p.nome,p.email,p.ddd,p.numero,p.cep,p.logradouro,
@@ -182,7 +185,15 @@ public class PreAtendimentoService {
                 JOIN pre_atendimento_formulario_versao f ON f.id_formulario=pa.id_formulario
                 WHERE pa.id_pre_atendimento=?
                 """, access.get("id_pre_atendimento")));
-        row.put("anexos",anexos(((Number)access.get("id_pre_atendimento")).longValue()));
+        row.put("escopo", granted);
+        if (granted.contains("documentos"))
+            row.put("anexos",anexos(((Number)access.get("id_pre_atendimento")).longValue()));
+        if (!granted.contains("cadastro"))
+            for (String field : List.of("dadosPropostos","nome","email","ddd","numero","cep","logradouro",
+                    "numeroEndereco","complemento","bairro","cidade","uf")) row.remove(field);
+        if (!granted.contains("formulario"))
+            for (String field : List.of("respostas","formulario","formularioVersao","campos")) row.remove(field);
+        if (!granted.contains("orientacoes")) row.remove("orientacoes");
         return decodeJsonColumns(row);
     }
 
@@ -190,11 +201,16 @@ public class PreAtendimentoService {
     public Map<String,Object> salvar(String token, String session, PreAtendimentoDtos.Salvar input) {
         var access = sessao(token,session);
         long id = ((Number)access.get("id_pre_atendimento")).longValue();
+        boolean cadastro = scopes(access).contains("cadastro");
+        boolean formulario = scopes(access).contains("formulario");
+        if (!cadastro && !input.dadosPropostos().isEmpty()) requireScope(access,"cadastro");
+        if (!formulario && !input.respostas().isEmpty()) requireScope(access,"formulario");
         validarChaves(input.dadosPropostos());
         int changed = db.update("""
-                UPDATE pre_atendimento SET dados_propostos=CAST(? AS jsonb),respostas=CAST(? AS jsonb),
+                UPDATE pre_atendimento SET dados_propostos=CASE WHEN ? THEN CAST(? AS jsonb) ELSE dados_propostos END,
+                  respostas=CASE WHEN ? THEN CAST(? AS jsonb) ELSE respostas END,
                   versao=versao+1,atualizado_em=now() WHERE id_pre_atendimento=? AND versao=? AND status IN ('rascunho','pendente')
-                """,write(input.dadosPropostos()),write(input.respostas()),id,input.versao());
+                """,cadastro,write(input.dadosPropostos()),formulario,write(input.respostas()),id,input.versao());
         if(changed==0) throw conflict("Os dados foram alterados em outro acesso. Recarregue antes de continuar.");
         evento(id,"rascunho_salvo",null,Map.of("versaoAnterior",input.versao()));
         return dadosPublicos(token,session);
@@ -203,6 +219,8 @@ public class PreAtendimentoService {
     @Transactional
     public Map<String,Object> enviar(String token, String session, int versao) {
         var access = sessao(token,session);
+        if (scopes(access).stream().noneMatch(Set.of("cadastro","formulario","documentos")::contains))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Este link não permite envio");
         long id = ((Number)access.get("id_pre_atendimento")).longValue();
         int changed=db.update("""
                 UPDATE pre_atendimento SET status='enviado',enviado_em=now(),atualizado_em=now(),versao=versao+1
@@ -217,10 +235,13 @@ public class PreAtendimentoService {
     public Map<String,Object> anexar(String token, String session, MultipartFile file) {
         var access=sessao(token,session);
         requireScope(access,"documentos");
+        long pre=((Number)access.get("id_pre_atendimento")).longValue();
+        String status=db.queryForObject("SELECT status FROM pre_atendimento WHERE id_pre_atendimento=? FOR UPDATE",String.class,pre);
+        if (!Set.of("rascunho","pendente").contains(status)) throw conflict("Este pré-atendimento já foi enviado");
+        if (file.getSize() > MAX_FILE_SIZE) throw bad("O arquivo deve ter no máximo 8 MB");
         byte[] bytes;
         try { bytes=file.getBytes(); } catch(Exception error) { throw bad("Não foi possível ler o arquivo"); }
         String mime=validarArquivo(file.getOriginalFilename(),file.getContentType(),bytes);
-        long pre=((Number)access.get("id_pre_atendimento")).longValue();
         String digest=sha256(bytes);
         try {
             long id=db.queryForObject("""
@@ -243,6 +264,7 @@ public class PreAtendimentoService {
     @Transactional
     public Download baixarPublico(String token,String session,long attachment) {
         var access=sessao(token,session);
+        requireScope(access,"documentos");
         return baixar(((Number)access.get("id_pre_atendimento")).longValue(),attachment);
     }
 
@@ -252,7 +274,8 @@ public class PreAtendimentoService {
                 SELECT a.*,c.nome AS clinica,CASE WHEN a.revogado_em IS NOT NULL THEN 'revogado'
                   WHEN a.expira_em<=now() THEN 'expirado' WHEN a.tentativas>=a.max_tentativas THEN 'bloqueado' ELSE 'ativo' END AS estado
                 FROM auth_pre_atendimento_acesso a JOIN clinica c ON c.id_clinica=a.id_clinica WHERE a.token_hash=?
-                """,sha256(raw)).stream().findFirst().orElseThrow(() -> notFound("Acesso não encontrado"));
+                """ + (countLocked ? " FOR UPDATE OF a" : ""),sha256(raw))
+                .stream().findFirst().orElseThrow(() -> notFound("Acesso não encontrado"));
         String state=Objects.toString(row.get("estado"));
         if(!state.equals("ativo")) throw new ResponseStatusException(HttpStatus.GONE,
                 state.equals("expirado")?"Este link expirou.":state.equals("revogado")?"Este link foi revogado.":"Este link foi bloqueado após tentativas inválidas.");
@@ -309,7 +332,6 @@ public class PreAtendimentoService {
     }
     private void tenant(int id) { db.queryForObject("SELECT set_config('app.tenant_id',?,true)",String.class,Integer.toString(id)); }
     private void requireScope(Map<String,Object> access,String scope) {
-        Object value=access.get("escopo");
         boolean allowed=scopes(access).contains(scope);
         if(!allowed) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Este link não permite essa ação");
     }

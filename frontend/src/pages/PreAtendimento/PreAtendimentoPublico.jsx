@@ -16,7 +16,8 @@ function readToken() {
 
 export default function PreAtendimentoPublico() {
   const token = useMemo(() => readToken(), [])
-  const [session, setSession] = useState(() => sessionStorage.getItem(SESSION_KEY) || '')
+  const sessionKey = `${SESSION_KEY}:${token}`
+  const [session, setSession] = useState(() => sessionStorage.getItem(sessionKey) || '')
   const [clinic, setClinic] = useState('Sua clínica')
   const [step, setStep] = useState(session ? 'form' : 'verify')
   const [identity, setIdentity] = useState({ dataNascimento: '', cpfUltimos4: '' })
@@ -26,6 +27,8 @@ export default function PreAtendimentoPublico() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(() => token ? '' : 'Link de pré-atendimento inválido.')
   const [notice, setNotice] = useState('')
+  const granted = data?.escopo || []
+  const canEdit = granted.some(scope => ['cadastro', 'formulario', 'documentos'].includes(scope))
 
   useEffect(() => {
     if (!token) return
@@ -36,29 +39,33 @@ export default function PreAtendimentoPublico() {
     if (!session || step !== 'form') return
     carregarFormulario(token, session).then(result => {
       setData(result)
-      setRegistration({
+      setRegistration(result.escopo.includes('cadastro') ? {
         nome: result.nome || '', email: result.email || '', ddd: result.ddd || '', numero: result.numero || '',
         cep: result.cep || '', logradouro: result.logradouro || '', numeroEndereco: result.numeroEndereco || '',
         complemento: result.complemento || '', bairro: result.bairro || '', cidade: result.cidade || '', uf: result.uf || '',
         ...(result.dadosPropostos || {}),
-      })
+      } : {})
       setAnswers(result.respostas || {})
       if (result.status === 'enviado' || result.status === 'aprovado') setStep('done')
-    }).catch(err => { sessionStorage.removeItem(SESSION_KEY); setSession(''); setStep('verify'); setError(err.message) })
-  }, [session, step, token])
+    }).catch(err => { sessionStorage.removeItem(sessionKey); setSession(''); setStep('verify'); setError(err.message) })
+  }, [session, sessionKey, step, token])
 
   async function verify(event) {
     event.preventDefault(); setBusy(true); setError('')
     try {
       const result = await verificarIdentidade(token, identity)
-      sessionStorage.setItem(SESSION_KEY, result.sessao); setSession(result.sessao); setStep('form')
+      sessionStorage.setItem(sessionKey, result.sessao); setSession(result.sessao); setStep('form')
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
   async function save(showNotice = true) {
     setBusy(true); setError('')
     try {
-      const result = await salvarRascunho(token, session, { versao: data.versao, dadosPropostos: registration, respostas: answers })
+      const result = await salvarRascunho(token, session, {
+        versao: data.versao,
+        dadosPropostos: granted.includes('cadastro') ? registration : {},
+        respostas: granted.includes('formulario') ? answers : {},
+      })
       setData(result); if (showNotice) setNotice('Rascunho salvo com segurança.')
       return result
     } catch (err) { setError(err.message); throw err } finally { setBusy(false) }
@@ -66,7 +73,11 @@ export default function PreAtendimentoPublico() {
 
   async function submit(event) {
     event.preventDefault(); setNotice('')
-    try { const saved = await save(false); await enviarFormulario(token, session, saved.versao); setStep('done') } catch { /* mensagem já exibida */ }
+    try {
+      const version = granted.some(scope => ['cadastro', 'formulario'].includes(scope)) ? (await save(false)).versao : data.versao
+      await enviarFormulario(token, session, version)
+      setStep('done')
+    } catch (err) { setError(err.message) }
   }
 
   async function upload(event) {
@@ -93,27 +104,27 @@ export default function PreAtendimentoPublico() {
       </form>}
 
       {step === 'form' && data && <form onSubmit={submit}>
-        <p className="pre-eyebrow">{data.formulario} · versão {data.formularioVersao}</p><h1>Prepare sua consulta</h1>
+        {granted.includes('formulario') && <p className="pre-eyebrow">{data.formulario} · versão {data.formularioVersao}</p>}<h1>Prepare sua consulta</h1>
         <p className="pre-lead">Confira o cadastro e responda às perguntas. Alterações serão revisadas pela clínica.</p>
         <div className="pre-appointment"><strong>{data.profissional}</strong><span>{new Date(`${data.dataConsulta}T12:00:00`).toLocaleDateString('pt-BR')} · {String(data.horaConsulta).slice(0, 5)}</span></div>
-        <h2>Seus dados</h2>
+        {granted.includes('cadastro') && <><h2>Seus dados</h2>
         <div className="pre-grid">
           {[
             ['nome','Nome completo'],['email','E-mail'],['ddd','DDD'],['numero','Telefone'],['cep','CEP'],['logradouro','Logradouro'],
             ['numeroEndereco','Número'],['complemento','Complemento'],['bairro','Bairro'],['cidade','Cidade'],['uf','UF'],
           ].map(([key,label]) => <label key={key} className={key === 'nome' || key === 'logradouro' ? 'wide' : ''}>{label}<input value={registration[key] || ''} onChange={e => setRegistration({ ...registration, [key]: e.target.value })} /></label>)}
-        </div>
-        <h2>Informações para a equipe</h2>
+        </div></>}
+        {granted.includes('formulario') && <><h2>Informações para a equipe</h2>
         {(data.campos || []).filter(field => !['telefone','endereco'].includes(field.chave)).map(field => <label key={field.chave}>{field.rotulo}{field.obrigatorio && ' *'}
           <textarea required={field.obrigatorio} rows={field.tipo === 'textarea' ? 4 : 2} value={answers[field.chave] || ''} onChange={e => setAnswers({ ...answers, [field.chave]: e.target.value })} />
-        </label>)}
-        <h2>Documentos</h2>
+        </label>)}</>}
+        {granted.includes('documentos') && <><h2>Documentos</h2>
         <label className="pre-upload"><Upload size={20} /><span><strong>Adicionar PDF, JPG ou PNG</strong><small>Máximo de 8 MB por arquivo</small></span><input type="file" accept="application/pdf,image/jpeg,image/png" onChange={upload} disabled={busy} /></label>
-        {(data.anexos || []).map(file => <div className="pre-file" key={file.id}><FileText size={17} />{file.nome}<span>{Math.ceil(file.tamanho / 1024)} KB</span></div>)}
-        <h2>Orientações da clínica</h2>
-        <div className="pre-guidance">{(data.orientacoes || []).map(item => <article key={item.titulo}><strong>{item.titulo}</strong><p>{item.texto}</p></article>)}</div>
+        {(data.anexos || []).map(file => <div className="pre-file" key={file.id}><FileText size={17} />{file.nome}<span>{Math.ceil(file.tamanho / 1024)} KB</span></div>)}</>}
+        {granted.includes('orientacoes') && <><h2>Orientações da clínica</h2>
+        <div className="pre-guidance">{(data.orientacoes || []).map(item => <article key={item.titulo}><strong>{item.titulo}</strong><p>{item.texto}</p></article>)}</div></>}
         {error && <div className="pre-alert error">{error}</div>}{notice && <div className="pre-alert success">{notice}</div>}
-        <div className="pre-actions"><button type="button" className="pre-secondary" onClick={() => save()} disabled={busy}>Salvar rascunho</button><button className="pre-primary" disabled={busy}>{busy ? 'Salvando…' : 'Enviar para a clínica'}</button></div>
+        {canEdit && <div className="pre-actions">{granted.some(scope => ['cadastro', 'formulario'].includes(scope)) && <button type="button" className="pre-secondary" onClick={() => save().catch(() => {})} disabled={busy}>Salvar rascunho</button>}<button className="pre-primary" disabled={busy}>{busy ? 'Salvando…' : 'Enviar para a clínica'}</button></div>}
       </form>}
 
       {step === 'done' && <div className="pre-done"><CheckCircle2 /><p className="pre-eyebrow">Enviado com sucesso</p><h1>Pré-atendimento concluído</h1><p>A equipe da {clinic} fará a revisão. Se houver alguma pendência, ela entrará em contato.</p></div>}

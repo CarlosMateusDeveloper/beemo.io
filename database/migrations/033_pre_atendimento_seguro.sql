@@ -4,7 +4,7 @@ BEGIN;
 DO $migration$
 DECLARE table_name text;
 BEGIN
-  IF EXISTS(SELECT 1 FROM auth_schema_version WHERE version=27) THEN RETURN; END IF;
+  IF EXISTS(SELECT 1 FROM auth_schema_version WHERE version=33) THEN RETURN; END IF;
 
   -- Tabelas auth_* guardam somente credenciais opacas e o escopo mínimo necessário
   -- para descobrir o tenant antes de habilitar a RLS. Nenhum dado do paciente fica aqui.
@@ -111,7 +111,7 @@ BEGIN
     EXECUTE format('CREATE POLICY tenant_isolation ON %I USING(id_clinica=nullif(current_setting(''app.tenant_id'',true),'''')::integer) WITH CHECK(id_clinica=nullif(current_setting(''app.tenant_id'',true),'''')::integer)',table_name);
   END LOOP;
 
-  INSERT INTO auth_schema_version(version) VALUES(27);
+  INSERT INTO auth_schema_version(version) VALUES(33);
 END $migration$;
 
 COMMIT;
