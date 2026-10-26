@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -62,11 +61,14 @@ public class PreAtendimentoService {
                 WHERE c.id_consulta=?
                 """, consultaId).stream().findFirst().orElseThrow(() -> notFound("Consulta não encontrada"));
         long form = formularioPadrao(actor);
-        long pre = db.queryForObject("""
+        var records = db.queryForList("""
                 INSERT INTO pre_atendimento(id_consulta,id_paciente,id_formulario)
                 VALUES (?,?,?) ON CONFLICT(id_clinica,id_consulta) DO UPDATE SET atualizado_em=now()
+                WHERE pre_atendimento.id_paciente=EXCLUDED.id_paciente
                 RETURNING id_pre_atendimento
-                """, Long.class, consultaId, consultation.get("id_paciente"), form);
+                """, consultaId, consultation.get("id_paciente"), form);
+        if (records.isEmpty()) throw conflict("A consulta mudou de paciente. Revise o pré-atendimento anterior antes de gerar outro link.");
+        long pre = ((Number)records.getFirst().get("id_pre_atendimento")).longValue();
         db.update("UPDATE auth_pre_atendimento_acesso SET revogado_em=now() WHERE id_clinica=? AND id_consulta=? AND revogado_em IS NULL",
                 TenantContext.id(), consultaId);
         String token = randomToken();
@@ -243,16 +245,17 @@ public class PreAtendimentoService {
         try { bytes=file.getBytes(); } catch(Exception error) { throw bad("Não foi possível ler o arquivo"); }
         String mime=validarArquivo(file.getOriginalFilename(),file.getContentType(),bytes);
         String digest=sha256(bytes);
-        try {
-            long id=db.queryForObject("""
+        var inserted=db.queryForList("""
                     INSERT INTO pre_atendimento_anexo(id_pre_atendimento,nome_original,tipo_mime,tamanho,sha256,conteudo)
-                    VALUES (?,?,?,?,?,?) RETURNING id_anexo
-                    """,Long.class,pre,safeName(file.getOriginalFilename()),mime,bytes.length,digest,bytes);
+                    VALUES (?,?,?,?,?,?) ON CONFLICT (id_clinica,id_pre_atendimento,sha256) DO NOTHING
+                    RETURNING id_anexo
+                    """,pre,safeName(file.getOriginalFilename()),mime,bytes.length,digest,bytes);
+        if (!inserted.isEmpty()) {
+            long id=((Number)inserted.getFirst().get("id_anexo")).longValue();
             evento(pre,"anexo_enviado",null,Map.of("anexoId",id,"tipo",mime,"tamanho",bytes.length));
             return Map.of("id",id,"nome",safeName(file.getOriginalFilename()),"tipo",mime,"tamanho",bytes.length);
-        } catch(DuplicateKeyException duplicate) {
-            return db.queryForMap("SELECT id_anexo AS id,nome_original AS nome,tipo_mime AS tipo,tamanho FROM pre_atendimento_anexo WHERE id_pre_atendimento=? AND sha256=?",pre,digest);
         }
+        return db.queryForMap("SELECT id_anexo AS id,nome_original AS nome,tipo_mime AS tipo,tamanho FROM pre_atendimento_anexo WHERE id_pre_atendimento=? AND sha256=?",pre,digest);
     }
 
     @Transactional(readOnly=true)

@@ -89,4 +89,29 @@ class PreAtendimentoServiceTest {
         assertEquals(409,error.getStatusCode().value());
         verify(db,never()).update(contains("INSERT INTO pre_atendimento_anexo"),any(Object[].class));
     }
+
+    @Test void reenvioDoMesmoAnexoRetornaRegistroExistenteSemAbortarTransacao() {
+        JdbcTemplate db=mock(JdbcTemplate.class);
+        String token=PreAtendimentoService.randomToken();
+        String session=PreAtendimentoService.randomToken();
+        when(db.queryForList(anyString(),eq(PreAtendimentoService.sha256(token))))
+                .thenReturn(List.of(Map.of("estado","ativo","id_clinica",1,"id_pre_atendimento",4L,
+                        "escopo",new String[]{"documentos"})));
+        when(db.queryForObject(contains("FROM auth_pre_atendimento_sessao"),eq(Boolean.class),
+                eq(PreAtendimentoService.sha256(session)),eq(PreAtendimentoService.sha256(token))))
+                .thenReturn(true);
+        when(db.queryForObject(contains("FROM pre_atendimento WHERE id_pre_atendimento=? FOR UPDATE"),eq(String.class),eq(4L)))
+                .thenReturn("rascunho");
+        when(db.queryForList(contains("ON CONFLICT (id_clinica,id_pre_atendimento,sha256) DO NOTHING"),
+                eq(4L),anyString(),eq("image/png"),anyInt(),anyString(),any(byte[].class)))
+                .thenReturn(List.of());
+        when(db.queryForMap(contains("SELECT id_anexo AS id"),eq(4L),anyString()))
+                .thenReturn(Map.of("id",9L,"nome","foto.png","tipo","image/png","tamanho",9));
+        var file=new org.springframework.mock.web.MockMultipartFile("arquivo","foto.png","image/png",
+                new byte[]{(byte)0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,1});
+        var result=new PreAtendimentoService(db,new ObjectMapper(),"http://localhost:5173")
+                .anexar(token,session,file);
+        assertEquals(9L,result.get("id"));
+        verify(db,never()).update(contains("INSERT INTO pre_atendimento_evento"),any(Object[].class));
+    }
 }
