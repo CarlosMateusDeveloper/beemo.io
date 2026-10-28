@@ -14,7 +14,7 @@ function ProviderIcon({ provider }) {
 }
 
 export default function Login() {
-  const { autenticado, carregando: restaurando } = useAuth()
+  const { autenticado, carregando: restaurando, usuario } = useAuth()
   const location = useLocation()
   const [providers, setProviders] = useState([])
   const [loadingProviders, setLoadingProviders] = useState(true)
@@ -57,7 +57,7 @@ export default function Login() {
     window.location.assign(available.url)
   }
   if (restaurando) return <div className="login-page" role="status">Verificando sessão…</div>
-  if (autenticado) return <Navigate to={destino.startsWith('/') && !destino.startsWith('//') ? destino : '/dashboard'} replace />
+  if (autenticado) return <Navigate to={usuario?.tenantAtivo ? (destino.startsWith('/') && !destino.startsWith('//') ? destino : '/dashboard') : '/selecionar-clinica'} replace />
   return <div className="login-page login-page--photo">
     <div className="login-card">
       <div className="login-brand">ClinicOS</div>

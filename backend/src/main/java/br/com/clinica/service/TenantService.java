@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.time.OffsetDateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,10 +20,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class TenantService {
     private record BaseAccess(int tenant, String nome, String perfil, Integer medico) {}
     public record Access(Integer id, String nome, String perfil, List<String> papeis,
-                         Set<String> permissoes, Integer idMedico) {
+                         Set<String> permissoes, Integer idMedico, boolean suporteTemporario,
+                         Long suporteAcessoId, OffsetDateTime expiraEm) {
         /** Mantém compatibilidade com testes e consumidores da versão anterior. */
         public Access(Integer id, String nome, String perfil) {
-            this(id, nome, perfil, List.of(perfil), PermissionCatalog.defaultsFor(Set.of(perfil)), null);
+            this(id, nome, perfil, List.of(perfil), PermissionCatalog.defaultsFor(Set.of(perfil)), null,
+                    false,null,null);
+        }
+        public Access(Integer id,String nome,String perfil,List<String> papeis,Set<String> permissoes,Integer idMedico) {
+            this(id,nome,perfil,papeis,permissoes,idMedico,false,null,null);
         }
     }
 
@@ -33,11 +39,30 @@ public class TenantService {
     public TenantService(JdbcTemplate db) { this.db = db; }
 
     public List<Access> listar(int user) {
+        var result = new ArrayList<>(listarMembros(user));
+        result.addAll(listarSuporte(user));
+        return List.copyOf(result);
+    }
+
+    private List<Access> listarMembros(int user) {
         var rows = db.query("SELECT c.id_clinica,c.nome,m.perfil,m.id_medico FROM tenant_membro m "
                         + "JOIN clinica c USING(id_clinica) WHERE m.id_usuario=? AND m.ativo ORDER BY c.nome,c.id_clinica",
                 (rs, n) -> new BaseAccess(rs.getInt(1), rs.getString(2), rs.getString(3),
                         (Integer) rs.getObject(4)), user);
         return rows.stream().map(row -> access(row.tenant(), row.nome(), row.perfil(), row.medico(), user)).toList();
+    }
+
+    private List<Access> listarSuporte(int user) {
+        return db.queryForList("""
+                SELECT a.id_acesso,c.id_clinica,c.nome,a.expira_em
+                FROM auth_suporte_acesso a JOIN clinica c ON c.id_clinica=a.id_clinica
+                WHERE a.id_agente=? AND a.status='APROVADO' AND a.revogado_em IS NULL AND a.expira_em>now()
+                ORDER BY a.expira_em,c.nome
+                """, user).stream().map(row -> supportAccess(
+                        ((Number)row.get("id_acesso")).longValue(),
+                        ((Number)row.get("id_clinica")).intValue(),
+                        (String)row.get("nome"),
+                toOffsetDateTime(row.get("expira_em")))).toList();
     }
 
     private Access access(int tenant, String nome, String legacyRole, Integer doctor, int user) {
@@ -57,7 +82,7 @@ public class TenantService {
     }
 
     public Access unico(int user) {
-        var accesses = listar(user);
+        var accesses = listarMembros(user);
         if (accesses.size() > 1) throw new IllegalStateException("Uma conta não pode pertencer a mais de uma clínica ativa.");
         return accesses.isEmpty() ? null : accesses.getFirst();
     }
@@ -65,7 +90,10 @@ public class TenantService {
     public Access resolver(int user) {
         // Autenticar uma identidade nunca autoriza acesso a uma clínica.
         // O vínculo nasce exclusivamente de convite/provisionamento administrativo.
-        return unico(user);
+        Access member = unico(user);
+        if (member != null) return member;
+        var support = listarSuporte(user);
+        return support.size() == 1 ? support.getFirst() : null;
     }
 
     public Access atual(String sessionId, int user) {
@@ -75,9 +103,38 @@ public class TenantService {
                         + "WHERE s.id=? AND s.id_usuario=? AND m.ativo AND s.revogada_em IS NULL AND s.expira_em>now()",
                 (rs, n) -> new BaseAccess(rs.getInt(1), rs.getString(2), rs.getString(3),
                         (Integer) rs.getObject(4)), sessionId, user);
-        if (rows.isEmpty()) return null;
-        var row = rows.getFirst();
-        return access(row.tenant(), row.nome(), row.perfil(), row.medico(), user);
+        if (!rows.isEmpty()) {
+            var row = rows.getFirst();
+            return access(row.tenant(), row.nome(), row.perfil(), row.medico(), user);
+        }
+        var support = db.queryForList("""
+                SELECT a.id_acesso,c.id_clinica,c.nome,a.expira_em
+                FROM auth_session s
+                JOIN auth_suporte_acesso a ON a.id_clinica=s.id_clinica AND a.id_agente=s.id_usuario
+                JOIN clinica c ON c.id_clinica=a.id_clinica
+                WHERE s.id=? AND s.id_usuario=? AND s.revogada_em IS NULL AND s.expira_em>now()
+                  AND a.status='APROVADO' AND a.revogado_em IS NULL AND a.expira_em>now()
+                """, sessionId, user);
+        if (support.isEmpty()) return null;
+        var selected=support.getFirst();
+        return supportAccess(((Number)selected.get("id_acesso")).longValue(),
+                ((Number)selected.get("id_clinica")).intValue(),(String)selected.get("nome"),
+                toOffsetDateTime(selected.get("expira_em")));
+    }
+
+    private static OffsetDateTime toOffsetDateTime(Object value) {
+        if (value instanceof OffsetDateTime date) return date;
+        if (value instanceof java.sql.Timestamp timestamp)
+            return timestamp.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        throw new IllegalStateException("Data de expiração inválida.");
+    }
+
+    private Access supportAccess(long accessId,int tenant,String name,OffsetDateTime expires) {
+        Set<String> scopes = new LinkedHashSet<>(db.queryForList(
+                "SELECT jsonb_array_elements_text(escopos) FROM auth_suporte_acesso WHERE id_acesso=?",
+                String.class,accessId));
+        return new Access(tenant,name,"suporte",List.of("suporte"),SupportAccessPolicy.permissions(scopes),
+                null,true,accessId,expires);
     }
 
     public Access acesso(int user, int tenant) {

@@ -24,6 +24,7 @@ public class AccessAuditFilter extends OncePerRequestFilter {
             Object explicitAction = request.getAttribute("clinicos.audit.action");
             if (explicitAction instanceof String value && !value.isBlank()) action = value;
             var access = TenantContext.get();
+            if (action == null && access != null && access.suporteTemporario()) action = "suporte.acesso";
             var authentication = SecurityContextHolder.getContext().getAuthentication();
             Integer user = authentication != null && authentication.getPrincipal() instanceof Integer id ? id : null;
             audit.record(access == null ? null : access.id(), user, action, request.getRequestURI(),
@@ -53,6 +54,8 @@ public class AccessAuditFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/pos-venda/tarefas") && !method.equals("GET")) return "tarefa.gerenciar";
         if (path.startsWith("/api/pos-venda/jornadas") && !method.equals("GET")) return "jornada.configurar";
         if (path.startsWith("/api/pos-venda/campanhas") && !method.equals("GET")) return "campanha.configurar";
+        if (path.startsWith("/api/suporte/acessos")) return "suporte.acesso.gerenciar";
+        if (path.startsWith("/api/suporte/chamados") && !method.equals("GET")) return "suporte.chamado.gerenciar";
         return null;
     }
 
