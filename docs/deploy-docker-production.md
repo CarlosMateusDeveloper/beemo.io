@@ -1,5 +1,7 @@
 # Deploy Docker de produção
 
+Antes de uma mudança real, use o [runbook de produção](runbooks/operacao-producao.md) e registre sua execução em local privado.
+
 Este procedimento sobe frontend, API Java, agenda, chatbot, PostgreSQL e Caddy na mesma VPS. Somente o proxy publica `80` e `443`. A rede `data` é interna; nenhum serviço publica a porta do banco, da API ou das interfaces administrativas diretamente.
 
 ## Pré-requisitos
