@@ -134,7 +134,7 @@ def consultar_numero() -> str | None:
             )
         numero = _ler_resposta(resposta).get("display_phone_number")
     except (httpx.HTTPError, WhatsAppError) as erro:
-        logger.warning("Nao foi possivel consultar o numero na Cloud API: %s", erro)
+        logger.warning("Nao foi possivel consultar o numero na Cloud API (tipo=%s).", type(erro).__name__)
         return None
     if numero:
         _cache_numero = (time.monotonic(), numero)
@@ -218,10 +218,7 @@ def _ler_resposta(resposta: httpx.Response) -> dict:
             pass
         detalhe = erro.get("message") or resposta.text[:200]
         codigo = erro.get("code")
-        logger.error(
-            "Cloud API recusou a chamada (HTTP %s, code %s): %s",
-            resposta.status_code, codigo, detalhe,
-        )
+        logger.error("Cloud API recusou a chamada (HTTP %s, code %s).", resposta.status_code, codigo)
         raise WhatsAppError(f"WhatsApp recusou a chamada: {detalhe}", codigo=codigo, status=resposta.status_code)
     return resposta.json()
 

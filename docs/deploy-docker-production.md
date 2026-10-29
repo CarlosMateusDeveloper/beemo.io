@@ -1,11 +1,13 @@
 # Deploy Docker de produção
 
+Antes de uma mudança real, use o [runbook de produção](runbooks/operacao-producao.md) e registre sua execução em local privado.
+
 Este procedimento sobe frontend, API Java, agenda, chatbot, PostgreSQL e Caddy na mesma VPS. Somente o proxy publica `80` e `443`. A rede `data` é interna; nenhum serviço publica a porta do banco, da API ou das interfaces administrativas diretamente.
 
 ## Pré-requisitos
 
 - Docker Engine e Compose v2 na VPS; DNS de `APP_FRONTEND_URL` e `APP_API_URL` apontando para ela.
-- Portas públicas 80 e 443 disponíveis para os desafios ACME do Caddy. A restrição do firewall e do SSH pertence à #62.
+- Portas públicas 80 e 443 disponíveis para os desafios ACME do Caddy. A configuração de cabeçalhos, firewall e SSH está em [HTTPS e superfície de rede](network-hardening.md).
 - Backup PostgreSQL `pg_dump -Fc` confiável, com as migrações exigidas pela versão do backend. **Não use `database/schema_clinica.sql` para iniciar produção:** ele contém dados de demonstração.
 - Segredos fora do repositório. Use [`.env.production.example`](../.env.production.example) como referência e mantenha `.env.production` com permissão `0600` sob o usuário de deploy. `DB_ADMIN_PASSWORD` e `DB_PASSWORD` devem ser distintos; a role da aplicação não pode ter `SUPERUSER` nem `BYPASSRLS`.
 
@@ -28,6 +30,8 @@ Este procedimento sobe frontend, API Java, agenda, chatbot, PostgreSQL e Caddy n
 
    ```bash
    docker compose --env-file .env.production -f docker-compose.production.yml build
+   docker compose --env-file .env.production -f docker-compose.production.yml \
+     run --rm --no-deps proxy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
    docker compose --env-file .env.production -f docker-compose.production.yml up -d --no-build
    docker compose --env-file .env.production -f docker-compose.production.yml ps
    ```
@@ -40,4 +44,4 @@ Antes de atualizar, registre a revisão Git, `APP_VERSION`, resultado dos health
 
 Se a nova revisão falhar e o schema continuar compatível, volte à revisão Git anterior, restaure seu `APP_VERSION` e execute `up -d --no-build`. Não edite imagens ou dados manualmente. Se houve migração de banco incompatível, siga o procedimento de restauração da #35 antes de voltar o código; não prometa rollback apenas por troca de imagem nesse caso.
 
-As migrações, o teste completo em VPS nova e o rollback medido ainda precisam de evidência operacional para encerrar a #61. A #62 cobre TLS, cabeçalhos e firewall; a #64 cobre monitoramento externo e alertas.
+As migrações, o teste completo em VPS nova e o rollback medido ainda precisam de evidência operacional para encerrar a #61. A #62 cobre TLS, cabeçalhos e firewall; a [observabilidade de produção](observabilidade-producao.md) cobre sondas e alertas da #64.

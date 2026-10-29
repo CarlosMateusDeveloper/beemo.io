@@ -1,9 +1,16 @@
 name: clinisis
 
+x-logging: &bounded_logging
+  driver: local
+  options:
+    max-size: '10m'
+    max-file: '5'
+
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *bounded_logging
     environment:
       POSTGRES_DB: ${DB_NAME:?Defina DB_NAME}
       POSTGRES_USER: postgres
@@ -29,6 +36,7 @@ services:
       context: .
       dockerfile: deploy/backend.Dockerfile
     restart: unless-stopped
+    logging: *bounded_logging
     environment:
       SPRING_PROFILES_ACTIVE: production
       SERVER_PORT: 8080
@@ -82,6 +90,7 @@ services:
       context: .
       dockerfile: deploy/agenda.Dockerfile
     restart: unless-stopped
+    logging: *bounded_logging
     environment:
       AGENDA_PRODUCTION: 'true'
       AGENDA_SERVICE_PORT: 8081
@@ -115,6 +124,7 @@ services:
       context: .
       dockerfile: deploy/chatbot.Dockerfile
     restart: unless-stopped
+    logging: *bounded_logging
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -154,6 +164,7 @@ services:
       args:
         VITE_API_URL: ${APP_API_URL:?}
     restart: unless-stopped
+    logging: *bounded_logging
     expose: ['8080']
     networks: [public]
     read_only: true
@@ -174,10 +185,12 @@ services:
       context: .
       dockerfile: deploy/proxy.Dockerfile
     restart: unless-stopped
+    logging: *bounded_logging
     environment:
       APP_FRONTEND_URL: ${APP_FRONTEND_URL:?}
       APP_API_URL: ${APP_API_URL:?}
       ACME_EMAIL: ${ACME_EMAIL:?}
+      APP_WEBSOCKET_URL: ${APP_WEBSOCKET_URL:?Defina APP_WEBSOCKET_URL}
     ports:
       - '80:8080'
       - '443:8443'

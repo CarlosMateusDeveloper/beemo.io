@@ -27,9 +27,9 @@ def _run_batch() -> int:
                     if not mensageria_service.process_one(db):
                         break
                     processed += 1
-                except Exception:
+                except Exception as error:
                     db.rollback()
-                    logger.exception("Falha inesperada no worker de mensageria (tenant=%s)", tenant)
+                    logger.error("Falha inesperada no worker de mensageria (tipo=%s)", type(error).__name__)
                     break
                 finally:
                     db.close()
