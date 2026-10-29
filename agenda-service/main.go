@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"time"
 )
 
 func withCORS(allowedOrigin string, next http.Handler) http.Handler {
@@ -25,12 +28,23 @@ func withCORS(allowedOrigin string, next http.Handler) http.Handler {
 func main() {
 	db := openDB()
 	defer db.Close()
-	bootstrapSchema(db)
+	if os.Getenv("AGENDA_PRODUCTION") != "true" {
+		bootstrapSchema(db)
+	}
 
 	allowedOrigin := env("CORS_ALLOWED_ORIGIN", "http://localhost:5173,http://127.0.0.1:5173")
 	h := &agendaHandler{db: db, hub: newHub(allowedOrigin)}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if db.PingContext(ctx) != nil {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	mux.Handle("GET /agendas", requirePermission("agenda.visualizar", http.HandlerFunc(h.list)))
 	mux.Handle("GET /agendas/{id}", requirePermission("agenda.visualizar", http.HandlerFunc(h.get)))
 	mux.Handle("POST /agendas", requirePermission("agenda.gerenciar", http.HandlerFunc(h.create)))

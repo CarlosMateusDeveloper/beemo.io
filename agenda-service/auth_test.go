@@ -31,6 +31,7 @@ func TestSessionProtection(t *testing.T) {
 		method, path, auth, cookie, csrf string
 		expected                         int
 	}{
+		{"GET", "/health", "", "", "", 204},
 		{"GET", "/consultas", "", "", "", 401},
 		{"GET", "/consultas", "Bearer invalid", "", "", 401},
 		{"GET", "/consultas", "Bearer test-valid-session", "", "", 204},

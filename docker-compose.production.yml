@@ -1,0 +1,226 @@
+name: clinisis
+
+x-logging: &bounded_logging
+  driver: local
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *bounded_logging
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Defina DB_NAME}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Defina DB_ADMIN_PASSWORD}
+      DB_USER: ${DB_USER:?Defina DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init-app-role.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
+      - ./deploy/postgres/grant-app-role.sql:/run/grant-app-role.sql:ro
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 1g
+    cpus: 1.0
+
+  backend:
+    image: clinisis/backend:${APP_VERSION:?Defina APP_VERSION}
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+    restart: unless-stopped
+    logging: *bounded_logging
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:?}
+      DB_USER: ${DB_USER:?}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
+      JWT_SECRET: ${JWT_SECRET:?}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-30}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:?}
+      APP_API_URL: ${APP_API_URL:?}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?}
+      AUTH_SECURE_COOKIES: 'true'
+      RESEND_API_KEY: ${RESEND_API_KEY:?}
+      RESEND_FROM: ${RESEND_FROM:?}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-common}
+      IMPORT_FILE_ENCRYPTION_KEY: ${IMPORT_FILE_ENCRYPTION_KEY:-}
+      EXPORT_ENCRYPTION_KEY: ${EXPORT_ENCRYPTION_KEY:?}
+      DATA_ENCRYPTION_KEY_VERSION: ${DATA_ENCRYPTION_KEY_VERSION:-v1}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?}
+      DATA_ENCRYPTION_PREVIOUS_KEYS: ${DATA_ENCRYPTION_PREVIOUS_KEYS:-}
+      DATA_ENCRYPTION_ALLOW_LEGACY_READ: ${DATA_ENCRYPTION_ALLOW_LEGACY_READ:-false}
+      DATA_ENCRYPTION_LEGACY_ACTIVE_VERSION: ${DATA_ENCRYPTION_LEGACY_ACTIVE_VERSION:-1}
+      DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:-}
+    expose: ['8080']
+    networks: [public, data]
+    depends_on:
+      postgres: {condition: service_healthy}
+    read_only: true
+    tmpfs: ['/tmp:size=128m,mode=1777']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+    mem_limit: 768m
+    cpus: 1.0
+
+  agenda:
+    image: clinisis/agenda:${APP_VERSION:?}
+    build:
+      context: .
+      dockerfile: deploy/agenda.Dockerfile
+    restart: unless-stopped
+    logging: *bounded_logging
+    environment:
+      AGENDA_PRODUCTION: 'true'
+      AGENDA_SERVICE_PORT: 8081
+      AUTH_API_URL: http://backend:8080
+      CORS_ALLOWED_ORIGIN: ${APP_FRONTEND_URL:?}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:?}
+      DB_USER: ${DB_USER:?}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      DB_SSLMODE: disable
+    expose: ['8081']
+    networks: [public, data]
+    depends_on:
+      backend: {condition: service_healthy}
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 192m
+    cpus: 0.5
+
+  chatbot:
+    image: clinisis/chatbot:${APP_VERSION:?}
+    build:
+      context: .
+      dockerfile: deploy/chatbot.Dockerfile
+    restart: unless-stopped
+    logging: *bounded_logging
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:?}
+      DB_USER: ${DB_USER:?}
+      DB_PASSWORD: ${DB_PASSWORD:?}
+      AUTH_API_URL: http://backend:8080
+      SISTEMA_API_URL: http://backend:8080
+      CORS_ALLOWED_ORIGINS: ${APP_FRONTEND_URL:?}
+      ID_CLINICA: ${ID_CLINICA:-1}
+      WHATSAPP_CREDENTIAL_ENCRYPTION_KEY: ${WHATSAPP_CREDENTIAL_ENCRYPTION_KEY:-}
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+    expose: ['8082']
+    networks: [public, data]
+    depends_on:
+      backend: {condition: service_healthy}
+    read_only: true
+    tmpfs: ['/tmp:size=64m,mode=1777']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 384m
+    cpus: 0.5
+
+  frontend:
+    image: clinisis/frontend:${APP_VERSION:?}
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+      args:
+        VITE_API_URL: ${APP_API_URL:?}
+    restart: unless-stopped
+    logging: *bounded_logging
+    expose: ['8080']
+    networks: [public]
+    read_only: true
+    tmpfs: ['/tmp:size=16m,mode=1777', '/data:size=16m', '/config:size=16m']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 128m
+    cpus: 0.5
+
+  proxy:
+    image: clinisis/proxy:${APP_VERSION:?}
+    build:
+      context: .
+      dockerfile: deploy/proxy.Dockerfile
+    restart: unless-stopped
+    logging: *bounded_logging
+    environment:
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:?}
+      APP_API_URL: ${APP_API_URL:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+      APP_WEBSOCKET_URL: ${APP_WEBSOCKET_URL:?Defina APP_WEBSOCKET_URL}
+    ports:
+      - '80:8080'
+      - '443:8443'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [public]
+    depends_on:
+      backend: {condition: service_healthy}
+      agenda: {condition: service_healthy}
+      chatbot: {condition: service_healthy}
+      frontend: {condition: service_healthy}
+    read_only: true
+    tmpfs: ['/tmp:size=32m,mode=1777']
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    mem_limit: 192m
+    cpus: 0.5
+
+networks:
+  public: {}
+  data:
+    internal: true
+
+volumes:
+  postgres_data: {}
+  caddy_data: {}
+  caddy_config: {}

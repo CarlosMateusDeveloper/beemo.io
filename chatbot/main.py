@@ -2,8 +2,10 @@ import os
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from chatbot.auth import SessionMiddleware
 
 from chatbot.controllers import contato_controller, mensagem_controller, webhook_controller, whatsapp_controller
@@ -42,4 +44,11 @@ app.include_router(whatsapp_controller.router)
 
 @app.get("/health")
 def health():
+    if engine is None:
+        raise HTTPException(status_code=503, detail="unavailable")
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="unavailable") from None
     return {"status": "ok"}

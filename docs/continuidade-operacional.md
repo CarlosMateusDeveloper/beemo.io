@@ -1,5 +1,7 @@
 # Continuidade operacional e exportação segura
 
+O [runbook de produção](runbooks/operacao-producao.md) vincula deploy, rollback, incidente e rotação aos testes desta página. O [inventário privado](runbooks/inventario-producao.template.md) deve conter responsável e próxima data de restauração; o [registro operacional](runbooks/registro-operacional.template.md) guarda a evidência. Ainda não há VPS nem ensaio real, então esses campos permanecem pendentes.
+
 Esta é a referência operacional da issue #35. Ela separa o que o aplicativo controla do que precisa ser configurado na infraestrutura de produção.
 
 ## Objetivos iniciais
