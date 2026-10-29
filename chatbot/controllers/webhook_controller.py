@@ -72,7 +72,7 @@ def verificar_webhook(
     )
     if hub_mode == "subscribe" and token_confere:
         return PlainTextResponse(hub_challenge or "")
-    logger.warning("Verificacao de webhook recusada (mode=%s).", hub_mode)
+    logger.warning("Verificacao de webhook recusada.")
     raise HTTPException(status_code=403, detail="Token de verificacao invalido")
 
 
@@ -105,7 +105,7 @@ async def _process_payload(db: Session, body: bytes, expected_phone_id: str):
         payload = WebhookPayload.model_validate_json(body)
         envelope = json.loads(body)
     except (ValidationError, ValueError):
-        logger.warning("Payload de webhook em formato inesperado, ignorado.", exc_info=True)
+        logger.warning("Payload de webhook em formato inesperado, ignorado.")
         return {"status": "ignorado"}
     values = [change.get("value", {}) for entry in envelope.get("entry", []) for change in entry.get("changes", [])]
     if any(value.get("metadata", {}).get("phone_number_id") != expected_phone_id for value in values):

@@ -58,17 +58,17 @@ async def processar_mensagens_recebidas(db: Session, mensagens: list[MensagemRec
     """
     for mensagem in mensagens:
         if mensagem.wamid in _wamids_processados:
-            logger.info("Evento repetido do WhatsApp ignorado (wamid=%s).", mensagem.wamid)
+            logger.info("Evento repetido do WhatsApp ignorado.")
             continue
         if not mensageria_service.register_incoming(db, mensagem.wamid):
-            logger.info("Evento persistente repetido do WhatsApp ignorado (wamid=%s).", mensagem.wamid)
+            logger.info("Evento persistente repetido do WhatsApp ignorado.")
             continue
         try:
             await _processar(db, mensagem)
         except Exception as error:
             db.rollback()
             mensageria_service.finish_incoming(db, mensagem.wamid, str(error))
-            logger.exception("Falha ao processar mensagem do WhatsApp (wamid=%s).", mensagem.wamid)
+            logger.error("Falha ao processar mensagem do WhatsApp (tipo=%s).", type(error).__name__)
         else:
             mensageria_service.finish_incoming(db, mensagem.wamid)
             _marcar_processada(mensagem.wamid)
@@ -201,7 +201,7 @@ async def _responder(db: Session, telefone: str, texto: str, id_paciente: int | 
         )
         whatsapp_event_service.link_crm_outgoing(db, queued.id_mensagem, telefone, automatic=True)
     except (ValueError, comunicacao_policy_service.ComunicacaoBloqueadaError) as erro:
-        logger.error("Resposta automatica nao enviada para %s: %s", telefone, erro)
+        logger.error("Resposta automatica nao enviada (tipo=%s).", type(erro).__name__)
         return
 
 
